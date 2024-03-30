@@ -33,6 +33,7 @@ impl fmt::Display for Response {
             200 => "OK",
             204 => "No Content",
             400 => "Not Found",
+            500 => "Internal Server Error",
             _ => "Unknown",
         })?;
 
@@ -64,12 +65,19 @@ fn handle_connection(mut stream: TcpStream) {
     let buf_reader = BufReader::new(&mut stream);
     let request_line = buf_reader.lines().next().unwrap().unwrap();
     println!("Request: {:#?}", request_line);
+    let mut request_line = request_line.split(' ');
 
-    let response = match &request_line[..] {
-        "OPTIONS /v2/directions/cycling-regular/geojson HTTP/1.1" => handle_options_request(),
-        "POST /v2/directions/cycling-regular/geojson HTTP/1.1" => handle_default(200, "staticGeoJsonResponse.geojson", true),
-        _ => handle_default(404, "404.html", false),
-    };
+    let response: String;
+    if let Some(method) = request_line.next() {
+        response = match method {
+            "OPTIONS" => handle_options_request(),
+            "POST" => handle_default(200, "staticGeoJsonResponse.geojson", true),
+            _ => handle_default(404, "404.html", false),
+        };
+
+    } else {
+        response = handle_default(500, "404.html", false);
+    }
 
     stream.write_all(response.as_bytes()).unwrap();
 }
