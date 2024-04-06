@@ -33,6 +33,7 @@ async fn main() {
 
     // run app w/ hyper, bind to 3000
     let listener = tokio::net::TcpListener::bind("0.0.0.0:3000").await.unwrap();
+    println!("listening on 3000...");
     axum::serve(listener, app).await.unwrap();
 }
 
@@ -40,7 +41,7 @@ async fn directions_handler(
     Path((profile, result_type)): Path<(String, String)>,
 ) -> Result<String, StatusCode> {
     println!("request of {profile} in {result_type} received");
-    if let Ok(contents) = fs::read_to_string("staticGeoJsonResponse.geojson").await {
+    if let Ok(contents) = fs::read_to_string("./static_responses/single_route.geojson").await {
         Ok(contents)
     } else {
         Err(StatusCode::INTERNAL_SERVER_ERROR)
