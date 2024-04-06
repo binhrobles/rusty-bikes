@@ -1,9 +1,10 @@
 use axum::{
-    extract::Path,
+    extract,
     http::{Method, StatusCode},
     routing::{get, post},
-    Router,
+    Json, Router,
 };
+use serde::Deserialize;
 use tokio::fs;
 use tower::ServiceBuilder;
 use tower_http::{
@@ -37,11 +38,38 @@ async fn main() {
     axum::serve(listener, app).await.unwrap();
 }
 
+#[derive(Debug, Deserialize)]
+struct AlternativeRoutes {
+    target_count: u8,
+    share_factor: f32,
+    weight_factor: f32,
+}
+
+#[derive(Debug, Deserialize)]
+struct DirectionsRequestBody {
+    coordinates: Vec<Vec<f64>>,
+    elevation: bool,
+    instructions_format: String,
+    extra_info: Vec<String>,
+    language: String,
+    units: String,
+    preference: String,
+    alternative_routes: Option<AlternativeRoutes>,
+}
+
 async fn directions_handler(
-    Path((profile, result_type)): Path<(String, String)>,
+    extract::Path((profile, result_type)): extract::Path<(String, String)>,
+    extract::Json(payload): extract::Json<DirectionsRequestBody>,
 ) -> Result<String, StatusCode> {
     println!("request of {profile} in {result_type} received");
-    if let Ok(contents) = fs::read_to_string("./static_responses/single_route.geojson").await {
+    println!("{payload:?}");
+
+    let response_file: &str = match payload.alternative_routes {
+        Some(_) => "./static_responses/two_routes.geojson",
+        None => "./static_responses/single_route.geojson",
+    };
+
+    if let Ok(contents) = fs::read_to_string(response_file).await {
         Ok(contents)
     } else {
         Err(StatusCode::INTERNAL_SERVER_ERROR)

@@ -1,7 +1,62 @@
 {
   "type": "FeatureCollection",
+  "metadata": {
+    "attribution": "openrouteservice.org | OpenStreetMap contributors",
+    "service": "routing",
+    "timestamp": 1712422452837,
+    "query": {
+      "coordinates": [
+        [
+          -73.9342113,
+          40.7043329
+        ],
+        [
+          -73.95481109619142,
+          40.726185523600634
+        ]
+      ],
+      "profile": "cycling-regular",
+      "preference": "recommended",
+      "format": "geojson",
+      "units": "km",
+      "language": "en",
+      "instructions_format": "html",
+      "elevation": true,
+      "extra_info": [
+        "surface",
+        "steepness",
+        "waytype"
+      ],
+      "alternative_routes": {
+        "target_count": 2,
+        "weight_factor": 2,
+        "share_factor": 0.6
+      }
+    },
+    "engine": {
+      "version": "7.1.1",
+      "build_date": "2024-01-29T14:41:12Z",
+      "graph_date": "2024-03-25T01:28:35Z"
+    }
+  },
+  "bbox": [
+    -73.955157,
+    40.704006,
+    5,
+    -73.932072,
+    40.727102,
+    14.15
+  ],
   "features": [
     {
+      "bbox": [
+        -73.955157,
+        40.704006,
+        5,
+        -73.934145,
+        40.727102,
+        14.15
+      ],
       "type": "Feature",
       "properties": {
         "ascent": 16.1,
@@ -774,6 +829,14 @@
       }
     },
     {
+      "bbox": [
+        -73.955157,
+        40.704006,
+        5,
+        -73.932072,
+        40.727102,
+        12.44
+      ],
       "type": "Feature",
       "properties": {
         "ascent": 15.3,
