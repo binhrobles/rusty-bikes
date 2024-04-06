@@ -1,0 +1,22 @@
+{
+  "coordinates": [
+    [
+      -73.934295,
+      40.704211
+    ],
+    [
+      -73.95481109619142,
+      40.726185523600634
+    ]
+  ],
+  "elevation": true,
+  "instructions_format": "html",
+  "extra_info": [
+    "surface",
+    "steepness",
+    "waytype"
+  ],
+  "language": "en",
+  "units": "km",
+  "preference": "recommended"
+}

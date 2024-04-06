@@ -2,7 +2,7 @@ use axum::{
     extract,
     http::{Method, StatusCode},
     routing::{get, post},
-    Json, Router,
+    Router,
 };
 use serde::Deserialize;
 use tokio::fs;
@@ -65,8 +65,8 @@ async fn directions_handler(
     println!("{payload:?}");
 
     let response_file: &str = match payload.alternative_routes {
-        Some(_) => "./static_responses/two_routes.geojson",
-        None => "./static_responses/single_route.geojson",
+        Some(_) => "./static_responses/multi_bushwick_greenpoint.geojson",
+        None => "./static_responses/single_bushwick_greenpoint.geojson",
     };
 
     if let Ok(contents) = fs::read_to_string(response_file).await {
