@@ -1,83 +1,50 @@
-use std::{
-    fmt,
-    fs,
-    io::{prelude::*, BufReader},
-    net::{TcpListener, TcpStream},
-    thread,
-    time::Duration,
-    collections::HashMap,
+use tokio::fs;
+use axum::{
+    routing::{get, post},
+    Router,
+    extract::Path,
+    http::{Method, StatusCode},
 };
-// use rusty_router::ThreadPool;
+use tower_http::{
+    cors::{Any, CorsLayer},
+    trace::TraceLayer,
+};
+use tower::ServiceBuilder;
 
-fn main() {
-    let listener = TcpListener::bind("127.0.0.1:7878").unwrap();
-    println!("Listening on http://localhost:7878");
-    // let pool = ThreadPool::new(4);
 
-    for stream in listener.incoming() {
-        let stream = stream.unwrap();
+#[tokio::main]
+async fn main() {
+    tracing_subscriber::fmt::init();
+    let cors = CorsLayer::new()
+        .allow_methods([Method::GET, Method::POST])
+        .allow_headers(Any)
+        .allow_origin(Any);
 
-        handle_connection(stream);
-    }
+    let trace = TraceLayer::new_for_http();
+
+    // TODO: support single GET /v2/directions/:profile spec
+    let app = Router::new()
+        .route("/heartbeat", get(|| async { "OK" }))
+        .route("/v2/directions/:profile/*result_type", post(directions_handler))
+
+        // applies a collection of Tower Layers to all of this Router's routes
+        .layer(
+            ServiceBuilder::new()
+                .layer(trace)
+                .layer(cors)
+        );
+
+    // run app w/ hyper, bind to 3000
+    let listener = tokio::net::TcpListener::bind("0.0.0.0:3000").await.unwrap();
+    axum::serve(listener, app).await.unwrap();
 }
 
-struct Response {
-    status_code: u16,
-    content: Option<String>,
-    cors: bool,
-}
-
-impl fmt::Display for Response {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "HTTP/1.1 {} {}", self.status_code, match self.status_code {
-            200 => "OK",
-            204 => "No Content",
-            400 => "Not Found",
-            500 => "Internal Server Error",
-            _ => "Unknown",
-        })?;
-
-        if self.cors {
-            write!(f, "\r\nAccess-Control-Allow-Headers: Access-Control-Allow-Headers, Origin,Accept, X-Requested-With, Authorization, Content-Type, Access-Control-Request-Method, Access-Control-Request-Headers")?;
-            write!(f, "\r\nAccess-Control-Allow-Methods: OPTIONS,GET,POST")?;
-            write!(f, "\r\nAccess-Control-Allow-Origin: *")?;
-            write!(f, "\r\nAccess-Control-Max-Age: 1728000")?;
-        }
-
-        if let Some(c) = &self.content {
-            write!(f, "\r\nContent-Length: {}\r\n\r\n{c}", c.len())?;
-        }
-
-        Ok(())
-    }
-}
-
-fn handle_options_request() -> String {
-    Response { status_code: 204, content: None, cors: true }.to_string()
-}
-
-fn handle_default(status_code: u16, filename: &str, cors: bool) -> String {
-    let contents = fs::read_to_string(filename).unwrap();
-    Response { status_code, content: Some(contents), cors }.to_string()
-}
-
-fn handle_connection(mut stream: TcpStream) {
-    let buf_reader = BufReader::new(&mut stream);
-    let request_line = buf_reader.lines().next().unwrap().unwrap();
-    println!("Request: {:#?}", request_line);
-    let mut request_line = request_line.split(' ');
-
-    let response: String;
-    if let Some(method) = request_line.next() {
-        response = match method {
-            "OPTIONS" => handle_options_request(),
-            "POST" => handle_default(200, "staticGeoJsonResponse.geojson", true),
-            _ => handle_default(404, "404.html", false),
-        };
-
+// TODO: extract JSON payload
+async fn directions_handler(Path((profile, result_type)): Path<(String, String)>) -> Result<String, StatusCode>  {
+    println!("request of {profile} in {result_type} received");
+    if let Ok(contents) = fs::read_to_string("staticGeoJsonResponse.geojson").await {
+        Ok(contents)
     } else {
-        response = handle_default(500, "404.html", false);
+        Err(StatusCode::INTERNAL_SERVER_ERROR)
     }
-
-    stream.write_all(response.as_bytes()).unwrap();
 }
