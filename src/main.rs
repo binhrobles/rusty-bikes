@@ -46,7 +46,7 @@ struct AlternativeRoutes {
 }
 
 #[derive(Debug, Deserialize)]
-struct DirectionsRequestBody {
+struct ORSDirectionsRequestBody {
     coordinates: Vec<Vec<f64>>,
     elevation: bool,
     instructions_format: String,
@@ -59,7 +59,7 @@ struct DirectionsRequestBody {
 
 async fn directions_handler(
     extract::Path((profile, result_type)): extract::Path<(String, String)>,
-    extract::Json(payload): extract::Json<DirectionsRequestBody>,
+    extract::Json(payload): extract::Json<ORSDirectionsRequestBody>,
 ) -> Result<String, StatusCode> {
     println!("request of {profile} in {result_type} received");
     println!("{payload:?}");
