@@ -60,10 +60,10 @@ Node
 lat
 long
 id
-neighbors: {
-	nodeId: wayId (FK Edge ID)
+neighbors: [
+	[nodeId, wayId] (FK Way ID)
 	...
-}
+]
 
 Way
 ---
@@ -72,7 +72,7 @@ minLong
 maxLat
 maxLong
 nodes: [
-	{ nodeId: { lat, long }}
+	[ nodeId, lat, long ]
 ]
 tags: {
 	{key}: value

@@ -7,7 +7,7 @@ edition = "2021"
 
 [dependencies]
 axum = "0.7.5"
-rusqlite = { version = "0.31.0", features = ["bundled"] }
+rusqlite = { version = "0.31.0", features = ["bundled", "serde_json"] }
 serde = { version = "1.0.197", features = ["derive", "serde_derive"] }
 serde_json = "1.0.115"
 tokio = { version = "1.37.0", features = ["full"] }

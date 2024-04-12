@@ -1,10 +1,15 @@
 use rusqlite::{Connection, Result};
 use serde::{Deserialize, Serialize};
 
+#[derive(Debug)]
+pub struct Error {
+    message: String,
+}
+
 type NodeId = u64;
 type WayId = u64;
 
-// Note: future hashmap? does that matter?
+// Note: future hashmap? does that matter?  type Neighbors = Vec<(NodeId, WayId)>;
 type Neighbors = Vec<(NodeId, WayId)>;
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -48,15 +53,32 @@ pub fn init() -> Result<(), rusqlite::Error> {
 }
 
 // fn get_neighbors(node: NodeId) -> Result<Vec<(NodeId, WayId)>> {
-pub fn get_neighbors(id: NodeId) -> Result<()> {
+pub fn get_neighbors(id: NodeId) -> Result<Neighbors, Error> {
     let path = "./db.db3";
-    let conn = Connection::open(path)?;
+    let conn = match Connection::open(path) {
+        Ok(conn) => conn,
+        Err(e) => {
+            return Err(Error {
+                message: e.to_string(),
+            })
+        }
+    };
 
-    let row: String = conn.query_row("SELECT neighbors FROM Node WHERE id = ?1", [id], |row| {
-        row.get(0)
-    })?;
+    let row: String =
+        match conn.query_row("SELECT neighbors FROM Node WHERE id = ?1", [id], |row| {
+            row.get(0)
+        }) {
+            Ok(row) => row,
+            Err(e) => {
+                return Err(Error {
+                    message: e.to_string(),
+                })
+            }
+        };
 
-    dbg!(row);
-
-    Ok(())
+    serde_json::from_str(&row).map_err(|e| {
+        return Error {
+            message: e.to_string(),
+        };
+    })
 }

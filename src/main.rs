@@ -25,7 +25,9 @@ async fn main() {
         }
     }
     match db::get_neighbors(0) {
-        Ok(_) => {}
+        Ok(n) => {
+            print!("neighbors: {:?}", n)
+        }
         Err(e) => {
             print!("get neighbors {:?}\n", e);
         }
