@@ -1,3 +1,5 @@
+use std::error::Error;
+
 use axum::{
     extract,
     http::{Method, StatusCode},
@@ -12,8 +14,23 @@ use tower_http::{
     trace::TraceLayer,
 };
 
+pub mod db;
+
 #[tokio::main]
 async fn main() {
+    match db::init() {
+        Ok(_) => {}
+        Err(e) => {
+            print!("init error: {:?}\n", e);
+        }
+    }
+    match db::get_neighbors(0) {
+        Ok(_) => {}
+        Err(e) => {
+            print!("get neighbors {:?}\n", e);
+        }
+    }
+
     tracing_subscriber::fmt::init();
     let cors = CorsLayer::new()
         .allow_methods([Method::GET, Method::POST])
@@ -21,7 +38,6 @@ async fn main() {
         .allow_origin(Any);
 
     let trace = TraceLayer::new_for_http();
-
     // TODO: support single GET /v2/directions/:profile spec
     let app = Router::new()
         .route("/heartbeat", get(|| async { "OK" }))
