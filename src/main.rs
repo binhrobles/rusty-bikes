@@ -1,5 +1,3 @@
-use std::error::Error;
-
 use axum::{
     extract,
     http::{Method, StatusCode},
@@ -21,7 +19,7 @@ async fn main() {
     match db::init() {
         Ok(_) => {}
         Err(e) => {
-            print!("init error: {:?}\n", e);
+            println!("init error: {:?}", e);
         }
     }
     match db::get_neighbors(0) {
@@ -29,7 +27,7 @@ async fn main() {
             print!("neighbors: {:?}", n)
         }
         Err(e) => {
-            print!("get neighbors {:?}\n", e);
+            println!("get neighbors {:?}", e);
         }
     }
 
@@ -87,9 +85,5 @@ async fn directions_handler(
         None => "./static_responses/single_bushwick_greenpoint.geojson",
     };
 
-    if let Ok(contents) = fs::read_to_string(response_file).await {
-        Ok(contents)
-    } else {
-        Err(StatusCode::INTERNAL_SERVER_ERROR)
-    }
+    fs::read_to_string(response_file).await.map_err(|_| { StatusCode::INTERNAL_SERVER_ERROR })
 }
