@@ -1,5 +1,5 @@
 [package]
-name = "rusty-router"
+name = "rusty_router"
 version = "0.1.0"
 edition = "2021"
 
@@ -7,9 +7,11 @@ edition = "2021"
 
 [dependencies]
 axum = "0.7.5"
-rusqlite = { version = "0.31.0", features = ["bundled", "serde_json"] }
+dotenvy = "0.15.7"
 serde = { version = "1.0.197", features = ["derive", "serde_derive"] }
 serde_json = "1.0.115"
+sqlx = { version = "0.7.4", features = ["runtime-tokio", "sqlite"] }
+sqlx-sqlite = "0.7.4"
 tokio = { version = "1.37.0", features = ["full"] }
 tower = { version = "0.4.13", features = ["full"] }
 tower-http = { version = "0.5.2", features = ["full"] }

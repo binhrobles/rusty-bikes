@@ -1,84 +1,86 @@
-use rusqlite::{Connection, Result};
-use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 
+use serde::{Deserialize, Serialize};
+use sqlx::{
+    Connection,
+    SqliteConnection,
+    types::Json,
+}; 
+
+// TODO: how should this actually be done?
 #[derive(Debug)]
 pub struct Error {
     message: String,
 }
 
-type NodeId = u64;
-type WayId = u64;
+impl From<sqlx::Error> for Error {
+    fn from(value: sqlx::Error) -> Self {
+        Error {
+            message: value.to_string(),
+        }
+    }
+}
 
-// Note: future hashmap? does that matter?  type Neighbors = Vec<(NodeId, WayId)>;
-type Neighbors = Vec<(NodeId, WayId)>;
+type NodeId = String;
+type WayId = String;
+
+// this type declaration was preferable to defining a newtype struct
+// because sqlx has some chunky ergonomics around nested types
+// while JSON has first class handling
+type Neighbors = HashMap<NodeId, WayId>;
 
 #[derive(Debug, Serialize, Deserialize)]
 struct Node {
     lat: f32,
     long: f32,
     id: NodeId,
-    neighbors: Neighbors,
+    neighbors: Json<Neighbors>,
 }
 
-pub fn init() -> Result<(), rusqlite::Error> {
-    let path = "./db.db3";
-    let conn = Connection::open(path)?;
+/// initializes a sqlite database at DATABASE_URL with the requisite tables
+pub async fn create_tables() -> Result<(), Error> {
+    let mut conn = SqliteConnection::connect(&std::env::var("DATABASE_URL").unwrap()).await?;
 
-    conn.execute(
-        "CREATE TABLE Node (
-        id INTEGER PRIMARY KEY,
-        lat REAL NOT NULL,
-        long REAL NOT NULL,
-        neighbors BLOB
-    )",
-        (), // empty list of parameters.
-    )?;
+    sqlx::query("
+        DROP TABLE IF EXISTS Node;
+        CREATE TABLE Node (
+            id TEXT PRIMARY KEY,
+            lat REAL NOT NULL,
+            long REAL NOT NULL,
+            neighbors TEXT
+        )
+    ").execute(&mut conn).await?;
+    println!("Table created");
+
     let seed = Node {
-        id: 0,
+        id: "0".to_owned(),
         lat: 40.5,
         long: 70.5,
-        neighbors: vec![(1, 1), (2, 2)],
+        neighbors: Json(HashMap::from([
+                        ("1".to_owned(), "1".to_owned()),
+                        ("2".to_owned(), "2".to_owned()),
+                    ])
+                ),
     };
-    conn.execute(
-        "INSERT INTO Node (id, lat, long, neighbors) VALUES (?1, ?2, ?3, ?4)",
-        (
-            &seed.id,
-            &seed.lat,
-            &seed.long,
-            serde_json::to_string(&seed.neighbors).unwrap(),
-        ),
-    )?;
+
+    sqlx::query("INSERT INTO Node (id, lat, long, neighbors) VALUES (?1, ?2, ?3, ?4)")
+        .bind(seed.id)
+        .bind(seed.lat)
+        .bind(seed.long)
+        .bind(seed.neighbors)
+        .execute(&mut conn).await?;
 
     Ok(())
 }
 
-// fn get_neighbors(node: NodeId) -> Result<Vec<(NodeId, WayId)>> {
-pub fn get_neighbors(id: NodeId) -> Result<Neighbors, Error> {
-    let path = "./db.db3";
-    let conn = match Connection::open(path) {
-        Ok(conn) => conn,
-        Err(e) => {
-            return Err(Error {
-                message: e.to_string(),
-            })
-        }
-    };
+pub async fn get_neighbors(id: NodeId) -> Result<Neighbors, Error> {
+    let mut conn = SqliteConnection::connect(&std::env::var("DATABASE_URL").unwrap()).await?;
 
-    let row: String =
-        match conn.query_row("SELECT neighbors FROM Node WHERE id = ?1", [id], |row| {
-            row.get(0)
-        }) {
-            Ok(row) => row,
-            Err(e) => {
-                return Err(Error {
-                    message: e.to_string(),
-                })
-            }
-        };
+    let n: Json<Neighbors> = sqlx::query_scalar("SELECT neighbors FROM Node WHERE id = ?1")
+        .bind(id)
+        .fetch_one(&mut conn)
+        .await?;
 
-    serde_json::from_str(&row).map_err(|e| {
-        return Error {
-            message: e.to_string(),
-        };
-    })
+    // TODO: is there a more idiomatic way to get the HashMap out of the sqlx Json wrapper?
+    Ok(n.as_ref().clone())
 }

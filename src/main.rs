@@ -11,20 +11,16 @@ use tower_http::{
     cors::{Any, CorsLayer},
     trace::TraceLayer,
 };
-
-pub mod db;
+use dotenvy::dotenv;
+use rusty_router::db;
 
 #[tokio::main]
 async fn main() {
-    match db::init() {
-        Ok(_) => {}
-        Err(e) => {
-            println!("init error: {:?}", e);
-        }
-    }
-    match db::get_neighbors(0) {
+    dotenv().expect(".env file not found");
+
+    match db::get_neighbors("0".into()).await {
         Ok(n) => {
-            print!("neighbors: {:?}", n)
+            println!("neighbors: {:?}", n)
         }
         Err(e) => {
             println!("get neighbors {:?}", e);
@@ -85,5 +81,7 @@ async fn directions_handler(
         None => "./static_responses/single_bushwick_greenpoint.geojson",
     };
 
-    fs::read_to_string(response_file).await.map_err(|_| { StatusCode::INTERNAL_SERVER_ERROR })
+    fs::read_to_string(response_file)
+        .await
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)
 }
