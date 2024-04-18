@@ -10,10 +10,13 @@ Used w/ my [ORS map client fork](https://github.com/binhrobles/ors-map-client-ru
 
 ```bash
 # host it at localhost:3000
-cargo run
+cargo run --bin rusty_router
 
 # enable request/response tracing
-RUST_LOG=tower_http=trace cargo run
+RUST_LOG=tower_http=trace cargo run --bin rusty_router
+
+# init the db
+cargo run --bin init_db
 ```
 
 ## How it's happening

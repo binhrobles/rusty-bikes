@@ -7,20 +7,6 @@ use sqlx::{
     types::Json,
 }; 
 
-// TODO: how should this actually be done?
-#[derive(Debug)]
-pub struct Error {
-    message: String,
-}
-
-impl From<sqlx::Error> for Error {
-    fn from(value: sqlx::Error) -> Self {
-        Error {
-            message: value.to_string(),
-        }
-    }
-}
-
 type NodeId = String;
 type WayId = String;
 
@@ -38,7 +24,7 @@ struct Node {
 }
 
 /// initializes a sqlite database at DATABASE_URL with the requisite tables
-pub async fn create_tables() -> Result<(), Error> {
+pub async fn create_tables() -> Result<(), anyhow::Error> {
     let mut conn = SqliteConnection::connect(&std::env::var("DATABASE_URL").unwrap()).await?;
 
     sqlx::query("
@@ -73,7 +59,7 @@ pub async fn create_tables() -> Result<(), Error> {
     Ok(())
 }
 
-pub async fn get_neighbors(id: NodeId) -> Result<Neighbors, Error> {
+pub async fn get_neighbors(id: NodeId) -> Result<Neighbors, anyhow::Error> {
     let mut conn = SqliteConnection::connect(&std::env::var("DATABASE_URL").unwrap()).await?;
 
     let n: Json<Neighbors> = sqlx::query_scalar("SELECT neighbors FROM Node WHERE id = ?1")
