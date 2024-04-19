@@ -60,9 +60,9 @@ This results in a SQLite schema of:
 ```
 Node
 ---
+id
 lat
 long
-id
 neighbors: [
 	[nodeId, wayId] (FK Way ID)
 	...
@@ -70,6 +70,7 @@ neighbors: [
 
 Way
 ---
+id
 minLat
 minLong
 maxLat

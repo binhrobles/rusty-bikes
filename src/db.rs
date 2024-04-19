@@ -7,6 +7,8 @@ use sqlx::{
     types::Json,
 }; 
 
+use crate::osm;
+
 type NodeId = String;
 type WayId = String;
 
@@ -55,6 +57,21 @@ pub async fn create_tables() -> Result<(), anyhow::Error> {
         .bind(seed.long)
         .bind(seed.neighbors)
         .execute(&mut conn).await?;
+
+    Ok(())
+}
+
+/// Insert a batch of Nodes to the DB
+pub async fn insert_nodes(nodes: &[osm::Element]) -> anyhow::Result<()> {
+    let mut conn = SqliteConnection::connect(&std::env::var("DATABASE_URL").unwrap()).await?;
+
+    // TODO: create a batch insert query
+    // sqlx::query("INSERT INTO Node (id, lat, long, neighbors) VALUES (?1, ?2, ?3, ?4)")
+    //     .bind(seed.id)
+    //     .bind(seed.lat)
+    //     .bind(seed.long)
+    //     .bind(seed.neighbors)
+    //     .execute(&mut conn).await?;
 
     Ok(())
 }
