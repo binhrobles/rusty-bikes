@@ -4,6 +4,8 @@ use axum::{
     routing::{get, post},
     Router,
 };
+use dotenvy::dotenv;
+use rusty_router::db;
 use serde::Deserialize;
 use tokio::fs;
 use tower::ServiceBuilder;
@@ -11,8 +13,6 @@ use tower_http::{
     cors::{Any, CorsLayer},
     trace::TraceLayer,
 };
-use dotenvy::dotenv;
-use rusty_router::db;
 
 #[tokio::main]
 async fn main() {

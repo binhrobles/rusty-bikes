@@ -1,6 +1,6 @@
 use rusqlite::Connection;
-use std::collections::HashMap;
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 
 use crate::osm;
 
@@ -43,7 +43,8 @@ const DB_PATH: &str = "./db.db3";
 pub fn create_tables() -> Result<(), anyhow::Error> {
     let conn = Connection::open(DB_PATH)?;
 
-    conn.execute_batch("
+    conn.execute_batch(
+        "
         DROP TABLE IF EXISTS Node;
         CREATE TABLE Node (
             id TEXT PRIMARY KEY,
@@ -63,7 +64,8 @@ pub fn create_tables() -> Result<(), anyhow::Error> {
             nodes TEXT,
             tags TEXT
         );
-    ")?;
+    ",
+    )?;
     println!("Tables created");
 
     let seed = Node {
@@ -71,12 +73,10 @@ pub fn create_tables() -> Result<(), anyhow::Error> {
         lat: 40.5,
         lon: 70.5,
         neighbors: HashMap::from([
-                    ("1".to_owned(), "1".to_owned()),
-                    ("2".to_owned(), "2".to_owned()),
-                ]),
-        tags: HashMap::from([
-                    ("highway".to_owned(), "traffic_signals".to_owned()),
-                ]),
+            ("1".to_owned(), "1".to_owned()),
+            ("2".to_owned(), "2".to_owned()),
+        ]),
+        tags: HashMap::from([("highway".to_owned(), "traffic_signals".to_owned())]),
     };
 
     conn.execute(
@@ -97,9 +97,7 @@ pub fn create_tables() -> Result<(), anyhow::Error> {
         max_lat: 48.5,
         max_lon: 78.5,
         nodes: vec!["0".to_owned()],
-        tags: HashMap::from([
-                    ("highway".to_owned(), "traffic_signals".to_owned()),
-                ]),
+        tags: HashMap::from([("highway".to_owned(), "traffic_signals".to_owned())]),
     };
 
     conn.execute(
@@ -132,8 +130,9 @@ pub fn insert_node(node: osm::Element) -> anyhow::Result<()> {
             "{}", // inits w/ empty `neighbors` adjacency matrix
             serde_json::to_string(&node.tags).unwrap(),
         ),
-    ).unwrap_or_else(|e| {
-        eprintln!("Failed Node:\n{:#?}", node); 
+    )
+    .unwrap_or_else(|e| {
+        eprintln!("Failed Node:\n{:#?}", node);
         panic!("{e}");
     });
 

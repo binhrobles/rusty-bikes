@@ -1,5 +1,5 @@
 use serde::de::{SeqAccess, Visitor};
-use serde::{Deserializer, Deserialize};
+use serde::{Deserialize, Deserializer};
 use std::collections::HashMap;
 
 use std::fmt;
@@ -58,7 +58,9 @@ where
 }
 
 /// Casts an array of ints to an array of Strings during deserialization
-fn deserialize_strings_from_int_array<'de, D>(deserializer: D) -> Result<Option<Vec<String>>, D::Error>
+fn deserialize_strings_from_int_array<'de, D>(
+    deserializer: D,
+) -> Result<Option<Vec<String>>, D::Error>
 where
     D: Deserializer<'de>,
 {
@@ -96,7 +98,7 @@ where
         fn visit_seq<S>(self, mut seq: S) -> Result<u128, S::Error>
         where
             S: SeqAccess<'de>,
-          {
+        {
             let mut count = 0;
             while let Some(el) = seq.next_element::<Element>()? {
                 count += 1;
