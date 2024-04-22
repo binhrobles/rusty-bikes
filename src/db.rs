@@ -14,9 +14,9 @@ type Neighbors = HashMap<NodeId, WayId>;
 
 #[derive(Debug, Serialize, Deserialize)]
 struct Node {
-    lat: f32,
-    long: f32,
     id: NodeId,
+    lat: f32,
+    lon: f32,
     neighbors: Neighbors,
 }
 
@@ -31,7 +31,7 @@ pub fn create_tables() -> Result<(), anyhow::Error> {
         CREATE TABLE Node (
             id TEXT PRIMARY KEY,
             lat REAL NOT NULL,
-            long REAL NOT NULL,
+            lon REAL NOT NULL,
             neighbors TEXT
         );"
     )?;
@@ -40,7 +40,7 @@ pub fn create_tables() -> Result<(), anyhow::Error> {
     let seed = Node {
         id: "0".to_owned(),
         lat: 40.5,
-        long: 70.5,
+        lon: 70.5,
         neighbors: HashMap::from([
                         ("1".to_owned(), "1".to_owned()),
                         ("2".to_owned(), "2".to_owned()),
@@ -48,11 +48,11 @@ pub fn create_tables() -> Result<(), anyhow::Error> {
     };
 
     conn.execute(
-        "INSERT INTO Node (id, lat, long, neighbors) VALUES (?1, ?2, ?3, ?4)",
+        "INSERT INTO Node (id, lat, lon, neighbors) VALUES (?1, ?2, ?3, ?4)",
         (
             &seed.id,
             &seed.lat,
-            &seed.long,
+            &seed.lon,
             serde_json::to_string(&seed.neighbors).unwrap(),
         ),
     )?;
@@ -61,10 +61,18 @@ pub fn create_tables() -> Result<(), anyhow::Error> {
 }
 
 /// Insert a Node to the DB, synchronously
-// TODO: create a batch insert query
+// TODO: create a batch insert query...if it's useful
 pub fn insert_node(node: osm::Element) -> anyhow::Result<()> {
-    println!("node: {}", node.id);
-
+    let conn = Connection::open(DB_PATH)?;
+    conn.execute(
+        "INSERT INTO Node (id, lat, lon, neighbors) VALUES (?1, ?2, ?3, ?4)",
+        (
+            &node.id,
+            &node.lat,
+            &node.lon,
+            "{}", // inits w/ empty `neighbors` adjacency matrix
+        ),
+    )?;
     Ok(())
 }
 

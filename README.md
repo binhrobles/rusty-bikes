@@ -63,10 +63,10 @@ Node
 id
 lat
 long
-neighbors: [
-	[nodeId, wayId] (FK Way ID)
+neighbors: {
+	nodeId: wayId, (FK Way ID)
 	...
-]
+}
 
 Way
 ---
@@ -76,15 +76,13 @@ minLong
 maxLat
 maxLong
 nodes: [
-	[ nodeId, lat, long ]
-]
+	nodeId, (FK Node ID)
+    ...
+] 
 tags: {
 	{key}: value
 }
 ```
-
-JSONB id maps from Nodes to Ways? or Ways to Nodes? both?
-or...just save it as a graph? Nodes are linked to the Nodes that are accessible to it via the Ways data
 
 ### Future things to consider
 - run sql operations on a [dedicated thread](https://ryhl.io/blog/async-what-is-blocking/)? does that gain anything for me?

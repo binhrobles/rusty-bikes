@@ -9,8 +9,9 @@ use crate::db;
 
 #[derive(std::fmt::Debug, Serialize, Deserialize)]
 pub struct Element {
+    #[serde(deserialize_with = "deserialize_string_from_int")]
+    pub id: String,
     pub r#type: String,
-    pub id: u128,
     pub tags: HashMap<String, String>,
 
     // Node
@@ -23,23 +24,6 @@ pub struct Element {
     pub geometry: Option<Vec<HashMap<String, f32>>>,
 }
 
-#[derive(std::fmt::Debug, Serialize, Deserialize)]
-pub struct Node {
-    pub r#type: String,
-    pub id: u128,
-    pub tags: HashMap<String, String>,
-}
-
-#[derive(std::fmt::Debug, Serialize, Deserialize)]
-pub struct Way {
-    pub r#type: String,
-    pub id: u128,
-    pub tags: HashMap<String, String>,
-    pub bounds: HashMap<String, f32>,
-    pub nodes: Vec<u128>,
-    pub geometry: Vec<HashMap<String, f32>>,
-}
-
 #[derive(std::fmt::Debug, Deserialize)]
 pub struct Output {
     // Deserialize this field by adding the element to SQLite
@@ -48,6 +32,13 @@ pub struct Output {
     // from a JSON field called `elements`.
     #[serde(rename(deserialize = "elements"))]
     pub num_rows: u128,
+}
+
+fn deserialize_string_from_int<'de, D>(deserializer: D) -> Result<String, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    Ok(u128::deserialize(deserializer)?.to_string())
 }
 
 /// Deserialize the OSM JSON elements into SQLite. The entire OSM file 
