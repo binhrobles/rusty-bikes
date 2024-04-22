@@ -18,7 +18,7 @@ use rusty_router::db;
 async fn main() {
     dotenv().expect(".env file not found");
 
-    match db::get_neighbors("0".into()).await {
+    match db::get_neighbors("0".into()) {
         Ok(n) => {
             println!("neighbors: {:?}", n)
         }

@@ -62,19 +62,20 @@ Node
 ---
 id
 lat
-long
+lon
 neighbors: {
 	nodeId: wayId, (FK Way ID)
 	...
 }
+tags
 
 Way
 ---
 id
 minLat
-minLong
+minLon
 maxLat
-maxLong
+maxLon
 nodes: [
 	nodeId, (FK Node ID)
     ...
