@@ -5,7 +5,7 @@ use dotenvy::dotenv;
 async fn main() {
     dotenv().expect(".env file not found");
 
-    match db::create_tables().await {
+    match db::create_tables() {
         Ok(_) => {}
         Err(e) => {
             println!("init error: {:?}", e);

@@ -1,9 +1,11 @@
 use std::collections::HashMap;
 use serde::{Serialize, Deserialize, Deserializer};
-use serde::de::{self, Visitor, SeqAccess};
+use serde::de::{Visitor, SeqAccess};
 
 use std::fmt;
 use std::marker::PhantomData;
+
+use crate::db;
 
 #[derive(std::fmt::Debug, Serialize, Deserialize)]
 pub struct Element {
@@ -19,12 +21,6 @@ pub struct Element {
     pub bounds: Option<HashMap<String, f32>>,
     pub nodes: Option<Vec<u128>>,
     pub geometry: Option<Vec<HashMap<String, f32>>>,
-}
-
-impl Element {
-    fn to_db(&self) where Self: std::fmt::Debug {
-        eprintln!("{:?}", self)
-    }
 }
 
 #[derive(std::fmt::Debug, Serialize, Deserialize)]
@@ -62,7 +58,7 @@ where
     D: Deserializer<'de>,
 {
     println!("entering de fn");
-    // TODO: PhantomData ?
+    // TODO: what is PhantomData ?
     struct ElementsVisitor<T>(PhantomData<fn() -> T>);
 
     impl<'de, T> Visitor<'de> for ElementsVisitor<T>
@@ -82,15 +78,22 @@ where
             S: SeqAccess<'de>,
       {
             let mut count = 0;
-            while let Some(el) = seq.next_element::<T>()? {
+            while let Some(el) = seq.next_element::<Element>()? {
                 count += 1;
 
-                println!("el: {:?}", el);
-                // if type = node
-                // insert to Node table
-
-                // if type = way
-                // insert to Way table
+                match el.r#type.as_str() {
+                    "node" => {
+                        // insert to Node table
+                        // can we assume all Nodes will appear before Ways?
+                        db::insert_node(el).unwrap();
+                    },
+                    "way" => {
+                        // insert to Way table
+                        // also walk Nodes and update their adjacency matrices
+                        // warn if Node is not present?
+                    },
+                    other => panic!("unsupported type {}\nelement: {:?}", other, el),
+                }
             }
 
             Ok(count)
