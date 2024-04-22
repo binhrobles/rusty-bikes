@@ -132,7 +132,11 @@ pub fn insert_node(node: osm::Element) -> anyhow::Result<()> {
             "{}", // inits w/ empty `neighbors` adjacency matrix
             serde_json::to_string(&node.tags).unwrap(),
         ),
-    )?;
+    ).unwrap_or_else(|e| {
+        eprintln!("Failed Node:\n{:#?}", node); 
+        panic!("{e}");
+    });
+
     Ok(())
 }
 
@@ -158,7 +162,10 @@ pub fn insert_way(way: osm::Element) -> anyhow::Result<()> {
             serde_json::to_string(&nodes).unwrap(),
             serde_json::to_string(&way.tags).unwrap(),
         ),
-    )?;
+    ).unwrap_or_else(|e| {
+        eprintln!("Failed Way: {}", way.id); 
+        panic!("{e}");
+    });
 
     Ok(())
 }
