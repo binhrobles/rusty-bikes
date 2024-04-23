@@ -63,26 +63,43 @@ Node
 id
 lat
 lon
-neighbors: {
-	nodeId: wayId, (FK Way ID)
-	...
+tags: {
+	{key}: value
 }
-tags
 
-Way
+
+WayIndex (R*Tree index)
 ---
 id
 minLat
 minLon
 maxLat
 maxLon
-nodes: [
-	nodeId, (FK Node ID)
-    ...
-] 
 tags: {
 	{key}: value
 }
+
+
+WayNodePositions
+-- position of Nodes along Way paths
+-- first class FK relationships to WayIndex, Node
+-- in-SQL Way -> Node -> locations queries
+---
+wayId integer NOT NULL,     FK to WayIndex, indexed
+nodeId integer NOT NULL,    FK to Node
+position integer NOT NULL,  (0..n to indicate position on path)
+PRIMARY KEY (wayId, position)
+
+
+Edges
+-- b/w Nodes
+-- store n1 < n2 always, and avoid dupes
+-- query will need to search for n1 OR n2 = id
+---
+n1 integer NOT NULL,    FK to Node, indexed
+n2 integer NOT NULL,    FK to Node, indexed
+wayId integer NOT NULL, FK to WayIndex
+PRIMARY KEY (n1, n2, wayId)
 ```
 
 ### Future things to consider

@@ -4,8 +4,8 @@ use std::collections::HashMap;
 
 use crate::osm;
 
-type NodeId = String;
-type WayId = String;
+type NodeId = i64;
+type WayId = i64;
 
 // TODO: enum?
 type TagKey = String;
@@ -47,7 +47,7 @@ pub fn create_tables() -> Result<(), anyhow::Error> {
         "
         DROP TABLE IF EXISTS Node;
         CREATE TABLE Node (
-            id TEXT PRIMARY KEY,
+            id INTEGER PRIMARY KEY,
             lat REAL NOT NULL,
             lon REAL NOT NULL,
             neighbors TEXT,
@@ -55,26 +55,26 @@ pub fn create_tables() -> Result<(), anyhow::Error> {
         );
 
         DROP TABLE IF EXISTS Way;
-        CREATE TABLE Way (
-            id TEXT PRIMARY KEY,
-            minLat REAL NOT NULL,
-            minLon REAL NOT NULL,
-            maxLat REAL NOT NULL,
-            maxLon REAL NOT NULL,
-            nodes TEXT,
-            tags TEXT
+        CREATE VIRTUAL TABLE Way USING rtree(
+            id,
+            minLat,
+            maxLat,
+            minLon,
+            maxLon,
+            +tags TEXT,
+            +nodes TEXT
         );
     ",
     )?;
     println!("Tables created");
 
     let seed = Node {
-        id: "0".to_owned(),
+        id: 0,
         lat: 40.5,
         lon: 70.5,
         neighbors: HashMap::from([
-            ("1".to_owned(), "1".to_owned()),
-            ("2".to_owned(), "2".to_owned()),
+            (1, 2),
+            (3, 4),
         ]),
         tags: HashMap::from([("highway".to_owned(), "traffic_signals".to_owned())]),
     };
@@ -91,22 +91,22 @@ pub fn create_tables() -> Result<(), anyhow::Error> {
     )?;
 
     let seed = Way {
-        id: "0".to_owned(),
+        id: 0,
         min_lat: 40.5,
         min_lon: 70.5,
         max_lat: 48.5,
         max_lon: 78.5,
-        nodes: vec!["0".to_owned()],
+        nodes: vec![0, 1, 2],
         tags: HashMap::from([("highway".to_owned(), "traffic_signals".to_owned())]),
     };
 
     conn.execute(
-        "INSERT INTO Way (id, minLat, minLon, maxLat, maxLon, nodes, tags) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
+        "INSERT INTO Way (id, minLat, maxLat, minLon, maxLon, nodes, tags) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
         (
             &seed.id,
             &seed.min_lat,
-            &seed.min_lon,
             &seed.max_lat,
+            &seed.min_lon,
             &seed.max_lon,
             serde_json::to_string(&seed.nodes).unwrap(),
             serde_json::to_string(&seed.tags).unwrap(),
@@ -151,12 +151,12 @@ pub fn insert_way(way: osm::Element) -> anyhow::Result<()> {
     let nodes = way.nodes.unwrap_or_default();
 
     conn.execute(
-        "INSERT INTO Way (id, minLat, minLon, maxLat, maxLon, nodes, tags) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
+        "INSERT INTO Way (id, minLat, maxLat, minLon, maxLon, nodes, tags) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
         (
             &way.id,
             bounds.minlat,
-            bounds.minlon,
             bounds.maxlat,
+            bounds.minlon,
             bounds.maxlon,
             serde_json::to_string(&nodes).unwrap(),
             serde_json::to_string(&way.tags).unwrap(),
