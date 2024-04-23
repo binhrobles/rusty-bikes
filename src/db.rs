@@ -6,6 +6,7 @@ use crate::osm;
 
 type NodeId = i64;
 type WayId = i64;
+type Neighbor = (NodeId, WayId);
 
 // TODO: enum?
 type TagKey = String;
@@ -14,7 +15,6 @@ type TagValue = String;
 // just using serde_json to/from_str before/after sqlite calls
 // which is essentially what's happening in the JSON From/ToSql implementations
 // here: https://docs.rs/rusqlite/0.31.0/src/rusqlite/types/serde_json.rs.html#17-29
-type Neighbors = HashMap<NodeId, WayId>;
 type Tags = HashMap<TagKey, TagValue>;
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -22,7 +22,6 @@ struct Node {
     id: NodeId,
     lat: f32,
     lon: f32,
-    neighbors: Neighbors,
     tags: Tags,
 }
 
@@ -33,7 +32,6 @@ struct Way {
     min_lon: f32,
     max_lat: f32,
     max_lon: f32,
-    nodes: Vec<NodeId>,
     tags: Tags,
 }
 
@@ -45,24 +43,38 @@ pub fn create_tables() -> Result<(), anyhow::Error> {
 
     conn.execute_batch(
         "
-        DROP TABLE IF EXISTS Node;
-        CREATE TABLE Node (
+        DROP TABLE IF EXISTS Nodes;
+        CREATE TABLE Nodes (
             id INTEGER PRIMARY KEY,
             lat REAL NOT NULL,
             lon REAL NOT NULL,
-            neighbors TEXT,
             tags TEXT
         );
 
-        DROP TABLE IF EXISTS Way;
-        CREATE VIRTUAL TABLE Way USING rtree(
+        DROP TABLE IF EXISTS Ways;
+        CREATE VIRTUAL TABLE Ways USING rtree(
             id,
             minLat,
             maxLat,
             minLon,
             maxLon,
-            +tags TEXT,
-            +nodes TEXT
+            +tags TEXT
+        );
+
+        DROP TABLE IF EXISTS WayNodes;
+        CREATE TABLE WayNodes (
+            way   integer NOT NULL,
+            node  integer NOT NULL,
+            idx   integer NOT NULL,
+            PRIMARY KEY (way, idx)
+        );
+
+        DROP TABLE IF EXISTS Segments;
+        CREATE TABLE Segments (
+            n1  integer NOT NULL,
+            n2  integer NOT NULL,
+            way integer NOT NULL,
+            PRIMARY KEY (n1, n2, way)
         );
     ",
     )?;
@@ -72,20 +84,15 @@ pub fn create_tables() -> Result<(), anyhow::Error> {
         id: 0,
         lat: 40.5,
         lon: 70.5,
-        neighbors: HashMap::from([
-            (1, 2),
-            (3, 4),
-        ]),
         tags: HashMap::from([("highway".to_owned(), "traffic_signals".to_owned())]),
     };
 
     conn.execute(
-        "INSERT INTO Node (id, lat, lon, neighbors, tags) VALUES (?1, ?2, ?3, ?4, ?5)",
+        "INSERT INTO Nodes (id, lat, lon, tags) VALUES (?1, ?2, ?3, ?4)",
         (
             &seed.id,
             &seed.lat,
             &seed.lon,
-            serde_json::to_string(&seed.neighbors).unwrap(),
             serde_json::to_string(&seed.tags).unwrap(),
         ),
     )?;
@@ -96,19 +103,17 @@ pub fn create_tables() -> Result<(), anyhow::Error> {
         min_lon: 70.5,
         max_lat: 48.5,
         max_lon: 78.5,
-        nodes: vec![0, 1, 2],
         tags: HashMap::from([("highway".to_owned(), "traffic_signals".to_owned())]),
     };
 
     conn.execute(
-        "INSERT INTO Way (id, minLat, maxLat, minLon, maxLon, nodes, tags) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
+        "INSERT INTO Ways (id, minLat, maxLat, minLon, maxLon, tags) VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
         (
             &seed.id,
             &seed.min_lat,
             &seed.max_lat,
             &seed.min_lon,
             &seed.max_lon,
-            serde_json::to_string(&seed.nodes).unwrap(),
             serde_json::to_string(&seed.tags).unwrap(),
         ),
     )?;
@@ -122,12 +127,11 @@ pub fn insert_node(node: osm::Element) -> anyhow::Result<()> {
     let conn = Connection::open(DB_PATH)?;
 
     conn.execute(
-        "INSERT INTO Node (id, lat, lon, neighbors, tags) VALUES (?1, ?2, ?3, ?4, ?5)",
+        "INSERT INTO Nodes (id, lat, lon, tags) VALUES (?1, ?2, ?3, ?4)",
         (
             &node.id,
             &node.lat,
             &node.lon,
-            "{}", // inits w/ empty `neighbors` adjacency matrix
             serde_json::to_string(&node.tags).unwrap(),
         ),
     )
@@ -151,14 +155,13 @@ pub fn insert_way(way: osm::Element) -> anyhow::Result<()> {
     let nodes = way.nodes.unwrap_or_default();
 
     conn.execute(
-        "INSERT INTO Way (id, minLat, maxLat, minLon, maxLon, nodes, tags) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
+        "INSERT INTO Ways (id, minLat, maxLat, minLon, maxLon, tags) VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
         (
             &way.id,
             bounds.minlat,
             bounds.maxlat,
             bounds.minlon,
             bounds.maxlon,
-            serde_json::to_string(&nodes).unwrap(),
             serde_json::to_string(&way.tags).unwrap(),
         ),
     ).unwrap_or_else(|e| {
@@ -169,12 +172,17 @@ pub fn insert_way(way: osm::Element) -> anyhow::Result<()> {
     Ok(())
 }
 
-pub fn get_neighbors(id: NodeId) -> Result<Neighbors, anyhow::Error> {
+pub fn get_neighbors(id: NodeId) -> Result<Vec<Neighbor>, anyhow::Error> {
     let conn = Connection::open(DB_PATH)?;
 
-    let row: String = conn.query_row("SELECT neighbors FROM Node WHERE id = ?1", [id], |row| {
-        row.get(0)
+    let mut stmt = conn.prepare("SELECT n1, n2, way FROM Segments WHERE n1 = ?1 OR n2 = ?1")?;
+    let result = stmt.query_map([id], |row| {
+        let n1: NodeId = row.get(0)?;
+        let node = if n1 != id { n1 } else { row.get(1)? };
+        let way: WayId = row.get(2)?;
+
+        Ok((node, way))
     })?;
 
-    Ok(serde_json::from_str(&row)?)
+    Ok(result.map(|r| r.unwrap()).collect())
 }

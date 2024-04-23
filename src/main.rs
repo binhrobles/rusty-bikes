@@ -5,7 +5,6 @@ use axum::{
     Router,
 };
 use dotenvy::dotenv;
-use rusty_router::db;
 use serde::Deserialize;
 use tokio::fs;
 use tower::ServiceBuilder;
@@ -17,15 +16,6 @@ use tower_http::{
 #[tokio::main]
 async fn main() {
     dotenv().expect(".env file not found");
-
-    match db::get_neighbors("0".into()) {
-        Ok(n) => {
-            println!("neighbors: {:?}", n)
-        }
-        Err(e) => {
-            println!("get neighbors {:?}", e);
-        }
-    }
 
     tracing_subscriber::fmt::init();
     let cors = CorsLayer::new()

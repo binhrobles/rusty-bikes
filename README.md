@@ -85,9 +85,9 @@ WayNodePositions
 -- first class FK relationships to WayIndex, Node
 -- in-SQL Way -> Node -> locations queries
 ---
-wayId integer NOT NULL,     FK to WayIndex, indexed
-nodeId integer NOT NULL,    FK to Node
-position integer NOT NULL,  (0..n to indicate position on path)
+way  integer NOT NULL,  FK to WayIndex, indexed
+node integer NOT NULL,  FK to Node
+idx  integer NOT NULL,  (0..n to indicate position on path)
 PRIMARY KEY (wayId, position)
 
 
@@ -98,7 +98,7 @@ Edges
 ---
 n1 integer NOT NULL,    FK to Node, indexed
 n2 integer NOT NULL,    FK to Node, indexed
-wayId integer NOT NULL, FK to WayIndex
+way integer NOT NULL, FK to WayIndex
 PRIMARY KEY (n1, n2, wayId)
 ```
 
