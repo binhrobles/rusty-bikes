@@ -71,7 +71,11 @@ pub fn create_tables() -> Result<(), anyhow::Error> {
     conn.pragma_update(None, "foreign_keys", "ON")?;
     conn.execute_batch(
         "
+        DROP TABLE IF EXISTS Segments;
+        DROP TABLE IF EXISTS WayNodes;
         DROP TABLE IF EXISTS Nodes;
+        DROP TABLE IF EXISTS Ways;
+
         CREATE TABLE Nodes (
             id INTEGER PRIMARY KEY,
             lat REAL NOT NULL,
@@ -79,7 +83,6 @@ pub fn create_tables() -> Result<(), anyhow::Error> {
             tags TEXT
         );
 
-        DROP TABLE IF EXISTS Ways;
         CREATE VIRTUAL TABLE Ways USING rtree(
             id,
             minLat,
@@ -89,7 +92,6 @@ pub fn create_tables() -> Result<(), anyhow::Error> {
             +tags TEXT
         );
 
-        DROP TABLE IF EXISTS WayNodes;
         CREATE TABLE WayNodes (
             way   integer NOT NULL,
             node  integer NOT NULL,
@@ -100,7 +102,6 @@ pub fn create_tables() -> Result<(), anyhow::Error> {
         );
         CREATE INDEX way_index ON WayNodes(way);
 
-        DROP TABLE IF EXISTS Segments;
         CREATE TABLE Segments (
             n1  integer NOT NULL,
             n2  integer NOT NULL,
