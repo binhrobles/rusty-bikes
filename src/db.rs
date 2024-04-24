@@ -1,4 +1,4 @@
-use rusqlite::Connection;
+use rusqlite::{Connection, Transaction};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
@@ -64,11 +64,15 @@ impl From<&osm::Element> for Way {
 
 const DB_PATH: &str = "./db.db3";
 
-/// initializes a sqlite database at DATABASE_URL with the requisite tables
-pub fn create_tables() -> Result<(), anyhow::Error> {
+/// get a SQLite Connection for queries and stuff
+pub fn get_conn() -> anyhow::Result<Connection> {
     let conn = Connection::open(DB_PATH)?;
-
     conn.pragma_update(None, "foreign_keys", "ON")?;
+    Ok(conn)
+}
+
+/// initializes a sqlite database at DATABASE_URL with the requisite tables
+pub fn create_tables(conn: &Connection) -> Result<(), anyhow::Error> {
     conn.execute_batch(
         "
         DROP TABLE IF EXISTS Segments;
@@ -124,12 +128,9 @@ pub fn create_tables() -> Result<(), anyhow::Error> {
 
 // TODO: batch insert queries...if they're useful
 /// Insert a OSM-parsed Node element into the DB, synchronously
-pub fn insert_node_element(node: osm::Element) -> anyhow::Result<()> {
-    let conn = Connection::open(DB_PATH)?;
-
-    // TODO: prepare_cached statement? or create / return / pass the stmt in from osm?
-    conn.execute(
-        "INSERT INTO Nodes (id, lat, lon, tags) VALUES (?1, ?2, ?3, ?4)",
+pub fn insert_node_element(tx: &Transaction, node: osm::Element) -> anyhow::Result<()> {
+    let mut stmt = tx.prepare_cached("INSERT INTO Nodes (id, lat, lon, tags) VALUES (?1, ?2, ?3, ?4)")?;
+    stmt.execute(
         (
             &node.id,
             &node.lat,
@@ -146,15 +147,11 @@ pub fn insert_node_element(node: osm::Element) -> anyhow::Result<()> {
 }
 
 /// Insert a OSM-parsed Way element into the DB, synchronously
-pub fn insert_way_element(element: osm::Element) -> anyhow::Result<()> {
-    let conn = Connection::open(DB_PATH)?;
-    conn.pragma_update(None, "foreign_keys", "ON")?;
-
+pub fn insert_way_element(tx: &Transaction, element: osm::Element) -> anyhow::Result<()> {
     let way = Way::from(&element);
 
-    // TODO: prepare_cached statement? or create / return / pass the stmt in from osm?
-    conn.execute(
-        "INSERT INTO Ways (id, minLat, maxLat, minLon, maxLon, tags) VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+    let mut way_insert_stmt = tx.prepare_cached("INSERT INTO Ways (id, minLat, maxLat, minLon, maxLon, tags) VALUES (?1, ?2, ?3, ?4, ?5, ?6)")?;
+    way_insert_stmt.execute(
         (
             &way.id,
             &way.min_lat,
@@ -169,11 +166,11 @@ pub fn insert_way_element(element: osm::Element) -> anyhow::Result<()> {
     });
 
     let mut node_insert_stmt =
-        conn.prepare_cached("INSERT OR IGNORE INTO Nodes (id, lat, lon) VALUES (?1, ?2, ?3)")?;
+        tx.prepare_cached("INSERT OR IGNORE INTO Nodes (id, lat, lon) VALUES (?1, ?2, ?3)")?;
     let mut wn_insert_stmt =
-        conn.prepare_cached("INSERT INTO WayNodes (way, node, pos) VALUES (?1, ?2, ?3)")?;
+        tx.prepare_cached("INSERT INTO WayNodes (way, node, pos) VALUES (?1, ?2, ?3)")?;
     let mut segment_insert_stmt =
-        conn.prepare_cached("INSERT INTO Segments (n1, n2, way) VALUES (?1, ?2, ?3)")?;
+        tx.prepare_cached("INSERT INTO Segments (n1, n2, way) VALUES (?1, ?2, ?3)")?;
 
     let node_ids = element.nodes.unwrap_or_default();
     let node_coords = element.geometry.unwrap_or_default();
@@ -224,10 +221,8 @@ pub fn insert_way_element(element: osm::Element) -> anyhow::Result<()> {
 
 /// given a NodeId, gets the neighbors from the Segments table
 /// returns a Vec of NodeId-WayId pairs, or the Node neighbor + the Way that connects them
-pub fn get_neighbors(id: NodeId) -> Result<Vec<Neighbor>, anyhow::Error> {
-    let conn = Connection::open(DB_PATH)?;
-
-    let mut stmt = conn.prepare("SELECT n1, n2, way FROM Segments WHERE n1 = ?1 OR n2 = ?1")?;
+pub fn get_neighbors(conn: &Connection, id: NodeId) -> Result<Vec<Neighbor>, anyhow::Error> {
+    let mut stmt = conn.prepare_cached("SELECT n1, n2, way FROM Segments WHERE n1 = ?1 OR n2 = ?1")?;
     let result = stmt.query_map([id], |row| {
         // since we only store each relation once, we need to query both n1 and n2
         // here, return the "other" nodeId

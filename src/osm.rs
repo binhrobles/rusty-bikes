@@ -74,19 +74,22 @@ where
             S: SeqAccess<'de>,
         {
             let mut count = 0;
+            let mut conn = db::get_conn().unwrap();
+            let tx = conn.transaction().unwrap();
+
             while let Some(el) = seq.next_element::<Element>()? {
                 count += 1;
 
                 match el.r#type.as_str() {
                     "node" => {
                         // insert to Node table
-                        db::insert_node_element(el).unwrap();
+                        db::insert_node_element(&tx, el).unwrap();
 
                         // can we assume all Nodes will appear before Ways?
                     }
                     "way" => {
                         // insert to Way table
-                        db::insert_way_element(el).unwrap();
+                        db::insert_way_element(&tx, el).unwrap();
 
                         // also walk Nodes and update their adjacency matrices
                         // insert if Node is not present?
@@ -94,6 +97,8 @@ where
                     other => panic!("unsupported type {}\nelement: {:?}", other, el),
                 }
             }
+
+            tx.commit().unwrap();
 
             Ok(count)
         }

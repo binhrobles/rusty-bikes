@@ -1,8 +1,9 @@
 use rusty_router::db;
 
 fn main() {
-    db::create_tables().unwrap();
+    let conn = db::get_conn().unwrap();
+    db::create_tables(&conn).unwrap();
 
-    let neighbors = db::get_neighbors(0).unwrap();
+    let neighbors = db::get_neighbors(&conn, 0).unwrap();
     println!("neighbors: {neighbors:?}");
 }
