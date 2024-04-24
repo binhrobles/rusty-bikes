@@ -178,11 +178,10 @@ pub fn insert_way(way: osm::Element) -> anyhow::Result<()> {
     let nodes = way.nodes.unwrap_or_default();
     for (pos, n) in nodes.iter().enumerate() {
         let params = (&way.id, n, pos);
-        stmt.execute(params)
-            .unwrap_or_else(|e| {
-                eprintln!("Failed Segment: {:#?}", params); 
-                panic!("{e}");
-            });
+        stmt.execute(params).unwrap_or_else(|e| {
+            eprintln!("Failed Segment: {:#?}", params);
+            panic!("{e}");
+        });
     }
 
     Ok(())
