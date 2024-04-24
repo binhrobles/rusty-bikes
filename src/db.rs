@@ -78,10 +78,13 @@ pub fn create_tables() -> Result<(), anyhow::Error> {
             n2  integer NOT NULL,
             way integer NOT NULL,
             PRIMARY KEY (n1, n2, way)
+            FOREIGN KEY (way) REFERENCES Ways(id)
+            FOREIGN KEY (n1) REFERENCES Nodes(id)
+            FOREIGN KEY (n2) REFERENCES Nodes(id)
         );
 
-        -- CREATE INDEX n1_index ON Segments(n1);
-        -- CREATE INDEX n2_index ON Segments(n2);
+        CREATE INDEX n1_index ON Segments(n1);
+        CREATE INDEX n2_index ON Segments(n2);
     ",
     )?;
     println!("Tables created");
