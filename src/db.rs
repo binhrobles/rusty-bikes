@@ -24,6 +24,17 @@ struct Node {
     tags: Tags,
 }
 
+impl From<&osm::Element> for Node {
+    fn from(value: &osm::Element) -> Self {
+        Self {
+            id: value.id,
+            lat: value.lat.unwrap(),
+            lon: value.lon.unwrap(),
+            tags: value.tags.clone(),
+        }
+    }
+}
+
 #[derive(Debug, Serialize, Deserialize)]
 struct Way {
     id: WayId,
@@ -32,6 +43,23 @@ struct Way {
     max_lat: f32,
     max_lon: f32,
     tags: Tags,
+}
+
+impl From<&osm::Element> for Way {
+    fn from(value: &osm::Element) -> Self {
+        let Some(bounds) = &value.bounds else {
+            panic!("No bounds present on Way {}", value.id);
+        };
+
+        Self {
+            id: value.id,
+            min_lat: bounds.minlat,
+            max_lat: bounds.maxlat,
+            min_lon: bounds.minlon,
+            max_lon: bounds.maxlon,
+            tags: value.tags.clone(),
+        }
+    }
 }
 
 const DB_PATH: &str = "./db.db3";
@@ -67,7 +95,7 @@ pub fn create_tables() -> Result<(), anyhow::Error> {
             node  integer NOT NULL,
             pos   integer NOT NULL,
             PRIMARY KEY (way, pos),
-            FOREIGN KEY (way) REFERENCES Ways(id)
+            -- FOREIGN KEY (way) REFERENCES Ways(id) -- no FKs to virtual tables
             FOREIGN KEY (node) REFERENCES Nodes(id)
         );
         CREATE INDEX way_index ON WayNodes(way);
@@ -78,7 +106,7 @@ pub fn create_tables() -> Result<(), anyhow::Error> {
             n2  integer NOT NULL,
             way integer NOT NULL,
             PRIMARY KEY (n1, n2, way)
-            FOREIGN KEY (way) REFERENCES Ways(id)
+            -- FOREIGN KEY (way) REFERENCES Ways(id) -- no FKs to virtual tables
             FOREIGN KEY (n1) REFERENCES Nodes(id)
             FOREIGN KEY (n2) REFERENCES Nodes(id)
         );
@@ -89,52 +117,15 @@ pub fn create_tables() -> Result<(), anyhow::Error> {
     )?;
     println!("Tables created");
 
-    let seed = Node {
-        id: 0,
-        lat: 40.5,
-        lon: 70.5,
-        tags: HashMap::from([("highway".to_owned(), "traffic_signals".to_owned())]),
-    };
-
-    conn.execute(
-        "INSERT INTO Nodes (id, lat, lon, tags) VALUES (?1, ?2, ?3, ?4)",
-        (
-            &seed.id,
-            &seed.lat,
-            &seed.lon,
-            serde_json::to_string(&seed.tags).unwrap(),
-        ),
-    )?;
-
-    let seed = Way {
-        id: 0,
-        min_lat: 40.5,
-        min_lon: 70.5,
-        max_lat: 48.5,
-        max_lon: 78.5,
-        tags: HashMap::from([("highway".to_owned(), "traffic_signals".to_owned())]),
-    };
-
-    conn.execute(
-        "INSERT INTO Ways (id, minLat, maxLat, minLon, maxLon, tags) VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
-        (
-            &seed.id,
-            &seed.min_lat,
-            &seed.max_lat,
-            &seed.min_lon,
-            &seed.max_lon,
-            serde_json::to_string(&seed.tags).unwrap(),
-        ),
-    )?;
-
     Ok(())
 }
 
 // TODO: batch insert queries...if they're useful
-/// Insert a Node to the DB, synchronously
-pub fn insert_node(node: osm::Element) -> anyhow::Result<()> {
+/// Insert a OSM-parsed Node element into the DB, synchronously
+pub fn insert_node_element(node: osm::Element) -> anyhow::Result<()> {
     let conn = Connection::open(DB_PATH)?;
 
+    // TODO: prepare_cached statement? or create / return / pass the stmt in from osm?
     conn.execute(
         "INSERT INTO Nodes (id, lat, lon, tags) VALUES (?1, ?2, ?3, ?4)",
         (
@@ -152,25 +143,22 @@ pub fn insert_node(node: osm::Element) -> anyhow::Result<()> {
     Ok(())
 }
 
-/// Insert a Way to the DB, synchronously
-pub fn insert_way(way: osm::Element) -> anyhow::Result<()> {
+/// Insert a OSM-parsed Way element into the DB, synchronously
+pub fn insert_way_element(element: osm::Element) -> anyhow::Result<()> {
     let conn = Connection::open(DB_PATH)?;
-
     conn.pragma_update(None, "foreign_keys", "ON")?;
 
-    let Some(bounds) = &way.bounds else {
-        eprintln!("No bounds present on Way {}", way.id);
-        return Ok(());
-    };
+    let way = Way::from(&element);
 
+    // TODO: prepare_cached statement? or create / return / pass the stmt in from osm?
     conn.execute(
         "INSERT INTO Ways (id, minLat, maxLat, minLon, maxLon, tags) VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
         (
             &way.id,
-            bounds.minlat,
-            bounds.maxlat,
-            bounds.minlon,
-            bounds.maxlon,
+            &way.min_lat,
+            &way.max_lat,
+            &way.min_lon,
+            &way.max_lon,
             serde_json::to_string(&way.tags).unwrap(),
         ),
     ).unwrap_or_else(|e| {
@@ -178,18 +166,55 @@ pub fn insert_way(way: osm::Element) -> anyhow::Result<()> {
         panic!("{e}");
     });
 
-    // TODO: ensure each Node exists in the Node table
+    let mut node_insert_stmt =
+        conn.prepare_cached("INSERT OR IGNORE INTO Nodes (id, lat, lon) VALUES (?1, ?2, ?3)")?;
+    let mut wn_insert_stmt =
+        conn.prepare_cached("INSERT INTO WayNodes (way, node, pos) VALUES (?1, ?2, ?3)")?;
+    let mut segment_insert_stmt =
+        conn.prepare_cached("INSERT INTO Segments (n1, n2, way) VALUES (?1, ?2, ?3)")?;
 
-    let mut stmt = conn.prepare("INSERT INTO WayNodes (way, node, pos) VALUES (?1, ?2, ?3)")?;
-    let nodes = way.nodes.unwrap_or_default();
+    let node_ids = element.nodes.unwrap_or_default();
+    let node_coords = element.geometry.unwrap_or_default();
+    assert!(
+        node_ids.len() == node_coords.len(),
+        "Ways should always have nodes[] and geometry[] of equal length"
+    );
 
-    // walk the Way and insert each Node at position into the WayNodes table
-    for (pos, n) in nodes.iter().enumerate() {
-        let params = (&way.id, n, pos);
-        stmt.execute(params).unwrap_or_else(|e| {
-            eprintln!("Failed Segment: {:#?}", params);
+    let mut prev_n_id: Option<i64> = None;
+
+    // walk the Way's Nodes
+    for (pos, n_id) in node_ids.iter().enumerate() {
+        // ensure each Node exists in Nodes
+        let node_params = (
+            n_id,
+            node_coords.get(pos).unwrap().lat,
+            node_coords.get(pos).unwrap().lon,
+        );
+        node_insert_stmt.execute(node_params).unwrap_or_else(|e| {
+            eprintln!("Failed implied Node: {:#?}", node_params);
             panic!("{e}");
         });
+
+        // insert each Node at position in WayNodes
+        let wn_params = (&way.id, n_id, pos);
+        wn_insert_stmt.execute(wn_params).unwrap_or_else(|e| {
+            eprintln!("Failed WayNode: {:#?}", wn_params);
+            panic!("{e}");
+        });
+
+        // attach this and the previous node as a Segment
+        // TODO: what's the storage<>speed tradeoff for duplicating every Segment?
+        if let Some(prev_n_id) = prev_n_id {
+            let segment_params = (prev_n_id, n_id, &way.id);
+            segment_insert_stmt
+                .execute(segment_params)
+                .unwrap_or_else(|e| {
+                    eprintln!("Failed WayNode: {:#?}", segment_params);
+                    panic!("{e}");
+                });
+        }
+
+        prev_n_id = Some(*n_id);
     }
 
     Ok(())

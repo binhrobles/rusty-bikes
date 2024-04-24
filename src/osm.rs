@@ -80,13 +80,13 @@ where
                 match el.r#type.as_str() {
                     "node" => {
                         // insert to Node table
-                        db::insert_node(el).unwrap();
+                        db::insert_node_element(el).unwrap();
 
                         // can we assume all Nodes will appear before Ways?
                     }
                     "way" => {
                         // insert to Way table
-                        db::insert_way(el).unwrap();
+                        db::insert_way_element(el).unwrap();
 
                         // also walk Nodes and update their adjacency matrices
                         // insert if Node is not present?
