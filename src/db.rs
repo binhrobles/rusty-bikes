@@ -111,6 +111,7 @@ pub fn create_tables() -> Result<(), anyhow::Error> {
             FOREIGN KEY (n2) REFERENCES Nodes(id)
         );
 
+        -- see https://www.sqlite.org/queryplanner.html#or_in_where
         CREATE INDEX n1_index ON Segments(n1);
         CREATE INDEX n2_index ON Segments(n2);
     ",

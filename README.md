@@ -102,5 +102,19 @@ way integer NOT NULL, FK to WayIndex
 PRIMARY KEY (n1, n2, wayId)
 ```
 
+A primitive first run, with non-duplicated Segments, on `../osm-data/nyc_bk_highways_no_footways.geom.json` results in:
+```
+sqlite> select count(*) from Nodes;
+98982
+
+sqlite> select count(*) from Ways;
+18784
+
+sqlite> select count(*) from WayNodes;
+128992
+
+sqlite> select count(*) from Segments;
+110208
+```
+
 ### Future things to consider
-- run sql operations on a [dedicated thread](https://ryhl.io/blog/async-what-is-blocking/)? does that gain anything for me?
