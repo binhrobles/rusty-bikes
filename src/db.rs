@@ -65,9 +65,10 @@ pub fn create_tables() -> Result<(), anyhow::Error> {
         CREATE TABLE WayNodes (
             way   integer NOT NULL,
             node  integer NOT NULL,
-            idx   integer NOT NULL,
-            PRIMARY KEY (way, idx)
+            pos   integer NOT NULL,
+            PRIMARY KEY (way, pos)
         );
+        CREATE INDEX way_index ON WayNodes(way);
 
         DROP TABLE IF EXISTS Segments;
         CREATE TABLE Segments (
@@ -76,6 +77,11 @@ pub fn create_tables() -> Result<(), anyhow::Error> {
             way integer NOT NULL,
             PRIMARY KEY (n1, n2, way)
         );
+
+        -- TODO: multicolumn or two indexes? to best support OR
+        -- CREATE INDEX either_node_index ON Segments(n1, n2);
+        -- CREATE INDEX n1_index ON Segments(n1);
+        -- CREATE INDEX n2_index ON Segments(n2);
     ",
     )?;
     println!("Tables created");
@@ -147,12 +153,10 @@ pub fn insert_node(node: osm::Element) -> anyhow::Result<()> {
 pub fn insert_way(way: osm::Element) -> anyhow::Result<()> {
     let conn = Connection::open(DB_PATH)?;
 
-    let Some(bounds) = way.bounds else {
+    let Some(bounds) = &way.bounds else {
         eprintln!("No bounds present on Way {}", way.id);
         return Ok(());
     };
-
-    let nodes = way.nodes.unwrap_or_default();
 
     conn.execute(
         "INSERT INTO Ways (id, minLat, maxLat, minLon, maxLon, tags) VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
@@ -165,18 +169,35 @@ pub fn insert_way(way: osm::Element) -> anyhow::Result<()> {
             serde_json::to_string(&way.tags).unwrap(),
         ),
     ).unwrap_or_else(|e| {
-        eprintln!("Failed Way: {}", way.id); 
+        eprintln!("Failed Way: {:#?}", way); 
         panic!("{e}");
     });
+
+    let mut stmt = conn.prepare("INSERT INTO WayNodes (way, node, pos) VALUES (?1, ?2, ?3)")?;
+
+    let nodes = way.nodes.unwrap_or_default();
+    for (pos, n) in nodes.iter().enumerate() {
+        let params = (&way.id, n, pos);
+        stmt.execute(params)
+            .unwrap_or_else(|e| {
+                eprintln!("Failed Segment: {:#?}", params); 
+                panic!("{e}");
+            });
+    }
 
     Ok(())
 }
 
+/// given a NodeId, gets the neighbors from the Segments table
+/// returns a Vec of NodeId-WayId pairs, or the Node neighbor + the Way that connects them
 pub fn get_neighbors(id: NodeId) -> Result<Vec<Neighbor>, anyhow::Error> {
     let conn = Connection::open(DB_PATH)?;
 
     let mut stmt = conn.prepare("SELECT n1, n2, way FROM Segments WHERE n1 = ?1 OR n2 = ?1")?;
     let result = stmt.query_map([id], |row| {
+        // since we only store each relation once, we need to query both n1 and n2
+        // here, return the "other" nodeId
+        // TODO: what's the storage<>speed tradeoff for duplicating every Segment?
         let n1: NodeId = row.get(0)?;
         let node = if n1 != id { n1 } else { row.get(1)? };
         let way: WayId = row.get(2)?;

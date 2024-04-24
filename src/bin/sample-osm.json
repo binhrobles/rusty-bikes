@@ -16,6 +16,15 @@
                 }
             },
             {
+                "type": "node",
+                "id": 42826843,
+                "lat": 40.7524399,
+                "lon": -73.9509023,
+                "tags": {
+                    "highway": "traffic_signals"
+                }
+            },
+            {
                 "type": "way",
                 "id": 1271806812,
                 "bounds": {

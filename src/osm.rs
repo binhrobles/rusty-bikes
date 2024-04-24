@@ -23,8 +23,7 @@ pub struct Geometry {
 
 #[derive(std::fmt::Debug, Deserialize)]
 pub struct Element {
-    #[serde(deserialize_with = "deserialize_string_from_int")]
-    pub id: String,
+    pub id: i64,
     pub r#type: String,
     pub tags: HashMap<String, String>,
 
@@ -34,8 +33,7 @@ pub struct Element {
 
     // Way
     pub bounds: Option<Bounds>,
-    #[serde(default, deserialize_with = "deserialize_strings_from_int_array")]
-    pub nodes: Option<Vec<String>>,
+    pub nodes: Option<Vec<i64>>,
     pub geometry: Option<Vec<Geometry>>,
 }
 
@@ -47,30 +45,6 @@ pub struct Output {
     // from a JSON field called `elements`.
     #[serde(rename(deserialize = "elements"))]
     pub num_rows: u128,
-}
-
-/// Casts an int to a String during deserialization
-fn deserialize_string_from_int<'de, D>(deserializer: D) -> Result<String, D::Error>
-where
-    D: Deserializer<'de>,
-{
-    Ok(u128::deserialize(deserializer)?.to_string())
-}
-
-/// Casts an array of ints to an array of Strings during deserialization
-fn deserialize_strings_from_int_array<'de, D>(
-    deserializer: D,
-) -> Result<Option<Vec<String>>, D::Error>
-where
-    D: Deserializer<'de>,
-{
-    let t: Option<Vec<u128>> = Option::deserialize(deserializer)?;
-    if let Some(t) = t {
-        let strings: Vec<String> = t.iter().map(|u| u.to_string()).collect();
-        return Ok(Some(strings));
-    }
-
-    Ok(None)
 }
 
 /// Deserialize the OSM JSON elements into SQLite. The entire OSM file
