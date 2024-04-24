@@ -7,7 +7,6 @@ use crate::osm;
 type NodeId = i64;
 type WayId = i64;
 type Neighbor = (NodeId, WayId);
-
 // TODO: enum?
 type TagKey = String;
 type TagValue = String;
@@ -41,6 +40,7 @@ const DB_PATH: &str = "./db.db3";
 pub fn create_tables() -> Result<(), anyhow::Error> {
     let conn = Connection::open(DB_PATH)?;
 
+    conn.pragma_update(None, "foreign_keys", "ON")?;
     conn.execute_batch(
         "
         DROP TABLE IF EXISTS Nodes;
@@ -66,7 +66,9 @@ pub fn create_tables() -> Result<(), anyhow::Error> {
             way   integer NOT NULL,
             node  integer NOT NULL,
             pos   integer NOT NULL,
-            PRIMARY KEY (way, pos)
+            PRIMARY KEY (way, pos),
+            FOREIGN KEY (way) REFERENCES Ways(id)
+            FOREIGN KEY (node) REFERENCES Nodes(id)
         );
         CREATE INDEX way_index ON WayNodes(way);
 
@@ -78,8 +80,6 @@ pub fn create_tables() -> Result<(), anyhow::Error> {
             PRIMARY KEY (n1, n2, way)
         );
 
-        -- TODO: multicolumn or two indexes? to best support OR
-        -- CREATE INDEX either_node_index ON Segments(n1, n2);
         -- CREATE INDEX n1_index ON Segments(n1);
         -- CREATE INDEX n2_index ON Segments(n2);
     ",
@@ -153,6 +153,8 @@ pub fn insert_node(node: osm::Element) -> anyhow::Result<()> {
 pub fn insert_way(way: osm::Element) -> anyhow::Result<()> {
     let conn = Connection::open(DB_PATH)?;
 
+    conn.pragma_update(None, "foreign_keys", "ON")?;
+
     let Some(bounds) = &way.bounds else {
         eprintln!("No bounds present on Way {}", way.id);
         return Ok(());
@@ -173,9 +175,12 @@ pub fn insert_way(way: osm::Element) -> anyhow::Result<()> {
         panic!("{e}");
     });
 
-    let mut stmt = conn.prepare("INSERT INTO WayNodes (way, node, pos) VALUES (?1, ?2, ?3)")?;
+    // TODO: ensure each Node exists in the Node table
 
+    let mut stmt = conn.prepare("INSERT INTO WayNodes (way, node, pos) VALUES (?1, ?2, ?3)")?;
     let nodes = way.nodes.unwrap_or_default();
+
+    // walk the Way and insert each Node at position into the WayNodes table
     for (pos, n) in nodes.iter().enumerate() {
         let params = (&way.id, n, pos);
         stmt.execute(params).unwrap_or_else(|e| {
