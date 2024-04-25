@@ -17,6 +17,12 @@ type TagValue = String;
 // here: https://docs.rs/rusqlite/0.31.0/src/rusqlite/types/serde_json.rs.html#17-29
 type Tags = HashMap<TagKey, TagValue>;
 
+#[derive(Debug)]
+pub struct Location {
+    pub lat: f32,
+    pub lon: f32,
+}
+
 #[derive(Debug, Serialize, Deserialize)]
 struct Node {
     id: NodeId,
