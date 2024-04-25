@@ -1,21 +1,11 @@
 use rusqlite::{Connection, Transaction};
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
 
 use crate::osm;
 
 type NodeId = i64;
 type WayId = i64;
 type Neighbor = (NodeId, WayId);
-
-// TODO: enum?
-type TagKey = String;
-type TagValue = String;
-
-// just using serde_json to/from_str before/after sqlite calls
-// which is essentially what's happening in the JSON From/ToSql implementations
-// here: https://docs.rs/rusqlite/0.31.0/src/rusqlite/types/serde_json.rs.html#17-29
-type Tags = HashMap<TagKey, TagValue>;
 
 #[derive(Debug)]
 pub struct Location {
@@ -31,11 +21,10 @@ impl Location {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
-struct Node {
-    id: NodeId,
-    lat: f32,
-    lon: f32,
-    tags: Tags,
+pub struct Node {
+    pub id: NodeId,
+    pub lat: f32,
+    pub lon: f32,
 }
 
 impl From<&osm::Element> for Node {
@@ -44,19 +33,17 @@ impl From<&osm::Element> for Node {
             id: value.id,
             lat: value.lat.unwrap(),
             lon: value.lon.unwrap(),
-            tags: value.tags.clone(),
         }
     }
 }
 
 #[derive(Debug, Serialize, Deserialize)]
-struct Way {
-    id: WayId,
-    min_lat: f32,
-    min_lon: f32,
-    max_lat: f32,
-    max_lon: f32,
-    tags: Tags,
+pub struct Way {
+    pub id: WayId,
+    pub min_lat: f32,
+    pub max_lat: f32,
+    pub min_lon: f32,
+    pub max_lon: f32,
 }
 
 impl From<&osm::Element> for Way {
@@ -71,7 +58,6 @@ impl From<&osm::Element> for Way {
             max_lat: bounds.maxlat,
             min_lon: bounds.minlon,
             max_lon: bounds.maxlon,
-            tags: value.tags.clone(),
         }
     }
 }
@@ -154,18 +140,18 @@ pub fn init_tables(conn: &Connection) -> Result<(), anyhow::Error> {
 }
 
 /// Insert a OSM-parsed Node element into the DB, synchronously
-pub fn insert_node_element(tx: &Transaction, node: osm::Element) -> anyhow::Result<()> {
+pub fn insert_node_element(tx: &Transaction, element: osm::Element) -> anyhow::Result<()> {
     let mut stmt = tx.prepare_cached("INSERT INTO Nodes (id, lat, lon) VALUES (?1, ?2, ?3)")?;
-    stmt.execute((&node.id, &node.lat, &node.lon))
+    stmt.execute((&element.id, &element.lat, &element.lon))
         .unwrap_or_else(|e| {
-            eprintln!("Failed Node:\n{:#?}", node);
+            eprintln!("Failed Node:\n{:#?}", element);
             panic!("{e}");
         });
 
     let mut stmt =
         tx.prepare_cached("INSERT INTO NodeTags (id, key, value) VALUES (?1, ?2, ?3)")?;
-    for (key, value) in &node.tags {
-        let params = (&node.id, &key, &value);
+    for (key, value) in &element.tags {
+        let params = (&element.id, &key, &value);
         stmt.execute(params).unwrap_or_else(|e| {
             eprintln!("Failed NodeTag:\n{:#?}", params);
             panic!("{e}");
@@ -179,7 +165,9 @@ pub fn insert_node_element(tx: &Transaction, node: osm::Element) -> anyhow::Resu
 pub fn insert_way_element(tx: &Transaction, element: osm::Element) -> anyhow::Result<()> {
     let way = Way::from(&element);
 
-    let mut way_insert_stmt = tx.prepare_cached("INSERT INTO Ways (id, minLat, maxLat, minLon, maxLon) VALUES (?1, ?2, ?3, ?4, ?5)")?;
+    let mut way_insert_stmt = tx.prepare_cached(
+        "INSERT INTO Ways (id, minLat, maxLat, minLon, maxLon) VALUES (?1, ?2, ?3, ?4, ?5)",
+    )?;
     way_insert_stmt
         .execute((
             &way.id,
@@ -193,9 +181,8 @@ pub fn insert_way_element(tx: &Transaction, element: osm::Element) -> anyhow::Re
             panic!("{e}");
         });
 
-    let mut stmt =
-        tx.prepare_cached("INSERT INTO WayTags (id, key, value) VALUES (?1, ?2, ?3)")?;
-    for (key, value) in &way.tags {
+    let mut stmt = tx.prepare_cached("INSERT INTO WayTags (id, key, value) VALUES (?1, ?2, ?3)")?;
+    for (key, value) in &element.tags {
         let params = (&way.id, &key, &value);
         stmt.execute(params).unwrap_or_else(|e| {
             eprintln!("Failed WayTag:\n{:#?}", params);
@@ -270,6 +257,30 @@ pub fn insert_way_element(tx: &Transaction, element: osm::Element) -> anyhow::Re
     }
 
     Ok(())
+}
+
+pub fn find_bounding_ways(
+    conn: &Connection,
+    location: Location,
+) -> Result<Vec<Way>, anyhow::Error> {
+    let mut stmt = conn.prepare_cached(
+        "SELECT id, minLat, maxLat, minLon, maxLon FROM Ways
+         WHERE minLat <= ?1
+           AND maxLat >= ?2
+           AND minLon <= ?1
+           AND maxLon >= ?2",
+    )?;
+    let result = stmt.query_map([location.lat, location.lon], |row|
+        Ok(Way {
+            id: row.get(0)?,
+            min_lat: row.get(1)?,
+            max_lat: row.get(2)?,
+            min_lon: row.get(3)?,
+            max_lon: row.get(4)?,
+        })
+    )?;
+
+    Ok(result.map(|r| r.unwrap()).collect())
 }
 
 /// given a NodeId, gets the neighbors from the Segments table
