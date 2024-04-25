@@ -23,6 +23,13 @@ pub struct Location {
     pub lon: f32,
 }
 
+impl Location {
+    /// get the distance b/w two locations, in cartesian units
+    fn distance(&self, loc: Location) -> f32 {
+        ((loc.lat - self.lat).powi(2) + (loc.lon - self.lon).powi(2)).sqrt()
+    }
+}
+
 #[derive(Debug, Serialize, Deserialize)]
 struct Node {
     id: NodeId,
