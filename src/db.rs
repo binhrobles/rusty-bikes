@@ -7,6 +7,7 @@ use crate::osm;
 type NodeId = i64;
 type WayId = i64;
 type Neighbor = (NodeId, WayId);
+
 // TODO: enum?
 type TagKey = String;
 type TagValue = String;
@@ -72,19 +73,21 @@ pub fn get_conn() -> anyhow::Result<Connection> {
 }
 
 /// initializes a sqlite database at DATABASE_URL with the requisite tables
-pub fn create_tables(conn: &Connection) -> Result<(), anyhow::Error> {
+pub fn init_tables(conn: &Connection) -> Result<(), anyhow::Error> {
+    // note that no foreign key relationships are allowed to virtual tables
     conn.execute_batch(
         "
         DROP TABLE IF EXISTS Segments;
         DROP TABLE IF EXISTS WayNodes;
+        DROP TABLE IF EXISTS NodeTags;
+        DROP TABLE IF EXISTS WayTags;
         DROP TABLE IF EXISTS Nodes;
         DROP TABLE IF EXISTS Ways;
 
         CREATE TABLE Nodes (
             id INTEGER PRIMARY KEY,
             lat REAL NOT NULL,
-            lon REAL NOT NULL,
-            tags TEXT
+            lon REAL NOT NULL
         );
 
         CREATE VIRTUAL TABLE Ways USING rtree(
@@ -92,8 +95,7 @@ pub fn create_tables(conn: &Connection) -> Result<(), anyhow::Error> {
             minLat,
             maxLat,
             minLon,
-            maxLon,
-            +tags TEXT
+            maxLon
         );
 
         CREATE TABLE WayNodes (
@@ -101,7 +103,6 @@ pub fn create_tables(conn: &Connection) -> Result<(), anyhow::Error> {
             node  integer NOT NULL,
             pos   integer NOT NULL,
             PRIMARY KEY (way, pos),
-            -- FOREIGN KEY (way) REFERENCES Ways(id) -- no FKs to virtual tables
             FOREIGN KEY (node) REFERENCES Nodes(id)
         );
         CREATE INDEX way_index ON WayNodes(way);
@@ -110,13 +111,28 @@ pub fn create_tables(conn: &Connection) -> Result<(), anyhow::Error> {
             n1  integer NOT NULL,
             n2  integer NOT NULL,
             way integer NOT NULL,
-            PRIMARY KEY (n1, n2, way)
-            -- FOREIGN KEY (way) REFERENCES Ways(id) -- no FKs to virtual tables
-            FOREIGN KEY (n1) REFERENCES Nodes(id)
+            PRIMARY KEY (n1, n2, way),
+            FOREIGN KEY (n1) REFERENCES Nodes(id),
             FOREIGN KEY (n2) REFERENCES Nodes(id)
         );
-
         CREATE INDEX n1_index ON Segments(n1);
+
+        CREATE TABLE NodeTags (
+            id  integer NOT NULL,
+            key TEXT NOT NULL,
+            value TEXT NOT NULL,
+            PRIMARY KEY (id, key),
+            FOREIGN KEY (id) REFERENCES Nodes(id)
+        );
+        CREATE INDEX node_tag_index ON NodeTags(id);
+
+        CREATE TABLE WayTags (
+            id  integer NOT NULL,
+            key TEXT NOT NULL,
+            value TEXT NOT NULL,
+            PRIMARY KEY (id, key)
+        );
+        CREATE INDEX way_tag_index ON WayTags(id);
     ",
     )?;
     println!("Tables created");
@@ -124,21 +140,24 @@ pub fn create_tables(conn: &Connection) -> Result<(), anyhow::Error> {
     Ok(())
 }
 
-// TODO: batch insert queries...if they're useful
 /// Insert a OSM-parsed Node element into the DB, synchronously
 pub fn insert_node_element(tx: &Transaction, node: osm::Element) -> anyhow::Result<()> {
+    let mut stmt = tx.prepare_cached("INSERT INTO Nodes (id, lat, lon) VALUES (?1, ?2, ?3)")?;
+    stmt.execute((&node.id, &node.lat, &node.lon))
+        .unwrap_or_else(|e| {
+            eprintln!("Failed Node:\n{:#?}", node);
+            panic!("{e}");
+        });
+
     let mut stmt =
-        tx.prepare_cached("INSERT INTO Nodes (id, lat, lon, tags) VALUES (?1, ?2, ?3, ?4)")?;
-    stmt.execute((
-        &node.id,
-        &node.lat,
-        &node.lon,
-        serde_json::to_string(&node.tags).unwrap(),
-    ))
-    .unwrap_or_else(|e| {
-        eprintln!("Failed Node:\n{:#?}", node);
-        panic!("{e}");
-    });
+        tx.prepare_cached("INSERT INTO NodeTags (id, key, value) VALUES (?1, ?2, ?3)")?;
+    for (key, value) in &node.tags {
+        let params = (&node.id, &key, &value);
+        stmt.execute(params).unwrap_or_else(|e| {
+            eprintln!("Failed NodeTag:\n{:#?}", params);
+            panic!("{e}");
+        });
+    }
 
     Ok(())
 }
@@ -147,7 +166,7 @@ pub fn insert_node_element(tx: &Transaction, node: osm::Element) -> anyhow::Resu
 pub fn insert_way_element(tx: &Transaction, element: osm::Element) -> anyhow::Result<()> {
     let way = Way::from(&element);
 
-    let mut way_insert_stmt = tx.prepare_cached("INSERT INTO Ways (id, minLat, maxLat, minLon, maxLon, tags) VALUES (?1, ?2, ?3, ?4, ?5, ?6)")?;
+    let mut way_insert_stmt = tx.prepare_cached("INSERT INTO Ways (id, minLat, maxLat, minLon, maxLon) VALUES (?1, ?2, ?3, ?4, ?5)")?;
     way_insert_stmt
         .execute((
             &way.id,
@@ -155,12 +174,21 @@ pub fn insert_way_element(tx: &Transaction, element: osm::Element) -> anyhow::Re
             &way.max_lat,
             &way.min_lon,
             &way.max_lon,
-            serde_json::to_string(&way.tags).unwrap(),
         ))
         .unwrap_or_else(|e| {
             eprintln!("Failed Way: {:#?}", way);
             panic!("{e}");
         });
+
+    let mut stmt =
+        tx.prepare_cached("INSERT INTO WayTags (id, key, value) VALUES (?1, ?2, ?3)")?;
+    for (key, value) in &way.tags {
+        let params = (&way.id, &key, &value);
+        stmt.execute(params).unwrap_or_else(|e| {
+            eprintln!("Failed WayTag:\n{:#?}", params);
+            panic!("{e}");
+        });
+    }
 
     let mut node_insert_stmt =
         tx.prepare_cached("INSERT OR IGNORE INTO Nodes (id, lat, lon) VALUES (?1, ?2, ?3)")?;

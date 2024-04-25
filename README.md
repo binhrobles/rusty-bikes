@@ -92,7 +92,7 @@ idx  (0..n to indicate position on path)
 PRIMARY KEY (wayId, position)
 
 
-Edges
+Segments (Edges)
 -- b/w Nodes
 -- every n1 <> n2 relationship is duplicated, so we only
 -- need to search on n1
@@ -101,6 +101,13 @@ n1   FK to Node, indexed
 n2   FK to Node
 way
 PRIMARY KEY (n1, n2, wayId)
+
+Tags (one for Nodes, one for Ways, because of possibly colliding IDs)
+---
+id
+key
+value
+PRIMARY KEY (id, key)
 ```
 
 A primitive first run, with non-duplicated Segments, on `../osm-data/nyc_bk_highways_no_footways.geom.json` results in:
@@ -120,14 +127,25 @@ sqlite> select count(*) from Segments;
 110208
 ```
 
-A second run, with duplicated Segments, on `../osm-data/nyc_bk_highways_no_footways.geom.json` results in:
+A second run, with duplicated Segments:
 ```
 32M db.db3
 
 sqlite> select count(*) from Segments;
 220416
 ```
-
 So doubling up on Segments results in a 6MB (~25% bigger) DB file. I accept that non-sacrifice in the name of having a simpler Segment query, since I'll need to make that query hundreds of times every route.
+
+A third run, with separate Tags tables:
+```
+44M db.db3
+
+sqlite> select count(*) from NodeTags;
+83197
+
+sqlite> select count(*) from WayTags;
+173213
+```
+Balloons up the file size quite a bit, but potentially worth it to avoid needing to deserialize tags out of a TEXT column every time we calculate Way cost.
 
 ### Future things to consider
