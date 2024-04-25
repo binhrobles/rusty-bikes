@@ -46,11 +46,11 @@ which gives us all relevant [Way](https://wiki.openstreetmap.org/wiki/Way)'s tag
 To support an efficient A\* implementation:
 
 - Looking up Node neighbors must be as fast as possible
-  - add adjacency matrix to Node table
+  - adjacency matrix lookup should be quick
 - Costs must be calculated quickly
-  - Way tags should be quickly available (_future: bring up to top level as columns?_)
+  - Way tags should be quickly available
     - ie: highway, bicycle, oneway, height, cycleway?, ...
-  - _future: add Edges as another table, to make distance calculations O(1) lookups?_
+  - _future: add distance calculation to Segments table?_
 - We must be able to locate the Way that is closest to our start / end points
   - Enable R\*Tree support on Ways, easily done due to their min/max coords
   - Given a way and a coordinate, where along the Way is this coordinate?
@@ -64,9 +64,6 @@ Node
 id
 lat
 lon
-tags: {
-	{key}: value
-}
 
 
 WayIndex (R*Tree index)
@@ -76,9 +73,6 @@ minLat
 minLon
 maxLat
 maxLon
-tags: {
-	{key}: value
-}
 
 
 WayNodePositions

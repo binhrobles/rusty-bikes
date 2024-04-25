@@ -227,6 +227,10 @@ pub fn insert_way_element(tx: &Transaction, element: osm::Element) -> anyhow::Re
         });
 
         // attach this and the previous node as Segments
+        // TODO: supplement this with a distance calculation?
+        //       can we just do bird's eye here?
+        //       curves seem to be heavily node-d:
+        //       https://www.openstreetmap.org/way/495991868
         if let Some(prev_n_id) = prev_n_id {
             let segment_params = (prev_n_id, n_id, &way.id);
             segment_insert_stmt
