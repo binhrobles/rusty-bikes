@@ -116,9 +116,7 @@ pub fn create_tables(conn: &Connection) -> Result<(), anyhow::Error> {
             FOREIGN KEY (n2) REFERENCES Nodes(id)
         );
 
-        -- see https://www.sqlite.org/queryplanner.html#or_in_where
         CREATE INDEX n1_index ON Segments(n1);
-        CREATE INDEX n2_index ON Segments(n2);
     ",
     )?;
     println!("Tables created");
@@ -129,15 +127,14 @@ pub fn create_tables(conn: &Connection) -> Result<(), anyhow::Error> {
 // TODO: batch insert queries...if they're useful
 /// Insert a OSM-parsed Node element into the DB, synchronously
 pub fn insert_node_element(tx: &Transaction, node: osm::Element) -> anyhow::Result<()> {
-    let mut stmt = tx.prepare_cached("INSERT INTO Nodes (id, lat, lon, tags) VALUES (?1, ?2, ?3, ?4)")?;
-    stmt.execute(
-        (
-            &node.id,
-            &node.lat,
-            &node.lon,
-            serde_json::to_string(&node.tags).unwrap(),
-        ),
-    )
+    let mut stmt =
+        tx.prepare_cached("INSERT INTO Nodes (id, lat, lon, tags) VALUES (?1, ?2, ?3, ?4)")?;
+    stmt.execute((
+        &node.id,
+        &node.lat,
+        &node.lon,
+        serde_json::to_string(&node.tags).unwrap(),
+    ))
     .unwrap_or_else(|e| {
         eprintln!("Failed Node:\n{:#?}", node);
         panic!("{e}");
@@ -151,19 +148,19 @@ pub fn insert_way_element(tx: &Transaction, element: osm::Element) -> anyhow::Re
     let way = Way::from(&element);
 
     let mut way_insert_stmt = tx.prepare_cached("INSERT INTO Ways (id, minLat, maxLat, minLon, maxLon, tags) VALUES (?1, ?2, ?3, ?4, ?5, ?6)")?;
-    way_insert_stmt.execute(
-        (
+    way_insert_stmt
+        .execute((
             &way.id,
             &way.min_lat,
             &way.max_lat,
             &way.min_lon,
             &way.max_lon,
             serde_json::to_string(&way.tags).unwrap(),
-        ),
-    ).unwrap_or_else(|e| {
-        eprintln!("Failed Way: {:#?}", way); 
-        panic!("{e}");
-    });
+        ))
+        .unwrap_or_else(|e| {
+            eprintln!("Failed Way: {:#?}", way);
+            panic!("{e}");
+        });
 
     let mut node_insert_stmt =
         tx.prepare_cached("INSERT OR IGNORE INTO Nodes (id, lat, lon) VALUES (?1, ?2, ?3)")?;
@@ -201,10 +198,21 @@ pub fn insert_way_element(tx: &Transaction, element: osm::Element) -> anyhow::Re
             panic!("{e}");
         });
 
-        // attach this and the previous node as a Segment
-        // TODO: what's the storage<>speed tradeoff for duplicating every Segment?
+        // attach this and the previous node as Segments
         if let Some(prev_n_id) = prev_n_id {
             let segment_params = (prev_n_id, n_id, &way.id);
+            segment_insert_stmt
+                .execute(segment_params)
+                .unwrap_or_else(|e| {
+                    eprintln!("Failed WayNode: {:#?}", segment_params);
+                    panic!("{e}");
+                });
+
+            // also insert the inverse segment
+            // so that we only have to query on n1
+            // also because n1/n2 have no signifance wrt
+            // cardinal directions or anything
+            let segment_params = (n_id, prev_n_id, &way.id);
             segment_insert_stmt
                 .execute(segment_params)
                 .unwrap_or_else(|e| {
@@ -222,17 +230,8 @@ pub fn insert_way_element(tx: &Transaction, element: osm::Element) -> anyhow::Re
 /// given a NodeId, gets the neighbors from the Segments table
 /// returns a Vec of NodeId-WayId pairs, or the Node neighbor + the Way that connects them
 pub fn get_neighbors(conn: &Connection, id: NodeId) -> Result<Vec<Neighbor>, anyhow::Error> {
-    let mut stmt = conn.prepare_cached("SELECT n1, n2, way FROM Segments WHERE n1 = ?1 OR n2 = ?1")?;
-    let result = stmt.query_map([id], |row| {
-        // since we only store each relation once, we need to query both n1 and n2
-        // here, return the "other" nodeId
-        // TODO: what's the storage<>speed tradeoff for duplicating every Segment?
-        let n1: NodeId = row.get(0)?;
-        let node = if n1 != id { n1 } else { row.get(1)? };
-        let way: WayId = row.get(2)?;
-
-        Ok((node, way))
-    })?;
+    let mut stmt = conn.prepare_cached("SELECT n2, way FROM Segments WHERE n1 = ?1")?;
+    let result = stmt.query_map([id], |row| Ok((row.get(0)?, row.get(1)?)))?;
 
     Ok(result.map(|r| r.unwrap()).collect())
 }

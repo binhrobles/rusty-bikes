@@ -55,7 +55,8 @@ To support an efficient A\* implementation:
   - Enable R\*Tree support on Ways, easily done due to their min/max coords
   - Given a way and a coordinate, where along the Way is this coordinate?
 
-This results in a SQLite schema of:
+### DB Considerations
+Those considerations point us to a SQLite schema of:
 
 ```
 Node
@@ -85,25 +86,27 @@ WayNodePositions
 -- first class FK relationships to WayIndex, Node
 -- in-SQL Way -> Node -> locations queries
 ---
-way  integer NOT NULL,  FK to WayIndex, indexed
-node integer NOT NULL,  FK to Node
-idx  integer NOT NULL,  (0..n to indicate position on path)
+way  indexed
+node FK to Node
+idx  (0..n to indicate position on path)
 PRIMARY KEY (wayId, position)
 
 
 Edges
 -- b/w Nodes
--- store n1 < n2 always, and avoid dupes
--- query will need to search for n1 OR n2 = id
+-- every n1 <> n2 relationship is duplicated, so we only
+-- need to search on n1
 ---
-n1 integer NOT NULL,    FK to Node, indexed
-n2 integer NOT NULL,    FK to Node, indexed
-way integer NOT NULL, FK to WayIndex
+n1   FK to Node, indexed
+n2   FK to Node
+way
 PRIMARY KEY (n1, n2, wayId)
 ```
 
 A primitive first run, with non-duplicated Segments, on `../osm-data/nyc_bk_highways_no_footways.geom.json` results in:
 ```
+26M db.db3
+
 sqlite> select count(*) from Nodes;
 98982
 
@@ -116,5 +119,15 @@ sqlite> select count(*) from WayNodes;
 sqlite> select count(*) from Segments;
 110208
 ```
+
+A second run, with duplicated Segments, on `../osm-data/nyc_bk_highways_no_footways.geom.json` results in:
+```
+32M db.db3
+
+sqlite> select count(*) from Segments;
+220416
+```
+
+So doubling up on Segments results in a 6MB (~25% bigger) DB file. I accept that non-sacrifice in the name of having a simpler Segment query, since I'll need to make that query hundreds of times every route.
 
 ### Future things to consider
