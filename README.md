@@ -6,17 +6,21 @@ Implementing [OpenRouteService's Direction API](https://giscience.github.io/open
 
 Used w/ my [ORS map client fork](https://github.com/binhrobles/ors-map-client-rusty-fork)
 
-### Usage
+### Requirements
+- A JSON OSM export for the area you want to serve (see [OSM Data](#osm-data) for an example query)
+
+### Bootstrapping
 
 ```bash
+# init the db
+cargo run --bin init-db
+cargo run --bin populate-db ./path/to/your/osm/json
+
 # host it at localhost:3000
 cargo run --bin rusty_router
 
 # enable request/response tracing
 RUST_LOG=tower_http=trace cargo run --bin rusty_router
-
-# init the db
-cargo run --bin init_db
 ```
 
 ## How it's happening
