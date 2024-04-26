@@ -13,6 +13,8 @@ use tower_http::{
     trace::TraceLayer,
 };
 
+use rusty_router::osm::{Graph, Location};
+
 #[tokio::main]
 async fn main() {
     dotenv().expect(".env file not found");
@@ -36,6 +38,7 @@ async fn main() {
 
     // run app w/ hyper, bind to 3000
     let listener = tokio::net::TcpListener::bind("0.0.0.0:3000").await.unwrap();
+
     println!("listening on 3000...");
     axum::serve(listener, app).await.unwrap();
 }
@@ -70,6 +73,15 @@ async fn directions_handler(
         Some(_) => "./static_responses/multi_bushwick_greenpoint.geojson",
         None => "./static_responses/single_bushwick_greenpoint.geojson",
     };
+
+    let (lon, lat) = (payload.coordinates[0][0], payload.coordinates[0][1]);
+    println!("starting position (lat, lon): ({lat}, {lon})");
+
+    let graph = Graph::new().unwrap();
+    let neighbors = graph
+        .guess_neighbors(Location { lat, lon })
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    println!("main:: found neighbors: {neighbors:#?}");
 
     fs::read_to_string(response_file)
         .await

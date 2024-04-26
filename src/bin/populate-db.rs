@@ -3,7 +3,7 @@ use std::fs::File;
 use std::io::BufReader;
 use std::process;
 
-use rusty_router::osm;
+use rusty_router::osm::etl::Output;
 
 // ../osm-data/nyc_bk_highways_no_footways.geom.json
 // ./src/bin/sample-osm.json
@@ -19,6 +19,6 @@ fn main() {
     let file = File::open(filename).unwrap();
     let reader = BufReader::new(file);
 
-    let out: osm::Output = serde_json::from_reader(reader).unwrap();
+    let out: Output = serde_json::from_reader(reader).unwrap();
     println!("out: {:?}", out);
 }

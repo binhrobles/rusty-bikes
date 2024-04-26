@@ -1,66 +1,7 @@
+/// Governs interface w/ underlying SQLite db
 use rusqlite::{Connection, Transaction};
-use serde::{Deserialize, Serialize};
 
-use crate::osm;
-
-type NodeId = i64;
-type WayId = i64;
-type Neighbor = (NodeId, WayId);
-
-#[derive(Debug)]
-pub struct Location {
-    pub lat: f32,
-    pub lon: f32,
-}
-
-impl Location {
-    /// get the distance b/w two locations, in cartesian units
-    fn distance(&self, loc: Location) -> f32 {
-        ((loc.lat - self.lat).powi(2) + (loc.lon - self.lon).powi(2)).sqrt()
-    }
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-pub struct Node {
-    pub id: NodeId,
-    pub lat: f32,
-    pub lon: f32,
-}
-
-impl From<&osm::Element> for Node {
-    fn from(value: &osm::Element) -> Self {
-        Self {
-            id: value.id,
-            lat: value.lat.unwrap(),
-            lon: value.lon.unwrap(),
-        }
-    }
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-pub struct Way {
-    pub id: WayId,
-    pub min_lat: f32,
-    pub max_lat: f32,
-    pub min_lon: f32,
-    pub max_lon: f32,
-}
-
-impl From<&osm::Element> for Way {
-    fn from(value: &osm::Element) -> Self {
-        let Some(bounds) = &value.bounds else {
-            panic!("No bounds present on Way {}", value.id);
-        };
-
-        Self {
-            id: value.id,
-            min_lat: bounds.minlat,
-            max_lat: bounds.maxlat,
-            min_lon: bounds.minlon,
-            max_lon: bounds.maxlon,
-        }
-    }
-}
+use crate::osm::{etl::Element, Way};
 
 const DB_PATH: &str = "./db.db3";
 
@@ -140,7 +81,7 @@ pub fn init_tables(conn: &Connection) -> Result<(), anyhow::Error> {
 }
 
 /// Insert a OSM-parsed Node element into the DB, synchronously
-pub fn insert_node_element(tx: &Transaction, element: osm::Element) -> anyhow::Result<()> {
+pub fn insert_node_element(tx: &Transaction, element: Element) -> anyhow::Result<()> {
     let mut stmt = tx.prepare_cached("INSERT INTO Nodes (id, lat, lon) VALUES (?1, ?2, ?3)")?;
     stmt.execute((&element.id, &element.lat, &element.lon))
         .unwrap_or_else(|e| {
@@ -162,7 +103,7 @@ pub fn insert_node_element(tx: &Transaction, element: osm::Element) -> anyhow::R
 }
 
 /// Insert a OSM-parsed Way element into the DB, synchronously
-pub fn insert_way_element(tx: &Transaction, element: osm::Element) -> anyhow::Result<()> {
+pub fn insert_way_element(tx: &Transaction, element: Element) -> anyhow::Result<()> {
     let way = Way::from(&element);
 
     let mut way_insert_stmt = tx.prepare_cached(
@@ -257,37 +198,4 @@ pub fn insert_way_element(tx: &Transaction, element: osm::Element) -> anyhow::Re
     }
 
     Ok(())
-}
-
-pub fn find_bounding_ways(
-    conn: &Connection,
-    location: Location,
-) -> Result<Vec<Way>, anyhow::Error> {
-    let mut stmt = conn.prepare_cached(
-        "SELECT id, minLat, maxLat, minLon, maxLon FROM Ways
-         WHERE minLat <= ?1
-           AND maxLat >= ?2
-           AND minLon <= ?1
-           AND maxLon >= ?2",
-    )?;
-    let result = stmt.query_map([location.lat, location.lon], |row|
-        Ok(Way {
-            id: row.get(0)?,
-            min_lat: row.get(1)?,
-            max_lat: row.get(2)?,
-            min_lon: row.get(3)?,
-            max_lon: row.get(4)?,
-        })
-    )?;
-
-    Ok(result.map(|r| r.unwrap()).collect())
-}
-
-/// given a NodeId, gets the neighbors from the Segments table
-/// returns a Vec of NodeId-WayId pairs, or the Node neighbor + the Way that connects them
-pub fn get_neighbors(conn: &Connection, id: NodeId) -> Result<Vec<Neighbor>, anyhow::Error> {
-    let mut stmt = conn.prepare_cached("SELECT n2, way FROM Segments WHERE n1 = ?1")?;
-    let result = stmt.query_map([id], |row| Ok((row.get(0)?, row.get(1)?)))?;
-
-    Ok(result.map(|r| r.unwrap()).collect())
 }
