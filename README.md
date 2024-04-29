@@ -59,53 +59,52 @@ To support an efficient A\* implementation:
   - Enable R\*Tree support on Ways, easily done due to their min/max coords
   - Given a way and a coordinate, where along the Way is this coordinate?
 
-### DB Considerations
+### Schema Design
 Those considerations point us to a SQLite schema of:
 
-```
-Node
+```mermaid
 ---
-id
-lat
-lon
-
-
-WayIndex (R*Tree index)
+title: Rusty Bikes Schema
 ---
-id
-minLat
-minLon
-maxLat
-maxLon
+erDiagram
+    WAY {
+        float min_lat
+        float max_lat
+        float min_lon
+        float max_lon
+    }
+    NODE {
+        float lat
+        float lon
+    }
+    WAYNODE {
+        int pos
+        ID way FK
+        ID node FK
+    }
+    SEGMENT {
+        ID n1 FK
+        ID n2 FK
+        ID way FK
+    }
+    NODETAG {
+        string key
+        string value
+    }
+    WAYTAG {
+        string key
+        string value
+    }
 
+    WAYTAG }|--|| WAY : describes
+    NODETAG }|--|| NODE : describes
 
-WayNodePositions
--- position of Nodes along Way paths
--- first class FK relationships to WayIndex, Node
--- in-SQL Way -> Node -> locations queries
----
-way  indexed
-node FK to Node
-idx  (0..n to indicate position on path)
-PRIMARY KEY (wayId, position)
+    WAY ||--|{ WAYNODE : "is a series of"
+    NODE }|..o{ WAYNODE : composes
 
-
-Segments (Edges)
--- b/w Nodes
--- every n1 <> n2 relationship is duplicated, so we only
--- need to search on n1
----
-n1   FK to Node, indexed
-n2   FK to Node
-way
-PRIMARY KEY (n1, n2, wayId)
-
-Tags (one for Nodes, one for Ways, because of possibly colliding IDs)
----
-id
-key
-value
-PRIMARY KEY (id, key)
+    WAY ||--|{ SEGMENT : has
+    WAYNODE ||--|{ SEGMENT : "consists of"
+    NODE }|..o{ SEGMENT : in
 ```
 
 A primitive first run, with non-duplicated Segments, on `../osm-data/nyc_bk_highways_no_footways.geom.json` results in:
