@@ -837,6 +837,7 @@ dependencies = [
  "anyhow",
  "axum",
  "dotenvy",
+ "geo-types",
  "geojson",
  "rusqlite",
  "serde",

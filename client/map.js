@@ -30,6 +30,7 @@ map.on('click', async (e) => {
   const json = await res.json();
   console.log(json);
 
+  // TODO: paint different depths differently: https://leafletjs.com/examples/geojson/
   L.geoJSON(json, {
     pointToLayer: (_feature, latlng) => {
       console.log(`building for ${latlng}`);

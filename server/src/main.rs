@@ -1,12 +1,12 @@
 use axum::{
     extract,
     http::{Method, StatusCode},
-    routing::{get, post},
+    routing::get,
     Router,
 };
 use dotenvy::dotenv;
+use geo_types::Coord;
 use serde::Deserialize;
-use tokio::fs;
 use tower::ServiceBuilder;
 use tower_http::{
     cors::{Any, CorsLayer},
@@ -28,10 +28,7 @@ async fn main() {
     let trace = TraceLayer::new_for_http();
     let app = Router::new()
         .route("/heartbeat", get(|| async { "OK" }))
-        .route(
-            "/graph",
-            get(traverse_handler),
-        )
+        .route("/graph", get(traverse_handler))
         // applies a collection of Tower Layers to all of this Router's routes
         .layer(ServiceBuilder::new().layer(trace).layer(cors));
 
@@ -50,23 +47,19 @@ struct TraversalParams {
 }
 
 async fn traverse_handler(query: extract::Query<TraversalParams>) -> Result<String, StatusCode> {
-    println!("traverse:: traversing from (lat, lon): ({}, {}) to depth {}", query.lat, query.lon, query.depth);
-    let starting_location = Location {
-        lat: query.lat,
-        lon: query.lon,
+    println!(
+        "traverse:: traversing from (lat, lon): ({}, {}) to depth {}",
+        query.lat, query.lon, query.depth
+    );
+    let starting_coord = Coord {
+        x: query.lon,
+        y: query.lat,
     };
 
     let graph = Graph::new().unwrap();
-    let neighbors = graph
-        .guess_neighbors(starting_location)
+    let traversal = graph
+        .traverse_from(starting_coord, query.depth)
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
-    println!("traverse:: found neighbors: {neighbors:#?}");
 
-    // TODO: recurse until depth is 0
-
-    // Ok(format!("{:#?}", neighbors))
-
-    fs::read_to_string("./static_responses/multi_bushwick_greenpoint.geojson")
-        .await
-        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)
+    Ok(geojson::ser::to_feature_collection_string(&traversal).unwrap())
 }

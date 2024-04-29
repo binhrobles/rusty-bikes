@@ -37,12 +37,6 @@ pub struct Way {
 
 pub type WayNodePosition = usize;
 
-#[derive(Debug, Deserialize)]
-pub struct Location {
-    pub lat: f64,
-    pub lon: f64,
-}
-
 #[derive(Debug)]
 pub struct LocationDistance {
     pub lat_diff: f64,
@@ -50,15 +44,8 @@ pub struct LocationDistance {
     pub total: f64,
 }
 
-impl Location {
-    /// get the distance b/w two locations, in cartesian units
-    fn distance(&self, loc: &Location) -> LocationDistance {
-        let lat_diff = loc.lat - self.lat;
-        let lon_diff = loc.lon - self.lon;
-        LocationDistance {
-            lat_diff,
-            lon_diff,
-            total: (lat_diff.powi(2) + lon_diff.powi(2)).sqrt(),
-        }
-    }
+#[derive(Debug, Deserialize)]
+pub struct Location {
+    pub lat: f64,
+    pub lon: f64,
 }
