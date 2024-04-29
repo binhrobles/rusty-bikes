@@ -103,7 +103,7 @@ erDiagram
     NODE }|..o{ WAYNODE : composes
 
     WAY ||--|{ SEGMENT : has
-    WAYNODE ||--|{ SEGMENT : "consists of"
+    WAYNODE ||--|{ SEGMENT : defines
     NODE }|..o{ SEGMENT : in
 ```
 
