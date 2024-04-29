@@ -49,6 +49,13 @@
   ],
   "features": [
     {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [-73.95778, 40.69914]
+      }
+    },
+    {
       "bbox": [
         -73.955157,
         40.704006,

@@ -26,13 +26,8 @@ async fn main() {
         .allow_origin(Any);
 
     let trace = TraceLayer::new_for_http();
-    // TODO: support single GET /v2/directions/:profile spec
     let app = Router::new()
         .route("/heartbeat", get(|| async { "OK" }))
-        .route(
-            "/v2/directions/:profile/*result_type",
-            post(directions_handler),
-        )
         .route(
             "/graph",
             get(traverse_handler),
@@ -69,42 +64,9 @@ async fn traverse_handler(query: extract::Query<TraversalParams>) -> Result<Stri
 
     // TODO: recurse until depth is 0
 
-    Ok("".to_string())
-}
+    // Ok(format!("{:#?}", neighbors))
 
-
-#[derive(Debug, Deserialize)]
-struct AlternativeRoutes {
-    target_count: u8,
-    share_factor: f32,
-    weight_factor: f32,
-}
-
-#[derive(Debug, Deserialize)]
-struct ORSDirectionsRequestBody {
-    coordinates: Vec<Vec<f64>>,
-    elevation: bool,
-    instructions_format: String,
-    extra_info: Vec<String>,
-    language: String,
-    units: String,
-    preference: String,
-    alternative_routes: Option<AlternativeRoutes>,
-}
-
-async fn directions_handler(
-    extract::Path((profile, result_type)): extract::Path<(String, String)>,
-    extract::Json(payload): extract::Json<ORSDirectionsRequestBody>,
-) -> Result<String, StatusCode> {
-    println!("request of {profile} in {result_type} received");
-    println!("{payload:?}");
-
-    let response_file: &str = match payload.alternative_routes {
-        Some(_) => "./static_responses/multi_bushwick_greenpoint.geojson",
-        None => "./static_responses/single_bushwick_greenpoint.geojson",
-    };
-
-    fs::read_to_string(response_file)
+    fs::read_to_string("./static_responses/multi_bushwick_greenpoint.geojson")
         .await
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)
 }
