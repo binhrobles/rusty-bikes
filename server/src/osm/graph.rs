@@ -1,8 +1,8 @@
 /// Exposes DB interactions as a Graph interface
 use super::{db, Graph, LocationDistance, Neighbor, NodeId, Way, WayId};
-use serde::Serialize;
-use geojson::ser::serialize_geometry;
 use geo_types::{geometry::Geometry, Coord, Line};
+use geojson::ser::serialize_geometry;
+use serde::Serialize;
 
 /// An Edge is a Graph abstraction built from a DB Segment and its Node / Way data
 #[derive(Debug)]
@@ -50,12 +50,13 @@ impl Graph {
 
         // continue traversing the graph for `depth` iterations
 
-        let results = neighbors.into_iter().map(|n| {
-            TraversalGeom {
+        let results = neighbors
+            .into_iter()
+            .map(|n| TraversalGeom {
                 geometry: Geometry::Line(n.unwrap().geometry),
                 depth: 1,
-            }
-        }).collect();
+            })
+            .collect();
 
         Ok(results)
     }
@@ -108,26 +109,19 @@ impl Graph {
         let mut results_iter = results.into_iter();
         let closest = results_iter.next().unwrap();
 
-        // then, use the wayId + signs of the lat_diff / lon_diff to find either:
-        // - the next node on the way on the other side of the lat/lon spectrum OR
-        // - the closest node that happens to be on a different Way (for starting positions on corners)
+        // then, use the wayId + signs of the lat_diff / lon_diff to find
+        // the next node on the way on the other side of the lat/lon spectrum
         let mut next_closest: Option<Edge> = None;
         for edge in results_iter {
             println!("{:?}", edge.distance);
             println!("\t{:?}", edge.geometry);
             println!("\tlat_diff sign: {:?}", edge.distance.lat_diff.signum());
-            // this Node is not on the same Way as the `closest`
-            // assuming this means the starting position is on / near an intersection
-            // and we can start on either of these Ways at fairly similar cost
-            if closest.way != edge.way {
-                next_closest = Some(edge);
-                break;
-            }
 
             // This Node is on the same Way as the `closest`
             // but on the other side of the lat/lon spectrum
             // so we can start our alg choosing from one of these two Nodes
-            if closest.distance.lat_diff.signum() != edge.distance.lat_diff.signum()
+            if closest.way == edge.way
+                && closest.distance.lat_diff.signum() != edge.distance.lat_diff.signum()
                 || closest.distance.lon_diff.signum() != edge.distance.lon_diff.signum()
             {
                 next_closest = Some(edge);
