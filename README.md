@@ -2,15 +2,16 @@
 
 A project for learning Rust.
 
-Implementing [OpenRouteService's Direction API](https://giscience.github.io/openrouteservice/api-reference/endpoints/directions/) to get a feel for serving an API, threads, pathfinding algs, and OSM data, in Rust :crab:
+Implementing an NYC bike routing site to get a feel for OSM data, pathfinding algs, and serving an API in Rust :crab:
 
-Used w/ my [ORS map client fork](https://github.com/binhrobles/ors-map-client-rusty-fork)
+Consists of a Rust server and a simple Leaflet client.
 
 ### Requirements
 - A JSON OSM export for the area you want to serve (see [OSM Data](#osm-data) for an example query)
 
 ### Bootstrapping
 
+The server:
 ```bash
 # init the db
 cargo run --bin init-db

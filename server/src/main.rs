@@ -67,6 +67,8 @@ async fn traverse_handler(query: extract::Query<TraversalParams>) -> Result<Stri
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
     println!("traverse:: found neighbors: {neighbors:#?}");
 
+    // TODO: recurse until depth is 0
+
     Ok("".to_string())
 }
 
