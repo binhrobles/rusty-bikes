@@ -33,6 +33,10 @@ async fn main() {
             "/v2/directions/:profile/*result_type",
             post(directions_handler),
         )
+        .route(
+            "/graph",
+            get(traverse_handler),
+        )
         // applies a collection of Tower Layers to all of this Router's routes
         .layer(ServiceBuilder::new().layer(trace).layer(cors));
 
@@ -42,6 +46,30 @@ async fn main() {
     println!("listening on 3000...");
     axum::serve(listener, app).await.unwrap();
 }
+
+#[derive(Debug, Deserialize)]
+struct TraversalParams {
+    lat: f64,
+    lon: f64,
+    depth: u8,
+}
+
+async fn traverse_handler(query: extract::Query<TraversalParams>) -> Result<String, StatusCode> {
+    println!("traverse:: traversing from (lat, lon): ({}, {}) to depth {}", query.lat, query.lon, query.depth);
+    let starting_location = Location {
+        lat: query.lat,
+        lon: query.lon,
+    };
+
+    let graph = Graph::new().unwrap();
+    let neighbors = graph
+        .guess_neighbors(starting_location)
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    println!("traverse:: found neighbors: {neighbors:#?}");
+
+    Ok("".to_string())
+}
+
 
 #[derive(Debug, Deserialize)]
 struct AlternativeRoutes {
@@ -73,15 +101,6 @@ async fn directions_handler(
         Some(_) => "./static_responses/multi_bushwick_greenpoint.geojson",
         None => "./static_responses/single_bushwick_greenpoint.geojson",
     };
-
-    let (lon, lat) = (payload.coordinates[0][0], payload.coordinates[0][1]);
-    println!("starting position (lat, lon): ({lat}, {lon})");
-
-    let graph = Graph::new().unwrap();
-    let neighbors = graph
-        .guess_neighbors(Location { lat, lon })
-        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
-    println!("main:: found neighbors: {neighbors:#?}");
 
     fs::read_to_string(response_file)
         .await

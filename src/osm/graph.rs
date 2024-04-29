@@ -89,7 +89,7 @@ impl Graph {
         Ok(vec![Some(closest.0), next_closest])
     }
 
-    pub fn ind_bounding_ways(&self, location: Location) -> Result<Vec<Way>, anyhow::Error> {
+    pub fn get_bounding_ways(&self, location: Location) -> Result<Vec<Way>, anyhow::Error> {
         let mut stmt = self.conn.prepare_cached(
             "SELECT id, minLat, maxLat, minLon, maxLon FROM Ways
             WHERE minLat <= ?1
