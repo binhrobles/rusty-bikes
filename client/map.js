@@ -17,8 +17,10 @@ const nodeCircleOptions = {
 };
 
 let currentMarker;
+let currentGeo;
 map.on('click', async (e) => {
   if (currentMarker) currentMarker.remove();
+  if (currentGeo) currentGeo.remove();
 
   currentMarker = L.marker(e.latlng);
   currentMarker.addTo(map);
@@ -31,12 +33,13 @@ map.on('click', async (e) => {
   console.log(json);
 
   // TODO: paint different depths differently: https://leafletjs.com/examples/geojson/
-  L.geoJSON(json, {
+  currentGeo = L.geoJSON(json, {
     pointToLayer: (_feature, latlng) => {
       console.log(`building for ${latlng}`);
       return L.circleMarker(latlng, nodeCircleOptions);
     },
-  }).addTo(map);
+  })
+  currentGeo.addTo(map);
 
 });
 

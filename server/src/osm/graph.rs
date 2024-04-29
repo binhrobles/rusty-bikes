@@ -19,6 +19,9 @@ pub struct Edge {
 pub struct TraversalGeom {
     #[serde(serialize_with = "serialize_geometry")]
     geometry: Geometry,
+    from: NodeId, // a value of `0` represents the starter virtual node
+    to: NodeId,
+    way: WayId,
     depth: u8,
 }
 
@@ -40,6 +43,10 @@ impl Graph {
         })
     }
 
+    /// Return a collection of Points and Lines from traversing the Graph from the start point to
+    /// the depth specified
+    ///
+    /// A function for demo purposes. Questionable use for routing.
     pub fn traverse_from(
         &self,
         start: Coord,
@@ -52,9 +59,15 @@ impl Graph {
 
         let results = neighbors
             .into_iter()
-            .map(|n| TraversalGeom {
-                geometry: Geometry::Line(n.unwrap().geometry),
-                depth: 1,
+            .map(|n| {
+                let n = n.unwrap();
+                TraversalGeom {
+                    geometry: Geometry::Line(n.geometry),
+                    way: n.way,
+                    from: n.from,
+                    to: n.to,
+                    depth: 1,
+                }
             })
             .collect();
 
@@ -108,6 +121,10 @@ impl Graph {
         // the first, closest node is clearly the best candidate
         let mut results_iter = results.into_iter();
         let closest = results_iter.next().unwrap();
+        println!("------");
+        println!("closest: {:?}", closest.geometry);
+        println!("\tway: {} n2: {}", closest.way, closest.to);
+        println!("------");
 
         // then, use the wayId + signs of the lat_diff / lon_diff to find
         // the next node on the way on the other side of the lat/lon spectrum
@@ -115,14 +132,16 @@ impl Graph {
         for edge in results_iter {
             println!("{:?}", edge.distance);
             println!("\t{:?}", edge.geometry);
+            println!("\tway: {} n2: {}", edge.way, edge.to);
             println!("\tlat_diff sign: {:?}", edge.distance.lat_diff.signum());
+            println!("------");
 
             // This Node is on the same Way as the `closest`
             // but on the other side of the lat/lon spectrum
             // so we can start our alg choosing from one of these two Nodes
             if closest.way == edge.way
-                && closest.distance.lat_diff.signum() != edge.distance.lat_diff.signum()
-                || closest.distance.lon_diff.signum() != edge.distance.lon_diff.signum()
+                && (closest.distance.lat_diff.signum() != edge.distance.lat_diff.signum()
+                    || closest.distance.lon_diff.signum() != edge.distance.lon_diff.signum())
             {
                 next_closest = Some(edge);
                 break;
@@ -179,12 +198,27 @@ mod tests {
         let graph = Graph::new().unwrap();
         let neighbors = graph.get_neighbors(278630910).unwrap();
 
-        assert_eq!(neighbors, vec![
-            Neighbor { node: 42496432, way: 221605481 },
-            Neighbor { node: 6224367557, way: 221605486 },
-            Neighbor { node: 10001064063, way: 5029221 },
-            Neighbor { node: 10001064066, way: 421121604 },
-        ]);
+        assert_eq!(
+            neighbors,
+            vec![
+                Neighbor {
+                    node: 42496432,
+                    way: 221605481
+                },
+                Neighbor {
+                    node: 6224367557,
+                    way: 221605486
+                },
+                Neighbor {
+                    node: 10001064063,
+                    way: 5029221
+                },
+                Neighbor {
+                    node: 10001064066,
+                    way: 421121604
+                },
+            ]
+        );
     }
 
     // TODO: tests for querying Way R tree (ensuring determinism?)
