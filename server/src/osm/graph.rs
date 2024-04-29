@@ -169,3 +169,24 @@ impl Graph {
         Ok(result.map(|r| r.unwrap()).collect())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn get_neighbors_returns_array_of_neighbors() {
+        let graph = Graph::new().unwrap();
+        let neighbors = graph.get_neighbors(278630910).unwrap();
+
+        assert_eq!(neighbors, vec![
+            Neighbor { node: 42496432, way: 221605481 },
+            Neighbor { node: 6224367557, way: 221605486 },
+            Neighbor { node: 10001064063, way: 5029221 },
+            Neighbor { node: 10001064066, way: 421121604 },
+        ]);
+    }
+
+    // TODO: tests for querying Way R tree (ensuring determinism?)
+    // TODO: tests for starting coords off a Way (ensure no None response?)
+}

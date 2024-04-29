@@ -12,11 +12,10 @@ pub struct Graph {
 pub type NodeId = i64;
 pub type WayId = i64;
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub struct Neighbor {
     pub way: WayId,
     pub node: NodeId,
-    // TODO: distance
 }
 
 #[derive(Debug, Deserialize)]
