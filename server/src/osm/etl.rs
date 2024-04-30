@@ -10,10 +10,10 @@ use crate::osm::{db, Location, Node, Way};
 
 #[derive(std::fmt::Debug, Deserialize)]
 pub struct Bounds {
-    pub minlat: f32,
-    pub minlon: f32,
-    pub maxlat: f32,
-    pub maxlon: f32,
+    pub minlat: f64,
+    pub minlon: f64,
+    pub maxlat: f64,
+    pub maxlon: f64,
 }
 
 #[derive(std::fmt::Debug, Deserialize)]
@@ -23,8 +23,8 @@ pub struct Element {
     pub tags: HashMap<String, String>,
 
     // Node
-    pub lat: Option<f32>,
-    pub lon: Option<f32>,
+    pub lat: Option<f64>,
+    pub lon: Option<f64>,
 
     // Way
     pub bounds: Option<Bounds>,

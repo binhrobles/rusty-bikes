@@ -12,26 +12,28 @@ pub struct Graph {
 pub type NodeId = i64;
 pub type WayId = i64;
 
-#[derive(Debug, PartialEq)]
+// TODO: this needs context about who it's a neighbor TO!
+// at which point...is this just an Edge / Segment?
+#[derive(Debug, Copy, Clone, PartialEq)]
 pub struct Neighbor {
     pub way: WayId,
-    pub node: NodeId,
+    pub node: Node,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Copy, Clone, PartialEq, Deserialize)]
 pub struct Node {
     pub id: NodeId,
-    pub lat: f32,
-    pub lon: f32,
+    pub lat: f64,
+    pub lon: f64,
 }
 
 #[derive(Debug, Deserialize)]
 pub struct Way {
     pub id: WayId,
-    pub min_lat: f32,
-    pub max_lat: f32,
-    pub min_lon: f32,
-    pub max_lon: f32,
+    pub min_lat: f64,
+    pub max_lat: f64,
+    pub min_lon: f64,
+    pub max_lon: f64,
 }
 
 pub type WayNodePosition = usize;

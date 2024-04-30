@@ -1,8 +1,9 @@
 /// Exposes DB interactions as a Graph interface
-use super::{db, Graph, LocationDistance, Neighbor, NodeId, Way, WayId};
+use super::{db, Graph, LocationDistance, Neighbor, Node, NodeId, Way, WayId};
 use geo_types::{geometry::Geometry, Coord, Line};
 use geojson::ser::serialize_geometry;
 use serde::Serialize;
+use std::collections::HashSet;
 
 /// An Edge is a Graph abstraction built from a DB Segment and its Node / Way data
 #[derive(Debug)]
@@ -15,16 +16,38 @@ pub struct Edge {
     distance: LocationDistance,
 }
 
+impl Edge {
+    pub fn new(from: Node, to: Node, way: WayId) -> Edge {
+        let start = Coord {
+            x: from.lon,
+            y: from.lat,
+        };
+
+        let end = Coord {
+            x: to.lon,
+            y: to.lat,
+        };
+        Edge {
+            geometry: Line { start, end },
+            from: from.id,
+            to: to.id,
+            way,
+            distance: calculate_distance(&start, &end),
+        }
+    }
+}
+
 #[derive(Serialize, Debug)]
 pub struct TraversalGeom {
     #[serde(serialize_with = "serialize_geometry")]
     geometry: Geometry,
-    from: NodeId, // a value of `0` represents the starter virtual node
-    to: NodeId,
-    way: WayId,
+    // from: NodeId, // a value of `0` represents the starter virtual node
+    // to: NodeId,
+    // way: WayId,
     depth: u8,
 }
 
+// TODO: where should this actually live?
 /// get the distance b/w two coordinates, in cartesian units
 fn calculate_distance(from: &Coord, to: &Coord) -> LocationDistance {
     let lat_diff = to.y - from.y;
@@ -50,31 +73,57 @@ impl Graph {
     pub fn traverse_from(
         &self,
         start: Coord,
-        _depth: u8,
+        max_depth: u8,
     ) -> Result<Vec<TraversalGeom>, anyhow::Error> {
         let neighbors = self.guess_neighbors(start)?;
         println!("traverse:: found neighbors: {neighbors:#?}");
 
-        // continue traversing the graph for `depth` iterations
+        let mut queue: Vec<Neighbor> = neighbors.iter().map(|e| e.unwrap()).collect();
 
-        let results = neighbors
-            .into_iter()
-            .map(|n| {
-                let n = n.unwrap();
-                TraversalGeom {
-                    geometry: Geometry::Line(n.geometry),
-                    way: n.way,
-                    from: n.from,
-                    to: n.to,
-                    depth: 1,
+        // TODO: need a set to guard cycling
+        let mut visited_nodes_set: HashSet<NodeId> = HashSet::new();
+        let mut visited_neighbors: Vec<Neighbor> = Vec::new();
+
+        // continue traversing the graph for `depth` iterations
+        let mut depth = 1;
+        while depth <= max_depth {
+            let mut next_level_queue: Vec<Neighbor> = Vec::new();
+            // for each of the last round of results
+            for neighbor in queue.iter() {
+                if !visited_nodes_set.contains(&neighbor.node.id) {
+                    visited_nodes_set.insert(neighbor.node.id);
+
+                    // find outbound segments for those nodes
+                    let mut adjacent_neighbors = self.get_neighbors(neighbor.node.id)?;
+
+                    // push those segments into a new results queue (set?)
+                    next_level_queue.append(&mut adjacent_neighbors);
                 }
+            }
+
+            // add all neighbors collected at this depth to the visited_neighbors collection
+            visited_neighbors.append(&mut queue);
+            queue = next_level_queue;
+
+            depth += 1;
+        }
+
+        // w/ our collection of nodes, convert all to Edges (and also then TraversalGeoms)
+        let results: Vec<TraversalGeom> = visited_neighbors
+            .iter()
+            .map(|n| TraversalGeom {
+                geometry: Geometry::Point(geo_types::Point::new(n.node.lon, n.node.lat)),
+                // way: n.way,
+                // from: n.from,
+                // to: n.to,
+                depth: 1,
             })
             .collect();
 
         Ok(results)
     }
 
-    /// Gets the closest 2 Edges to the location provided
+    /// Gets the closest 2 Nodes to the location provided
     ///
     /// Implementation notes:
     /// - We cannot guarantee that the first Way returned from the R*tree query will be
@@ -83,7 +132,7 @@ impl Graph {
     /// - TODO: locations directly on Nodes are edge cases (or will this be accounted for by the alg's
     /// cost model?)
     /// - TODO: handle no Ways returned, empty case
-    pub fn guess_neighbors(&self, start: Coord) -> Result<Vec<Option<Edge>>, anyhow::Error> {
+    pub fn guess_neighbors(&self, start: Coord) -> Result<Vec<Option<Neighbor>>, anyhow::Error> {
         let mut stmt = self.conn.prepare_cached(
             "
             SELECT WayNodes.way, WayNodes.node, lon, lat
@@ -148,7 +197,28 @@ impl Graph {
             }
         }
 
-        Ok(vec![Some(closest), next_closest])
+        let closest = Neighbor {
+            way: closest.way,
+            node: Node {
+                id: closest.to,
+                lon: closest.geometry.end.x,
+                lat: closest.geometry.end.y,
+            },
+        };
+
+        let next_closest_node: Option<Neighbor> = match next_closest {
+            Some(next_closest) => Some(Neighbor {
+                way: next_closest.way,
+                node: Node {
+                    id: next_closest.to,
+                    lon: next_closest.geometry.end.x,
+                    lat: next_closest.geometry.end.y,
+                },
+            }),
+            None => None,
+        };
+
+        Ok(vec![Some(closest), next_closest_node])
     }
 
     pub fn get_bounding_ways(&self, location: Coord) -> Result<Vec<Way>, anyhow::Error> {
@@ -172,16 +242,21 @@ impl Graph {
         Ok(result.map(|r| r.unwrap()).collect())
     }
 
+    // TODO: tuple!
     /// given a NodeId, gets the neighbors from the Segments table
     /// returns a Vec of NodeId-WayId pairs, or the Node neighbor + the Way that connects them
     pub fn get_neighbors(&self, id: NodeId) -> Result<Vec<Neighbor>, anyhow::Error> {
-        let mut stmt = self
-            .conn
-            .prepare_cached("SELECT way, n2 FROM Segments WHERE n1 = ?1")?;
+        let mut stmt = self.conn.prepare_cached(
+            "SELECT way, n2, lon, lat FROM Segments JOIN Nodes ON n2=Nodes.id WHERE n1 = ?1",
+        )?;
         let result = stmt.query_map([id], |row| {
             Ok(Neighbor {
                 way: row.get(0)?,
-                node: row.get(1)?,
+                node: Node {
+                    id: row.get(1)?,
+                    lon: row.get(2)?,
+                    lat: row.get(3)?,
+                },
             })
         })?;
 
@@ -202,19 +277,35 @@ mod tests {
             neighbors,
             vec![
                 Neighbor {
-                    node: 42496432,
+                    node: Node {
+                        id: 42496432,
+                        lon: -73.9894027709961,
+                        lat: 40.6910400390625,
+                    },
                     way: 221605481
                 },
                 Neighbor {
-                    node: 6224367557,
+                    node: Node {
+                        id: 6224367557,
+                        lon: -73.9891128540039,
+                        lat: 40.6909599304199,
+                    },
                     way: 221605486
                 },
                 Neighbor {
-                    node: 10001064063,
+                    node: Node {
+                        id: 10001064063,
+                        lon: -73.9892196655273,
+                        lat: 40.6910285949707,
+                    },
                     way: 5029221
                 },
                 Neighbor {
-                    node: 10001064066,
+                    node: Node {
+                        id: 10001064066,
+                        lon: -73.9892654418945,
+                        lat: 40.6909446716309,
+                    },
                     way: 421121604
                 },
             ]

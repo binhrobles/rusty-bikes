@@ -26,7 +26,7 @@ map.on('click', async (e) => {
   currentMarker.addTo(map);
 
   const { lat, lng } = e.latlng;
-  const depth = 5; // TODO: extract into text field
+  const depth = 35; // TODO: extract into text field
 
   const res = await fetch(`${RUSTY_BASE_URL}/graph?lat=${lat}&lon=${lng}&depth=${depth}`);
   const json = await res.json();
