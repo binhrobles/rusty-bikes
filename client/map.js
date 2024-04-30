@@ -33,12 +33,14 @@ map.on('click', (e) => {
 const slider = document.getElementById('depthRange');
 const depthOutput = document.getElementById('depthValue');
 let depth = Number(slider.value);
+depthOutput.innerText = slider.value;
 
 // Update the depth value on slider change
 const updateDepth = (value) => {
   depth = Number(value);
   depthOutput.innerText = value;
 
+  // if a paint exists, repaint it
   if (currentGeo) fetchAndPaintGraph();
 }
 
@@ -54,7 +56,6 @@ const fetchAndPaintGraph = async () => {
   // TODO: paint different depths differently: https://leafletjs.com/examples/geojson/
   currentGeo = L.geoJSON(json, {
     pointToLayer: (_feature, latlng) => {
-      console.log(`building for ${latlng}`);
       return L.circleMarker(latlng, nodeCircleOptions);
     },
   })
