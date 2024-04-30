@@ -18,16 +18,35 @@ const nodeCircleOptions = {
 
 let currentMarker;
 let currentGeo;
-map.on('click', async (e) => {
+let currentCoord;
+map.on('click', (e) => {
   if (currentMarker) currentMarker.remove();
-  if (currentGeo) currentGeo.remove();
 
   currentMarker = L.marker(e.latlng);
   currentMarker.addTo(map);
 
-  const { lat, lng } = e.latlng;
-  const depth = 35; // TODO: extract into text field
+  currentCoord = e.latlng;
 
+  fetchAndPaintGraph();
+});
+
+const slider = document.getElementById('depthRange');
+const depthOutput = document.getElementById('depthValue');
+let depth = Number(slider.value);
+
+// Update the depth value on slider change
+const updateDepth = (value) => {
+  depth = Number(value);
+  depthOutput.innerText = value;
+
+  if (currentGeo) fetchAndPaintGraph();
+}
+
+// Uses global state to fetch and paint graph from starting loc
+const fetchAndPaintGraph = async () => {
+  if (currentGeo) currentGeo.remove();
+
+  const { lat, lng } = currentCoord;
   const res = await fetch(`${RUSTY_BASE_URL}/graph?lat=${lat}&lon=${lng}&depth=${depth}`);
   const json = await res.json();
   console.log(json);
@@ -40,6 +59,5 @@ map.on('click', async (e) => {
     },
   })
   currentGeo.addTo(map);
-
-});
+}
 
