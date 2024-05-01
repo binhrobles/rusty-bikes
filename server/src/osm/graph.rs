@@ -17,7 +17,7 @@ pub struct Edge {
 }
 
 impl Edge {
-    pub fn new(from: Node, to: Node, way: WayId) -> Edge {
+    pub fn new(from: &Node, to: &Node, way: &WayId) -> Edge {
         let start = Coord {
             x: from.lon,
             y: from.lat,
@@ -31,20 +31,41 @@ impl Edge {
             geometry: Line { start, end },
             from: from.id,
             to: to.id,
-            way,
+            way: *way,
             distance: calculate_distance(&start, &end),
         }
     }
 }
 
+/// struct for returning a geometry from a graph traversal
+/// created for demo purposes
 #[derive(Serialize, Debug)]
 pub struct TraversalGeom {
     #[serde(serialize_with = "serialize_geometry")]
     geometry: Geometry,
-    // from: NodeId, // a value of `0` represents the starter virtual node
-    // to: NodeId,
-    // way: WayId,
+    from: NodeId,
+    to: NodeId,
     depth: u8,
+}
+
+impl TraversalGeom {
+    pub fn new(from: &Node, to: &Node, depth: u8) -> TraversalGeom {
+        let start = Coord {
+            x: from.lon,
+            y: from.lat,
+        };
+
+        let end = Coord {
+            x: to.lon,
+            y: to.lat,
+        };
+        TraversalGeom {
+            geometry: Geometry::Line(Line { start, end }),
+            from: from.id,
+            to: to.id,
+            depth,
+        }
+    }
 }
 
 // TODO: where should this actually live?
@@ -80,45 +101,43 @@ impl Graph {
 
         let mut queue: Vec<Neighbor> = neighbors.iter().map(|e| e.unwrap()).collect();
 
-        // TODO: need a set to guard cycling
         let mut visited_nodes_set: HashSet<NodeId> = HashSet::new();
-        let mut visited_neighbors: Vec<Neighbor> = Vec::new();
+        let mut results: Vec<TraversalGeom> = Vec::new();
 
         // continue traversing the graph for `depth` iterations
         let mut depth = 1;
         while depth <= max_depth {
+            println!("depth: {depth}\tqueue: {}", queue.len());
             let mut next_level_queue: Vec<Neighbor> = Vec::new();
             // for each of the last round of results
             for neighbor in queue.iter() {
+
+                // only act for neighbors that haven't been visited already
+                // avoids cycling -- but how does it play w/ A* priority queue?
                 if !visited_nodes_set.contains(&neighbor.node.id) {
                     visited_nodes_set.insert(neighbor.node.id);
 
-                    // find outbound segments for those nodes
-                    let mut adjacent_neighbors = self.get_neighbors(neighbor.node.id)?;
+                    // find outbound segments this node
+                    let adjacent_neighbors = self.get_neighbors(neighbor.node.id)?;
 
-                    // push those segments into a new results queue (set?)
-                    next_level_queue.append(&mut adjacent_neighbors);
+                    adjacent_neighbors
+                        .iter()
+                        .for_each(|n| {
+                            if !visited_nodes_set.contains(&n.node.id) {
+                                // push neighbor into the queue for the next depth
+                                next_level_queue.push(*n);
+
+                                // format and push neighbors into results collection
+                                results.push(TraversalGeom::new(&neighbor.node, &n.node, depth));
+                            }
+                        });
                 }
             }
 
-            // add all neighbors collected at this depth to the visited_neighbors collection
-            visited_neighbors.append(&mut queue);
             queue = next_level_queue;
 
             depth += 1;
         }
-
-        // w/ our collection of nodes, convert all to Edges (and also then TraversalGeoms)
-        let results: Vec<TraversalGeom> = visited_neighbors
-            .iter()
-            .map(|n| TraversalGeom {
-                geometry: Geometry::Point(geo_types::Point::new(n.node.lon, n.node.lat)),
-                // way: n.way,
-                // from: n.from,
-                // to: n.to,
-                depth: 1,
-            })
-            .collect();
 
         Ok(results)
     }

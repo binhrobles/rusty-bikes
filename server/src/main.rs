@@ -13,7 +13,7 @@ use tower_http::{
     trace::TraceLayer,
 };
 
-use rusty_router::osm::{Graph, Location};
+use rusty_router::osm::Graph;
 
 #[tokio::main]
 async fn main() {
