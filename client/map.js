@@ -25,13 +25,12 @@ rainbow.setNumberRange(1, depth);
 
 // Uses global state to fetch and paint graph from starting loc
 const fetchAndPaintGraph = async () => {
-  if (state.currentGeo) state.currentGeo.remove();
-
   const { lat, lng } = state.currentCoord;
   const res = await fetch(`${RUSTY_BASE_URL}/graph?lat=${lat}&lon=${lng}&depth=${depth}`);
   const json = await res.json();
   console.log(json);
 
+  if (state.currentGeo) state.currentGeo.remove();
   state.currentGeo = L.geoJSON(json, {
     // paint different depths differently: https://leafletjs.com/examples/geojson/
     style: (feature) => ({
@@ -52,13 +51,19 @@ const updateDepth = (value) => {
   if (state.currentGeo) fetchAndPaintGraph();
 };
 
-map.on('click', (e) => {
+map.on('click', (clickEvent) => {
   if (state.currentMarker) state.currentMarker.remove();
 
-  state.currentMarker = L.marker(e.latlng);
+  state.currentMarker = L.marker(clickEvent.latlng, { draggable: true });
   state.currentMarker.addTo(map);
 
-  state.currentCoord = e.latlng;
+  // reacts to dragging
+  state.currentMarker.on('move', (markerEvent) => {
+    state.currentCoord = markerEvent.latlng;
+    fetchAndPaintGraph();
+  });
+
+  state.currentCoord = clickEvent.latlng;
 
   fetchAndPaintGraph();
 });

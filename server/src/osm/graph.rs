@@ -97,7 +97,6 @@ impl Graph {
         max_depth: u8,
     ) -> Result<Vec<TraversalGeom>, anyhow::Error> {
         let neighbors = self.guess_neighbors(start)?;
-        println!("traverse:: found neighbors: {neighbors:#?}");
 
         let mut queue: Vec<Neighbor> = neighbors.iter().map(|e| e.unwrap()).collect();
 
@@ -107,11 +106,9 @@ impl Graph {
         // continue traversing the graph for `depth` iterations
         let mut depth = 1;
         while depth <= max_depth {
-            println!("depth: {depth}\tqueue: {}", queue.len());
             let mut next_level_queue: Vec<Neighbor> = Vec::new();
             // for each of the last round of results
             for neighbor in queue.iter() {
-
                 // only act for neighbors that haven't been visited already
                 // avoids cycling -- but how does it play w/ A* priority queue?
                 if !visited_nodes_set.contains(&neighbor.node.id) {
@@ -120,17 +117,15 @@ impl Graph {
                     // find outbound segments this node
                     let adjacent_neighbors = self.get_neighbors(neighbor.node.id)?;
 
-                    adjacent_neighbors
-                        .iter()
-                        .for_each(|n| {
-                            if !visited_nodes_set.contains(&n.node.id) {
-                                // push neighbor into the queue for the next depth
-                                next_level_queue.push(*n);
+                    adjacent_neighbors.iter().for_each(|n| {
+                        if !visited_nodes_set.contains(&n.node.id) {
+                            // push neighbor into the queue for the next depth
+                            next_level_queue.push(*n);
 
-                                // format and push neighbors into results collection
-                                results.push(TraversalGeom::new(&neighbor.node, &n.node, depth));
-                            }
-                        });
+                            // format and push neighbors into results collection
+                            results.push(TraversalGeom::new(&neighbor.node, &n.node, depth));
+                        }
+                    });
                 }
             }
 
@@ -189,21 +184,11 @@ impl Graph {
         // the first, closest node is clearly the best candidate
         let mut results_iter = results.into_iter();
         let closest = results_iter.next().unwrap();
-        println!("------");
-        println!("closest: {:?}", closest.geometry);
-        println!("\tway: {} n2: {}", closest.way, closest.to);
-        println!("------");
 
         // then, use the wayId + signs of the lat_diff / lon_diff to find
         // the next node on the way on the other side of the lat/lon spectrum
         let mut next_closest: Option<Edge> = None;
         for edge in results_iter {
-            println!("{:?}", edge.distance);
-            println!("\t{:?}", edge.geometry);
-            println!("\tway: {} n2: {}", edge.way, edge.to);
-            println!("\tlat_diff sign: {:?}", edge.distance.lat_diff.signum());
-            println!("------");
-
             // This Node is on the same Way as the `closest`
             // but on the other side of the lat/lon spectrum
             // so we can start our alg choosing from one of these two Nodes
