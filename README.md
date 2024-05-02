@@ -32,15 +32,19 @@ The underlying data is coming from [OSM's Overpass API](https://wiki.openstreetm
 
 ```
 data=[out:json][timeout:90];
-nw(40.647941,-74.028837,40.755695,-73.907988)
-  ["highway"]
-  [!"footway"]
-  ["highway"!="footway"]
-  ["highway"!="steps"]
-  ["highway"!="street_lamp"]
-  ["highway"!="elevator"]
-  ["highway"!="bus_stop"]
-  ;
+way(40.647941,-74.028837,40.755695,-73.907988)
+    ["highway"]
+    [!"footway"]
+    ["highway"!="footway"]
+    ["highway"!="motorway"]
+    ["highway"!="motorway_link"]
+    ["highway"!="crossing"]
+    ["highway"!="steps"]
+    ["highway"!="street_lamp"]
+    ["highway"!="elevator"]
+    ["highway"!="bus_stop"]
+    ["bicycle"!="no"]
+    ;
 out geom;
 ```
 
@@ -55,9 +59,9 @@ To support an efficient A\* implementation:
 - Costs must be calculated quickly
   - Way tags should be quickly available
     - ie: highway, bicycle, oneway, height, cycleway?, ...
-  - _future: add distance calculation to Segments table?_
+  - _future: pre-add length calculation to Segments table?_
 - We must be able to locate the Way that is closest to our start / end points
-  - Enable R\*Tree support on Ways, easily done due to their min/max coords
+  - Store Ways in an [R\*Tree](https://sqlite.org/rtree.html) index, easily done due to their min/max coords
   - Given a way and a coordinate, where along the Way is this coordinate?
 
 ### Schema Design
