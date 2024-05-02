@@ -19,7 +19,6 @@ pub fn init_tables(conn: &Connection) -> Result<(), anyhow::Error> {
         "
         DROP TABLE IF EXISTS Segments;
         DROP TABLE IF EXISTS WayNodes;
-        DROP TABLE IF EXISTS NodeTags;
         DROP TABLE IF EXISTS WayTags;
         DROP TABLE IF EXISTS Nodes;
         DROP TABLE IF EXISTS Ways;
@@ -57,15 +56,6 @@ pub fn init_tables(conn: &Connection) -> Result<(), anyhow::Error> {
         );
         CREATE INDEX n1_index ON Segments(n1);
 
-        CREATE TABLE NodeTags (
-            id  integer NOT NULL,
-            key TEXT NOT NULL,
-            value TEXT NOT NULL,
-            PRIMARY KEY (id, key),
-            FOREIGN KEY (id) REFERENCES Nodes(id)
-        );
-        CREATE INDEX node_tag_index ON NodeTags(id);
-
         CREATE TABLE WayTags (
             id  integer NOT NULL,
             key TEXT NOT NULL,
@@ -88,16 +78,6 @@ pub fn insert_node_element(tx: &Transaction, element: Element) -> anyhow::Result
             eprintln!("Failed Node:\n{:#?}", element);
             panic!("{e}");
         });
-
-    let mut stmt =
-        tx.prepare_cached("INSERT INTO NodeTags (id, key, value) VALUES (?1, ?2, ?3)")?;
-    for (key, value) in &element.tags {
-        let params = (&element.id, &key, &value);
-        stmt.execute(params).unwrap_or_else(|e| {
-            eprintln!("Failed NodeTag:\n{:#?}", params);
-            panic!("{e}");
-        });
-    }
 
     Ok(())
 }

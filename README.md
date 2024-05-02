@@ -80,17 +80,13 @@ erDiagram
     }
     WAYNODE {
         int pos
-        ID way FK
         ID node FK
+        ID way FK
     }
     SEGMENT {
         ID n1 FK
         ID n2 FK
         ID way FK
-    }
-    NODETAG {
-        string key
-        string value
     }
     WAYTAG {
         string key
@@ -98,7 +94,6 @@ erDiagram
     }
 
     WAYTAG }|--|| WAY : describes
-    NODETAG }|--|| NODE : describes
 
     WAY ||--|{ WAYNODE : "is a series of"
     NODE }|..o{ WAYNODE : composes
@@ -107,43 +102,5 @@ erDiagram
     WAYNODE ||--|{ SEGMENT : defines
     NODE }|..o{ SEGMENT : in
 ```
-
-A primitive first run, with non-duplicated Segments, on `../osm-data/nyc_bk_highways_no_footways.geom.json` results in:
-```
-26M db.db3
-
-sqlite> select count(*) from Nodes;
-98982
-
-sqlite> select count(*) from Ways;
-18784
-
-sqlite> select count(*) from WayNodes;
-128992
-
-sqlite> select count(*) from Segments;
-110208
-```
-
-A second run, with duplicated Segments:
-```
-32M db.db3
-
-sqlite> select count(*) from Segments;
-220416
-```
-So doubling up on Segments results in a 6MB (~25% bigger) DB file. I accept that non-sacrifice in the name of having a simpler Segment query, since I'll need to make that query hundreds of times every route.
-
-A third run, with separate Tags tables:
-```
-44M db.db3
-
-sqlite> select count(*) from NodeTags;
-83197
-
-sqlite> select count(*) from WayTags;
-173213
-```
-Balloons up the file size quite a bit, but potentially worth it to avoid needing to deserialize tags out of a TEXT column every time we calculate Way cost.
 
 ### Future things to consider
