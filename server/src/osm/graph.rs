@@ -1,6 +1,6 @@
 /// Exposes DB interactions as a Graph interface
 use super::{db, Graph, LocationDistance, Neighbor, Node, NodeId, Way, WayId};
-use geo_types::{geometry::Geometry, Coord, Line};
+use geo_types::{Coord, Line};
 use geojson::ser::serialize_geometry;
 use serde::Serialize;
 use std::collections::HashSet;
@@ -17,7 +17,7 @@ pub struct Edge {
 }
 
 impl Edge {
-    pub fn new(from: &Node, to: &Node, way: &WayId) -> Edge {
+    pub fn new(from: &Node, to: &Node, way: WayId) -> Edge {
         let start = Coord {
             x: from.lon,
             y: from.lat,
@@ -31,7 +31,7 @@ impl Edge {
             geometry: Line { start, end },
             from: from.id,
             to: to.id,
-            way: *way,
+            way,
             distance: calculate_distance(&start, &end),
         }
     }
@@ -42,9 +42,9 @@ impl Edge {
 #[derive(Serialize, Debug)]
 pub struct TraversalGeom {
     #[serde(serialize_with = "serialize_geometry")]
-    geometry: Geometry,
-    from: NodeId,
-    to: NodeId,
+    pub geometry: Line,
+    pub from: NodeId,
+    pub to: NodeId,
     depth: u8,
 }
 
@@ -60,7 +60,7 @@ impl TraversalGeom {
             y: to.lat,
         };
         TraversalGeom {
-            geometry: Geometry::Line(Line { start, end }),
+            geometry: Line { start, end },
             from: from.id,
             to: to.id,
             depth,
@@ -123,6 +123,7 @@ impl Graph {
                             next_level_queue.push(*n);
 
                             // format and push neighbors into results collection
+                            // TODO: duplicate / extend existing TraversalGeom
                             results.push(TraversalGeom::new(&neighbor.node, &n.node, depth));
                         }
                     });

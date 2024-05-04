@@ -14,6 +14,7 @@ use tower_http::{
 };
 
 use rusty_router::osm::Graph;
+use rusty_router::geojson;
 
 #[tokio::main]
 async fn main() {
@@ -28,7 +29,7 @@ async fn main() {
     let trace = TraceLayer::new_for_http();
     let app = Router::new()
         .route("/heartbeat", get(|| async { "OK" }))
-        .route("/graph", get(traverse_handler))
+        .route("/traverse", get(traverse_handler))
         // applies a collection of Tower Layers to all of this Router's routes
         .layer(ServiceBuilder::new().layer(trace).layer(cors));
 
@@ -57,9 +58,10 @@ async fn traverse_handler(query: extract::Query<TraversalParams>) -> Result<Stri
     };
 
     let graph = Graph::new().unwrap();
-    let traversal = graph
+    let mut traversal = graph
         .traverse_from(starting_coord, query.depth)
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
-    Ok(geojson::ser::to_feature_collection_string(&traversal).unwrap())
+    geojson::aggregate_traversal_geoms(&mut traversal)
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)
 }
