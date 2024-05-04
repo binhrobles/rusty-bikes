@@ -26,7 +26,7 @@ rainbow.setNumberRange(1, depth);
 // Uses global state to fetch and paint graph from starting loc
 const fetchAndPaintGraph = async () => {
   const { lat, lng } = state.currentCoord;
-  const res = await fetch(`${RUSTY_BASE_URL}/graph?lat=${lat}&lon=${lng}&depth=${depth}`);
+  const res = await fetch(`${RUSTY_BASE_URL}/traverse?lat=${lat}&lon=${lng}&depth=${depth}`);
   const json = await res.json();
   console.log(json);
 

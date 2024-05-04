@@ -96,9 +96,7 @@ impl Graph {
         start: Coord,
         max_depth: u8,
     ) -> Result<Vec<TraversalGeom>, anyhow::Error> {
-        let neighbors = self.guess_neighbors(start)?;
-
-        let mut queue: Vec<Neighbor> = neighbors.iter().map(|e| e.unwrap()).collect();
+        let mut queue = self.guess_neighbors(start)?;
 
         let mut visited_nodes_set: HashSet<NodeId> = HashSet::new();
         let mut results: Vec<TraversalGeom> = Vec::new();
@@ -138,7 +136,7 @@ impl Graph {
         Ok(results)
     }
 
-    /// Gets the closest 2 Nodes to the location provided
+    /// Gets the closest Node(s) to the location provided
     ///
     /// Implementation notes:
     /// - We cannot guarantee that the first Way returned from the R*tree query will be
@@ -147,7 +145,7 @@ impl Graph {
     /// - TODO: locations directly on Nodes are edge cases (or will this be accounted for by the alg's
     /// cost model?)
     /// - TODO: handle no Ways returned, empty case
-    pub fn guess_neighbors(&self, start: Coord) -> Result<Vec<Option<Neighbor>>, anyhow::Error> {
+    pub fn guess_neighbors(&self, start: Coord) -> Result<Vec<Neighbor>, anyhow::Error> {
         let mut stmt = self.conn.prepare_cached(
             "
             SELECT WayNodes.way, WayNodes.node, lon, lat
@@ -202,28 +200,28 @@ impl Graph {
             }
         }
 
-        let closest = Neighbor {
+
+        let mut results = vec![Neighbor {
             way: closest.way,
             node: Node {
                 id: closest.to,
                 lon: closest.geometry.end.x,
                 lat: closest.geometry.end.y,
             },
-        };
+        }];
 
-        let next_closest_node: Option<Neighbor> = match next_closest {
-            Some(next_closest) => Some(Neighbor {
-                way: next_closest.way,
+        if let Some(n) = next_closest {
+            results.push(Neighbor {
+                way: n.way,
                 node: Node {
-                    id: next_closest.to,
-                    lon: next_closest.geometry.end.x,
-                    lat: next_closest.geometry.end.y,
+                    id: n.to,
+                    lon: n.geometry.end.x,
+                    lat: n.geometry.end.y,
                 },
-            }),
-            None => None,
-        };
+            })
+        }
 
-        Ok(vec![Some(closest), next_closest_node])
+        Ok(results)
     }
 
     pub fn get_bounding_ways(&self, location: Coord) -> Result<Vec<Way>, anyhow::Error> {
@@ -247,7 +245,6 @@ impl Graph {
         Ok(result.map(|r| r.unwrap()).collect())
     }
 
-    // TODO: tuple!
     /// given a NodeId, gets the neighbors from the Segments table
     /// returns a Vec of NodeId-WayId pairs, or the Node neighbor + the Way that connects them
     pub fn get_neighbors(&self, id: NodeId) -> Result<Vec<Neighbor>, anyhow::Error> {
