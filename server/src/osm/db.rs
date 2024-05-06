@@ -1,6 +1,9 @@
 /// Governs interface w/ underlying SQLite db
 use rusqlite::{Connection, Transaction};
 
+use geo::prelude::*;
+use geo::{ Point, point };
+
 use crate::osm::{etl::Element, Way};
 
 const DB_PATH: &str = "./db.db3";
@@ -25,8 +28,8 @@ pub fn init_tables(conn: &Connection) -> Result<(), anyhow::Error> {
 
         CREATE TABLE Nodes (
             id INTEGER PRIMARY KEY,
-            lat REAL NOT NULL,
-            lon REAL NOT NULL
+            lon REAL NOT NULL,
+            lat REAL NOT NULL
         );
 
         CREATE VIRTUAL TABLE Ways USING rtree(
@@ -38,18 +41,19 @@ pub fn init_tables(conn: &Connection) -> Result<(), anyhow::Error> {
         );
 
         CREATE TABLE WayNodes (
-            way   integer NOT NULL,
-            node  integer NOT NULL,
-            pos   integer NOT NULL,
+            way   INTEGER NOT NULL,
+            node  INTEGER NOT NULL,
+            pos   INTEGER NOT NULL,
             PRIMARY KEY (way, pos),
             FOREIGN KEY (node) REFERENCES Nodes(id)
         );
         CREATE INDEX way_index ON WayNodes(way);
 
         CREATE TABLE Segments (
-            n1  integer NOT NULL,
-            n2  integer NOT NULL,
-            way integer NOT NULL,
+            n1  INTEGER NOT NULL,
+            n2  INTEGER NOT NULL,
+            way INTEGER NOT NULL,
+            distance REAL NOT NULL,
             PRIMARY KEY (n1, n2, way),
             FOREIGN KEY (n1) REFERENCES Nodes(id),
             FOREIGN KEY (n2) REFERENCES Nodes(id)
@@ -57,7 +61,7 @@ pub fn init_tables(conn: &Connection) -> Result<(), anyhow::Error> {
         CREATE INDEX n1_index ON Segments(n1);
 
         CREATE TABLE WayTags (
-            id  integer NOT NULL,
+            id  INTEGER NOT NULL,
             key TEXT NOT NULL,
             value TEXT NOT NULL,
             PRIMARY KEY (id, key)
@@ -72,8 +76,8 @@ pub fn init_tables(conn: &Connection) -> Result<(), anyhow::Error> {
 
 /// Insert a OSM-parsed Node element into the DB, synchronously
 pub fn insert_node_element(tx: &Transaction, element: Element) -> anyhow::Result<()> {
-    let mut stmt = tx.prepare_cached("INSERT INTO Nodes (id, lat, lon) VALUES (?1, ?2, ?3)")?;
-    stmt.execute((&element.id, &element.lat, &element.lon))
+    let mut stmt = tx.prepare_cached("INSERT INTO Nodes (id, lon, lat) VALUES (?1, ?2, ?3)")?;
+    stmt.execute((&element.id, &element.lon, &element.lat))
         .unwrap_or_else(|e| {
             eprintln!("Failed Node:\n{:#?}", element);
             panic!("{e}");
@@ -112,11 +116,11 @@ pub fn insert_way_element(tx: &Transaction, element: Element) -> anyhow::Result<
     }
 
     let mut node_insert_stmt =
-        tx.prepare_cached("INSERT OR IGNORE INTO Nodes (id, lat, lon) VALUES (?1, ?2, ?3)")?;
+        tx.prepare_cached("INSERT OR IGNORE INTO Nodes (id, lon, lat) VALUES (?1, ?2, ?3)")?;
     let mut wn_insert_stmt =
         tx.prepare_cached("INSERT INTO WayNodes (way, node, pos) VALUES (?1, ?2, ?3)")?;
     let mut segment_insert_stmt =
-        tx.prepare_cached("INSERT INTO Segments (n1, n2, way) VALUES (?1, ?2, ?3)")?;
+        tx.prepare_cached("INSERT INTO Segments (n1, n2, way, distance) VALUES (?1, ?2, ?3, ?4)")?;
 
     let node_ids = element.nodes.unwrap_or_default();
     let node_coords = element.geometry.unwrap_or_default();
@@ -125,15 +129,19 @@ pub fn insert_way_element(tx: &Transaction, element: Element) -> anyhow::Result<
         "Ways should always have nodes[] and geometry[] of equal length"
     );
 
-    let mut prev_n_id: Option<i64> = None;
+    let mut prev_node: Option<(i64, Point)> = None;
 
     // walk the Way's Nodes
     for (pos, n_id) in node_ids.iter().enumerate() {
+        let p = point!(
+            x: node_coords.get(pos).unwrap().lon,
+            y: node_coords.get(pos).unwrap().lat,
+        );
         // ensure each Node exists in Nodes
         let node_params = (
             n_id,
-            node_coords.get(pos).unwrap().lat,
-            node_coords.get(pos).unwrap().lon,
+            p.x(),
+            p.y(),
         );
         node_insert_stmt.execute(node_params).unwrap_or_else(|e| {
             eprintln!("Failed implied Node: {:#?}", node_params);
@@ -152,8 +160,10 @@ pub fn insert_way_element(tx: &Transaction, element: Element) -> anyhow::Result<
         //       can we just do bird's eye here?
         //       curves seem to be heavily node-d:
         //       https://www.openstreetmap.org/way/495991868
-        if let Some(prev_n_id) = prev_n_id {
-            let segment_params = (prev_n_id, n_id, &way.id);
+        if let Some(prev_node) = prev_node {
+            let distance = p.haversine_distance(&prev_node.1);
+
+            let segment_params = (prev_node.0, n_id, &way.id, distance);
             segment_insert_stmt
                 .execute(segment_params)
                 .unwrap_or_else(|e| {
@@ -165,7 +175,7 @@ pub fn insert_way_element(tx: &Transaction, element: Element) -> anyhow::Result<
             // so that we only have to query on n1
             // also because n1/n2 have no signifance wrt
             // cardinal directions or anything
-            let segment_params = (n_id, prev_n_id, &way.id);
+            let segment_params = (n_id, prev_node.0, &way.id, distance);
             segment_insert_stmt
                 .execute(segment_params)
                 .unwrap_or_else(|e| {
@@ -174,7 +184,7 @@ pub fn insert_way_element(tx: &Transaction, element: Element) -> anyhow::Result<
                 });
         }
 
-        prev_n_id = Some(*n_id);
+        prev_node = Some((*n_id, p));
     }
 
     Ok(())

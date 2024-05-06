@@ -5,7 +5,7 @@ use axum::{
     Router,
 };
 use dotenvy::dotenv;
-use geo_types::Coord;
+use geo::Point;
 use serde::Deserialize;
 use tower::ServiceBuilder;
 use tower_http::{
@@ -52,10 +52,10 @@ async fn traverse_handler(query: extract::Query<TraversalParams>) -> Result<Stri
         "traverse:: traversing from (lat, lon): ({}, {}) to depth {}",
         query.lat, query.lon, query.depth
     );
-    let starting_coord = Coord {
-        x: query.lon,
-        y: query.lat,
-    };
+    let starting_coord = Point::new(
+        query.lon,
+        query.lat,
+    );
 
     let graph = Graph::new().unwrap();
     let mut traversal = graph

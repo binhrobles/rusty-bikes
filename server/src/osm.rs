@@ -1,7 +1,5 @@
-use std::ops::Add;
-
 use rusqlite::Connection;
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 
 pub mod db;
 pub mod etl;
@@ -39,24 +37,6 @@ pub struct Way {
 }
 
 pub type WayNodePosition = usize;
-
-#[derive(Serialize, Copy, Clone, Debug)]
-pub struct LocationDistance {
-    pub lat_diff: f64,
-    pub lon_diff: f64,
-    pub total: f64,
-}
-
-impl Add for LocationDistance {
-    type Output = Self;
-    fn add(self, other: Self) -> Self {
-        Self {
-            lat_diff: self.lat_diff + other.lat_diff,
-            lon_diff: self.lon_diff + other.lon_diff,
-            total: self.total + other.total,
-        }
-    }
-}
 
 #[derive(Debug, Deserialize)]
 pub struct Location {
