@@ -62,6 +62,6 @@ async fn traverse_handler(query: extract::Query<TraversalParams>) -> Result<Stri
         .traverse_from(starting_coord, query.depth)
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
-    geojson::aggregate_traversal_geoms(&mut traversal)
+    geojson::aggregate_traversal_geoms(traversal.make_contiguous())
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)
 }
