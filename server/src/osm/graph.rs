@@ -70,9 +70,11 @@ impl Graph {
         start: Point,
         max_depth: u8,
     ) -> Result<VecDeque<Route>, anyhow::Error> {
-        let mut queue: VecDeque<Route> = self.guess_neighbors(start)?.into();
+        let starting_neighbors = self.guess_neighbors(start)?;
 
-        let mut visited: HashSet<NodeId> = HashSet::new();
+        // init the traversal queue and visited set w/ those neighbors
+        let mut visited: HashSet<NodeId> = starting_neighbors.iter().map(|r| *r.to.last().unwrap()).collect();
+        let mut queue: VecDeque<Route> = starting_neighbors.clone().into();
 
         while !queue.is_empty() {
             let current = queue.pop_front().unwrap();
@@ -147,13 +149,11 @@ impl Graph {
         // the first, closest node is clearly the best candidate
         let mut results_iter = results.into_iter();
         let (closest_edge, closest_bearing) = results_iter.next().unwrap();
-        println!("closest: {:#?}\nbearing: {}", closest_edge, closest_bearing);
 
         // then, use the wayId + the bearing relationship to find
         // the next node on the way on the other side of the start point
         let mut next_closest: Option<Route> = None;
         for (edge, bearing) in results_iter {
-            println!("eval: {:#?}\nbearing: {}\n", edge, bearing);
             // This Node is on the same Way as the `closest`
             // so find the next edge that had a fairly different bearing than the closest
             // TODO: better alg here than just more than "normal" to closest bearing
