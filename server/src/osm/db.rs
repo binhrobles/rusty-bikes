@@ -156,12 +156,9 @@ pub fn insert_way_element(tx: &Transaction, element: Element) -> anyhow::Result<
         });
 
         // attach this and the previous node as Segments
-        // TODO: supplement this with a distance calculation?
-        //       can we just do bird's eye here?
-        //       curves seem to be heavily node-d:
-        //       https://www.openstreetmap.org/way/495991868
         if let Some(prev_node) = prev_node {
             let distance = p.haversine_distance(&prev_node.1);
+            // TODO: also pre-calculate `default` cost for this segment
 
             let segment_params = (prev_node.0, n_id, &way.id, distance);
             segment_insert_stmt

@@ -12,7 +12,7 @@ pub struct Route {
     #[serde(serialize_with = "serialize_route")]
     geometry: Vec<Coord>,
     from: NodeId, // a value of `0` represents the starter virtual node
-    to: NodeId,
+    to: Vec<NodeId>,
     way: WayId,
     distance: f64,
 
@@ -39,7 +39,7 @@ impl Route {
         Route {
             geometry: vec![start.into(), end.into()],
             from: from.id,
-            to: to.id,
+            to: vec![to.id],
             way,
             distance: start.haversine_distance(&end),
             depth,
@@ -51,7 +51,7 @@ impl Route {
     pub fn extend_with(&mut self, node: &mut Node) {
         let point = Point::new(node.lon, node.lat);
         self.depth += 1;
-        self.to = node.id;
+        self.to.push(node.id);
         self.geometry.push(point.into());
     }
 }
@@ -82,7 +82,7 @@ impl Graph {
             }
 
             // find outbound segments for this node
-            let adjacent_neighbors = self.get_neighbors(current.to)?;
+            let adjacent_neighbors = self.get_neighbors(*current.to.last().unwrap())?;
 
             for mut n in adjacent_neighbors {
                 // only act for neighbors that haven't been visited already
@@ -129,7 +129,7 @@ impl Graph {
                 Route {
                     way: row.get(0)?,
                     from: 0, // TODO: other representation for a virtual node?
-                    to: row.get(1)?,
+                    to: vec![row.get(1)?],
                     geometry: vec![start.into(), loc.into()],
                     distance: start.haversine_distance(&loc),
                     depth: 0,
@@ -147,15 +147,17 @@ impl Graph {
         // the first, closest node is clearly the best candidate
         let mut results_iter = results.into_iter();
         let (closest_edge, closest_bearing) = results_iter.next().unwrap();
+        println!("closest: {:#?}\nbearing: {}", closest_edge, closest_bearing);
 
         // then, use the wayId + the bearing relationship to find
         // the next node on the way on the other side of the start point
         let mut next_closest: Option<Route> = None;
         for (edge, bearing) in results_iter {
+            println!("eval: {:#?}\nbearing: {}\n", edge, bearing);
             // This Node is on the same Way as the `closest`
             // so find the next edge that had a fairly different bearing than the closest
             // TODO: better alg here than just more than "normal" to closest bearing
-            if closest_edge.way == edge.way && (360. - (closest_bearing - bearing).abs() >= 90.) {
+            if closest_edge.way == edge.way && ((closest_bearing - bearing).abs() >= 90.) {
                 next_closest = Some(edge);
                 break;
             }
