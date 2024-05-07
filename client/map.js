@@ -47,8 +47,9 @@ const fetchAndPaintGraph = async () => {
       break;
     }
     case MODE.ROUTE: {
-      const { lat, lng } = JSON.parse(document.getElementById('startInput').value);
-      res = await fetch(`${RUSTY_BASE_URL}/traverse?lat=${lat}&lon=${lng}&depth=${state.depth}`);
+      const { lng: startLon, lat: startLat } = JSON.parse(document.getElementById('startInput').value);
+      const { lng: endLon, lat: endLat } = JSON.parse(document.getElementById('endInput').value);
+      res = await fetch(`${RUSTY_BASE_URL}/route?start=${startLon},${startLat}&end=${endLon},${endLat}`);
       break;
     }
     default:

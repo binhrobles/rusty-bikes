@@ -30,6 +30,7 @@ async fn main() {
     let app = Router::new()
         .route("/heartbeat", get(|| async { "OK" }))
         .route("/traverse", get(traverse_handler))
+        .route("/route", get(route_handler))
         // applies a collection of Tower Layers to all of this Router's routes
         .layer(ServiceBuilder::new().layer(trace).layer(cors));
 
@@ -63,5 +64,42 @@ async fn traverse_handler(query: extract::Query<TraversalParams>) -> Result<Stri
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
     geojson::aggregate_traversal_geoms(traversal.make_contiguous())
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)
+}
+
+#[derive(Debug, Deserialize)]
+struct RouteParams {
+    start: String,
+    end: String,
+}
+
+fn parse_point(param: &str) -> Result<Point, anyhow::Error> {
+    if let Some((lon, lat)) = param.split_once(',') {
+        let lon: f64 = lon.parse()?;
+        let lat: f64 = lat.parse()?;
+        Ok(Point::new(lon, lat))
+    } else {
+        Err(anyhow::Error::msg("Couldn't parse Point"))
+    }
+}
+
+async fn route_handler(query: extract::Query<RouteParams>) -> Result<String, StatusCode> {
+    let start = parse_point(&query.start).map_err(|_| StatusCode::BAD_REQUEST)?;
+    let end = parse_point(&query.end).map_err(|_| StatusCode::BAD_REQUEST)?;
+
+    println!("{:?} to {:?}", start, end);
+
+    let graph = Graph::new().unwrap();
+
+    // TODO: implement you some routing
+    let mut start = graph
+        .traverse_from(start, 20)
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    let mut end = graph
+        .traverse_from(end, 20)
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    start.append(&mut end);
+
+    geojson::aggregate_traversal_geoms(start.make_contiguous())
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)
 }
