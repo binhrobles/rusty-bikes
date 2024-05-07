@@ -130,7 +130,7 @@ impl Graph {
             Ok((
                 Route {
                     way: row.get(0)?,
-                    from: 0, // TODO: other representation for a virtual node?
+                    from: 0,
                     to: row.get(1)?,
                     geometry: vec![start.into(), loc.into()],
                     distance: start.haversine_distance(&loc),
