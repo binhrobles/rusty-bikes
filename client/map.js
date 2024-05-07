@@ -39,8 +39,20 @@ const state = {
 
 // Uses global state to fetch and paint graph from starting loc
 const fetchAndPaintGraph = async () => {
-  const { lat, lng } = state.currentMarker.getLatLng();
-  const res = await fetch(`${RUSTY_BASE_URL}/traverse?lat=${lat}&lon=${lng}&depth=${state.depth}`);
+  let res;
+  switch (state.mode) {
+    case MODE.TRAVERSE: {
+      const { lat, lng } = state.currentMarker.getLatLng();
+      res = await fetch(`${RUSTY_BASE_URL}/traverse?lat=${lat}&lon=${lng}&depth=${state.depth}`);
+      break;
+    }
+    case MODE.ROUTE: {
+      const { lat, lng } = JSON.parse(document.getElementById('startInput').value);
+      res = await fetch(`${RUSTY_BASE_URL}/traverse?lat=${lat}&lon=${lng}&depth=${state.depth}`);
+      break;
+    }
+    default:
+  }
   const json = await res.json();
 
   if (state.currentGeo) state.currentGeo.remove();
@@ -96,12 +108,12 @@ control.update = () => {
       content = `
         <table class="route-table">
           <tr>
-            <td><label for="start">Start:</label></td>
-            <td><input type="text" id="start"></td>
+            <td><label for="startInput">Start:</label></td>
+            <td><input type="text" id="startInput" placeholder="Click to select start point"></td>
           </tr>
           <tr>
-            <td><label for="end">End:</label></td>
-            <td><input type="text" id="end"></td>
+            <td><label for="endInput">End:</label></td>
+            <td><input type="text" id="endInput" placeholder="Click to select end point"></td>
           </tr>
         </table>
       `;
@@ -144,6 +156,7 @@ const updateDepth = (value) => {
   if (state.currentGeo) fetchAndPaintGraph();
 };
 
+// clicks will update the marker location and fetch a graph traversal from that location
 const handleTraversalClick = (clickEvent) => {
   if (state.currentMarker) state.currentMarker.remove();
 
@@ -162,9 +175,21 @@ const handleTraversalClick = (clickEvent) => {
 };
 
 // ------ routing mode handlers ------- //
+// clicks will set the focused input to the LatLng of the click
+// if both inputs have values, attempt to fetch route
 const handleRouteClick = (clickEvent) => {
-  document.getElementById('start').value = clickEvent.latlng;
-  document.getElementById('end').value = clickEvent.latlng;
+  const startInput = document.getElementById('startInput');
+  const endInput = document.getElementById('endInput');
+
+  if (!startInput.value) {
+    startInput.value = JSON.stringify(clickEvent.latlng);
+  } else {
+    endInput.value = JSON.stringify(clickEvent.latlng);
+  }
+
+  if (startInput.value && endInput.value) {
+    fetchAndPaintGraph();
+  }
 };
 
 // ------ map interaction handlers ------ //
