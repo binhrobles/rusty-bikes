@@ -35,16 +35,11 @@ const state = {
 
   // traversal state
   depth: 20,
-  currentCoord: null,
-
-  // routing state
-  startCoord: null,
-  endCoord: null,
 };
 
 // Uses global state to fetch and paint graph from starting loc
 const fetchAndPaintGraph = async () => {
-  const { lat, lng } = state.currentCoord;
+  const { lat, lng } = state.currentMarker.getLatLng();
   const res = await fetch(`${RUSTY_BASE_URL}/traverse?lat=${lat}&lon=${lng}&depth=${state.depth}`);
   const json = await res.json();
 
@@ -119,6 +114,13 @@ control.addTo(map);
 // eslint-disable-next-line no-unused-vars
 const updateMode = (mode) => {
   state.mode = mode;
+
+  // reset leaflet state
+  if (state.currentMarker) state.currentMarker.remove();
+  state.currentMarker = null;
+  if (state.currentGeo) state.currentGeo.remove();
+  state.currentGeo = null;
+
   control.update();
 };
 
@@ -144,12 +146,9 @@ const handleTraversalClick = (clickEvent) => {
   state.currentMarker.addTo(map);
 
   // reacts to dragging
-  state.currentMarker.on('move', (markerEvent) => {
-    state.currentCoord = markerEvent.latlng;
+  state.currentMarker.on('move', () => {
     fetchAndPaintGraph();
   });
-
-  state.currentCoord = clickEvent.latlng;
 
   document.getElementById('traversalLon').innerText = clickEvent.latlng.lng;
   document.getElementById('traversalLat').innerText = clickEvent.latlng.lat;
