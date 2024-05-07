@@ -21,3 +21,11 @@
   margin: 0 0 5px;
   color: #777;
 }
+
+.route-table {
+  width: 100%;
+}
+
+.route-table input {
+  width: 75%;
+}

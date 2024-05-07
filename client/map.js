@@ -14,8 +14,8 @@ L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
 
 // ------ global state / functions ------ //
 const MODE = {
-  TRAVERSE: 'TRAVERSE',
   ROUTE: 'ROUTE',
+  TRAVERSE: 'TRAVERSE',
 };
 
 const modeMeta = {
@@ -31,7 +31,7 @@ const state = {
   currentMarker: null,
   currentGeo: null,
 
-  mode: MODE.TRAVERSE,
+  mode: MODE.ROUTE,
 
   // traversal state
   depth: 20,
@@ -72,12 +72,12 @@ control.update = () => {
     <select name="mode-select" id="mode-select" onchange="updateMode(this.value)">
       ${Object.keys(MODE).map((mode) => `<option ${state.mode === mode && 'selected'} value="${mode}">${modeMeta[mode].label}</option>`)}
     </select >
-    <br /><br />
+    <hr />
   `;
 
   let content;
-  // TODO: paint this once, then use document.getElementById() to paint updates
   // only repaint this on mode change
+  // update content using updates to HTMLElements
   switch (state.mode) {
     case MODE.TRAVERSE:
       content = `
@@ -94,11 +94,16 @@ control.update = () => {
       break;
     case MODE.ROUTE:
       content = `
-        <label for="start">Start:</label>
-        <input type="text" id="start">
-        <br/>
-        <label for="end">End:</label>
-        <input type="text" id="end">
+        <table class="route-table">
+          <tr>
+            <td><label for="start">Start:</label></td>
+            <td><input type="text" id="start"></td>
+          </tr>
+          <tr>
+            <td><label for="end">End:</label></td>
+            <td><input type="text" id="end"></td>
+          </tr>
+        </table>
       `;
       break;
     default:
