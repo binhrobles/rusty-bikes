@@ -108,3 +108,5 @@ erDiagram
 ```
 
 ### Future things to consider
+- Cost model
+    - avoid Vision Zero priority corridors

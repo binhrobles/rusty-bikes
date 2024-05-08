@@ -28,13 +28,17 @@ const modeMeta = {
 };
 
 const state = {
-  currentMarker: null,
   currentGeo: null,
 
   mode: MODE.ROUTE,
 
   // traversal state
+  currentMarker: null,
   depth: 20,
+
+  // routing state
+  startMarker: null,
+  endMarker: null,
 };
 
 // Uses global state to fetch and paint graph from starting loc
@@ -47,8 +51,8 @@ const fetchAndPaintGraph = async () => {
       break;
     }
     case MODE.ROUTE: {
-      const { lng: startLon, lat: startLat } = JSON.parse(document.getElementById('startInput').value);
-      const { lng: endLon, lat: endLat } = JSON.parse(document.getElementById('endInput').value);
+      const { lng: startLon, lat: startLat } = state.startMarker.getLatLng();
+      const { lng: endLon, lat: endLat } = state.endMarker.getLatLng();
       res = await fetch(`${RUSTY_BASE_URL}/route?start=${startLon},${startLat}&end=${endLon},${endLat}`);
       break;
     }
@@ -183,8 +187,28 @@ const handleRouteClick = (clickEvent) => {
   const endInput = document.getElementById('endInput');
 
   if (!startInput.value) {
+    if (state.startMarker) state.startMarker.remove();
+    state.startMarker = L.marker(clickEvent.latlng, { draggable: true });
+    state.startMarker.addTo(map);
+
+    // reacts to dragging
+    state.startMarker.on('move', () => {
+      startInput.value = JSON.stringify(state.startMarker.getLatLng());
+      fetchAndPaintGraph();
+    });
+
     startInput.value = JSON.stringify(clickEvent.latlng);
   } else {
+    if (state.endMarker) state.endMarker.remove();
+    state.endMarker = L.marker(clickEvent.latlng, { draggable: true });
+    state.endMarker.addTo(map);
+
+    // reacts to dragging
+    state.endMarker.on('move', () => {
+      endInput.value = JSON.stringify(state.startMarker.getLatLng());
+      fetchAndPaintGraph();
+    });
+
     endInput.value = JSON.stringify(clickEvent.latlng);
   }
 
