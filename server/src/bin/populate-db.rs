@@ -5,8 +5,6 @@ use std::process;
 
 use rusty_router::osm::etl::Output;
 
-// ../osm-data/nyc_bk_highways_no_footways.geom.json
-// ./src/bin/sample-osm.json
 fn main() {
     let args: Vec<String> = env::args().collect();
     if args.len() < 2 {

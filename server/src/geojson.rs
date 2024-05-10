@@ -6,3 +6,7 @@ use crate::osm::graph::Route;
 pub fn aggregate_traversal_geoms(traversal: &[Route]) -> Result<String, anyhow::Error> {
     Ok(geojson::ser::to_feature_collection_string(traversal)?)
 }
+
+pub fn route_geom(route: &Route) -> Result<String, anyhow::Error> {
+    Ok(geojson::ser::to_feature_string(route)?)
+}

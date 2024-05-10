@@ -45,7 +45,7 @@ async fn main() {
 struct TraversalParams {
     lat: f64,
     lon: f64,
-    depth: u8,
+    depth: usize,
 }
 
 async fn traverse_handler(query: extract::Query<TraversalParams>) -> Result<String, StatusCode> {
@@ -59,11 +59,11 @@ async fn traverse_handler(query: extract::Query<TraversalParams>) -> Result<Stri
     );
 
     let graph = Graph::new().unwrap();
-    let mut traversal = graph
+    let traversal = graph
         .traverse_from(starting_coord, query.depth)
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
-    geojson::aggregate_traversal_geoms(traversal.make_contiguous())
+    geojson::aggregate_traversal_geoms(&traversal)
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)
 }
 
@@ -91,15 +91,10 @@ async fn route_handler(query: extract::Query<RouteParams>) -> Result<String, Sta
 
     let graph = Graph::new().unwrap();
 
-    // TODO: implement you some routing
-    let mut start = graph
-        .traverse_from(start, 20)
+    let route = graph
+        .route_between(start, end)
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
-    let mut end = graph
-        .traverse_from(end, 20)
-        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
-    start.append(&mut end);
 
-    geojson::aggregate_traversal_geoms(start.make_contiguous())
+    geojson::route_geom(&route)
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)
 }

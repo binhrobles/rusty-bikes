@@ -1,4 +1,5 @@
 use super::{db, Graph, Neighbor, Node, NodeId, WayId};
+use anyhow::anyhow;
 /// Exposes DB interactions as a Graph interface
 use geo::prelude::*;
 use geo::{Coord, HaversineBearing, LineString, Point};
@@ -11,13 +12,13 @@ use std::collections::{HashSet, VecDeque};
 pub struct Route {
     #[serde(serialize_with = "serialize_route")]
     geometry: Vec<Coord>,
-    from: NodeId, // a value of `0` represents the starter virtual node
+    from: NodeId, // a value of `0` represents the virtual node
     to: NodeId,
     way: WayId,
     distance: f64,
 
     /// graph traversal depth from start point
-    depth: u8,
+    depth: usize,
     // TODO: cost_so_far
 }
 
@@ -32,7 +33,7 @@ where
 }
 
 impl Route {
-    pub fn new(from: &Node, to: &Node, way: WayId, depth: u8) -> Route {
+    pub fn new(from: &Node, to: &Node, way: WayId, depth: usize) -> Route {
         let start = Point::new(from.lon, from.lat);
         let end = Point::new(to.lon, to.lat);
 
@@ -65,11 +66,51 @@ impl Graph {
 
     /// Return a collection of Points and Lines from traversing the Graph from the start point to
     /// the depth specified
+    pub fn route_between(
+        &self,
+        start: Point,
+        end: Point,
+    ) -> Result<Route, anyhow::Error> {
+        let starting_neighbors = self.guess_neighbors(start)?;
+        let target_neighbors = self.guess_neighbors(end)?;
+        let target_neighbor_node_ids: Vec<NodeId> = target_neighbors.iter().map(|n| n.to).collect();
+
+        // init the traversal queue and visited set w/ the starting neighbors
+        let mut visited: HashSet<NodeId> = starting_neighbors.iter().map(|r| r.to).collect();
+        let mut queue: VecDeque<Route> = starting_neighbors.clone().into();
+
+        while !queue.is_empty() {
+            let current = queue.pop_front().unwrap();
+
+            // exit condition -- entrypoint to DRY-able?
+            if target_neighbor_node_ids.contains(&current.to) {
+                return Ok(current);
+            }
+
+            // find outbound segments for this node
+            let adjacent_neighbors = self.get_neighbors(current.to)?;
+
+            for mut n in adjacent_neighbors {
+                // only act for neighbors that haven't been visited already
+                if !visited.contains(&n.node.id) {
+                    visited.insert(n.node.id);
+                    let mut new_route = current.clone();
+                    new_route.extend_with(&mut n.node);
+                    queue.push_back(new_route);
+                }
+            }
+        }
+
+        Err(anyhow!("No route found!"))
+    }
+
+    /// Return a collection of Points and Lines from traversing the Graph from the start point to
+    /// the depth specified
     pub fn traverse_from(
         &self,
         start: Point,
-        max_depth: u8,
-    ) -> Result<VecDeque<Route>, anyhow::Error> {
+        max_depth: usize,
+    ) -> Result<Vec<Route>, anyhow::Error> {
         let starting_neighbors = self.guess_neighbors(start)?;
 
         // init the traversal queue and visited set w/ those neighbors
@@ -79,6 +120,7 @@ impl Graph {
         while !queue.is_empty() {
             let current = queue.pop_front().unwrap();
 
+            // exit condition
             if current.depth == max_depth {
                 break;
             }
@@ -97,7 +139,7 @@ impl Graph {
             }
         }
 
-        Ok(queue)
+        Ok(queue.make_contiguous().to_vec())
     }
 
     /// Returns Edges to the closest Node(s) to the location provided
