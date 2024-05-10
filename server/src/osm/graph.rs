@@ -66,11 +66,7 @@ impl Graph {
 
     /// Return a collection of Points and Lines from traversing the Graph from the start point to
     /// the depth specified
-    pub fn route_between(
-        &self,
-        start: Point,
-        end: Point,
-    ) -> Result<Route, anyhow::Error> {
+    pub fn route_between(&self, start: Point, end: Point) -> Result<Route, anyhow::Error> {
         let starting_neighbors = self.guess_neighbors(start)?;
         let target_neighbors = self.guess_neighbors(end)?;
         let target_neighbor_node_ids: Vec<NodeId> = target_neighbors.iter().map(|n| n.to).collect();
@@ -189,6 +185,11 @@ impl Graph {
 
         // at this point we have a sorted list of nodes by distance
         // the first, closest node is clearly the best candidate
+        if results.is_empty() {
+            // TODO: do something better, with a wider search radius?
+            return Err(anyhow!("Could not snap coords to graph nodes"));
+        }
+
         let mut results_iter = results.into_iter();
         let (closest_edge, closest_bearing) = results_iter.next().unwrap();
 

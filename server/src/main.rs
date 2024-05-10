@@ -1,3 +1,4 @@
+use anyhow::anyhow;
 use axum::{
     extract,
     http::{Method, StatusCode},
@@ -13,8 +14,8 @@ use tower_http::{
     trace::TraceLayer,
 };
 
-use rusty_router::osm::Graph;
 use rusty_router::geojson;
+use rusty_router::osm::Graph;
 
 #[tokio::main]
 async fn main() {
@@ -53,18 +54,14 @@ async fn traverse_handler(query: extract::Query<TraversalParams>) -> Result<Stri
         "traverse:: traversing from (lat, lon): ({}, {}) to depth {}",
         query.lat, query.lon, query.depth
     );
-    let starting_coord = Point::new(
-        query.lon,
-        query.lat,
-    );
+    let starting_coord = Point::new(query.lon, query.lat);
 
     let graph = Graph::new().unwrap();
     let traversal = graph
         .traverse_from(starting_coord, query.depth)
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
-    geojson::aggregate_traversal_geoms(&traversal)
-        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)
+    geojson::aggregate_traversal_geoms(&traversal).map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)
 }
 
 #[derive(Debug, Deserialize)]
@@ -79,7 +76,7 @@ fn parse_point(param: &str) -> Result<Point, anyhow::Error> {
         let lat: f64 = lat.parse()?;
         Ok(Point::new(lon, lat))
     } else {
-        Err(anyhow::Error::msg("Couldn't parse Point"))
+        Err(anyhow!("Couldn't parse Point"))
     }
 }
 
@@ -95,6 +92,5 @@ async fn route_handler(query: extract::Query<RouteParams>) -> Result<String, Sta
         .route_between(start, end)
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
-    geojson::route_geom(&route)
-        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)
+    geojson::route_geom(&route).map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)
 }
