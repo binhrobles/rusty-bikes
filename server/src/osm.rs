@@ -5,6 +5,7 @@ pub mod db;
 pub mod etl;
 pub mod graph;
 
+#[derive(Debug)]
 pub struct Graph {
     conn: Connection,
 }

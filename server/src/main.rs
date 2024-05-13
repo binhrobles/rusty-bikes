@@ -13,6 +13,7 @@ use tower_http::{
     cors::{Any, CorsLayer},
     trace::TraceLayer,
 };
+use tracing::{info, error};
 
 use rusty_router::geojson;
 use rusty_router::osm::Graph;
@@ -21,13 +22,18 @@ use rusty_router::osm::Graph;
 async fn main() {
     dotenv().expect(".env file not found");
 
-    tracing_subscriber::fmt::init();
+    tracing_subscriber::fmt()
+        .compact()
+        .with_max_level(tracing::Level::DEBUG)
+        .init();
+
+    let trace = TraceLayer::new_for_http();
+
     let cors = CorsLayer::new()
         .allow_methods([Method::GET, Method::POST])
         .allow_headers(Any)
         .allow_origin(Any);
 
-    let trace = TraceLayer::new_for_http();
     let app = Router::new()
         .route("/heartbeat", get(|| async { "OK" }))
         .route("/traverse", get(traverse_handler))
@@ -38,7 +44,7 @@ async fn main() {
     // run app w/ hyper, bind to 3000
     let listener = tokio::net::TcpListener::bind("0.0.0.0:3000").await.unwrap();
 
-    println!("listening on 3000...");
+    info!("listening on 3000!");
     axum::serve(listener, app).await.unwrap();
 }
 
@@ -50,7 +56,7 @@ struct TraversalParams {
 }
 
 async fn traverse_handler(query: extract::Query<TraversalParams>) -> Result<String, StatusCode> {
-    println!(
+    info!(
         "traverse:: traversing from (lat, lon): ({}, {}) to depth {}",
         query.lat, query.lon, query.depth
     );
@@ -59,7 +65,10 @@ async fn traverse_handler(query: extract::Query<TraversalParams>) -> Result<Stri
     let graph = Graph::new().unwrap();
     let traversal = graph
         .traverse_from(starting_coord, query.depth)
-        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+        .map_err(|e| {
+            error!("Routing Error: {e}");
+            StatusCode::INTERNAL_SERVER_ERROR
+        })?;
 
     geojson::aggregate_traversal_geoms(&traversal).map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)
 }
@@ -84,13 +93,16 @@ async fn route_handler(query: extract::Query<RouteParams>) -> Result<String, Sta
     let start = parse_point(&query.start).map_err(|_| StatusCode::BAD_REQUEST)?;
     let end = parse_point(&query.end).map_err(|_| StatusCode::BAD_REQUEST)?;
 
-    println!("{:?} to {:?}", start, end);
+    info!("{:?} to {:?}", start, end);
 
     let graph = Graph::new().unwrap();
 
     let route = graph
         .route_between(start, end)
-        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+        .map_err(|e| {
+            error!("Routing Error: {e}");
+            StatusCode::INTERNAL_SERVER_ERROR
+        })?;
 
     geojson::route_geom(&route).map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)
 }
