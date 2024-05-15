@@ -1,3 +1,4 @@
+use geo::Point;
 use rusqlite::Connection;
 use serde::Deserialize;
 
@@ -12,6 +13,7 @@ pub struct Graph {
 
 pub type NodeId = i64;
 pub type WayId = i64;
+pub type Distance = f64;
 
 // TODO: this needs context about who it's a neighbor TO!
 // at which point...is this just an Edge / Segment?
@@ -19,13 +21,37 @@ pub type WayId = i64;
 pub struct Neighbor {
     pub way: WayId,
     pub node: Node,
+    pub distance: Distance,
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Deserialize)]
 pub struct Node {
     pub id: NodeId,
-    pub lat: f64,
     pub lon: f64,
+    pub lat: f64,
+
+    #[serde(serialize_with = "serialize_geometry")]
+    pub geometry: Point,
+}
+
+impl Node {
+    pub fn new(id: NodeId, lon: f64, lat: f64) -> Node {
+        Node {
+            id,
+            lon,
+            lat,
+            geometry: Point::new(lon, lat),
+        }
+    }
+
+    pub fn from_point(id: NodeId, point: &Point) -> Node {
+        Node {
+            id,
+            lon: point.x(),
+            lat: point.y(),
+            geometry: *point,
+        }
+    }
 }
 
 #[derive(Debug, Deserialize)]

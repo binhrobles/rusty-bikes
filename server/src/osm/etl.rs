@@ -34,11 +34,7 @@ pub struct Element {
 
 impl From<&Element> for Node {
     fn from(value: &Element) -> Self {
-        Self {
-            id: value.id,
-            lat: value.lat.unwrap(),
-            lon: value.lon.unwrap(),
-        }
+        Node::new(value.id, value.lon.unwrap(), value.lat.unwrap())
     }
 }
 

@@ -41,9 +41,20 @@ const state = {
   endMarker: null,
 };
 
+const geoJsonPaintOptions = {
+  [MODE.TRAVERSE]: {
+    // paint different depths differently: https://leafletjs.com/examples/geojson/
+    style: (feature) => ({
+      color: `#${rainbow.colourAt(feature.properties.depth)}`,
+    }),
+  },
+  [MODE.ROUTE]: {},
+};
+
 // Uses global state to fetch and paint graph from starting loc
 const fetchAndPaintGraph = async () => {
   let res;
+
   switch (state.mode) {
     case MODE.TRAVERSE: {
       const { lat, lng } = state.currentMarker.getLatLng();
@@ -57,16 +68,14 @@ const fetchAndPaintGraph = async () => {
       break;
     }
     default:
+      console.error(`bad state -- mode=${state.mode}`);
+      return;
   }
+
   const json = await res.json();
 
   if (state.currentGeo) state.currentGeo.remove();
-  state.currentGeo = L.geoJSON(json, {
-    // paint different depths differently: https://leafletjs.com/examples/geojson/
-    style: (feature) => ({
-      color: `#${rainbow.colourAt(feature.properties.depth)}`,
-    }),
-  });
+  state.currentGeo = L.geoJSON(json, geoJsonPaintOptions[state.mode]);
   state.currentGeo.addTo(map);
 };
 
