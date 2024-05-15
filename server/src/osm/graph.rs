@@ -27,8 +27,20 @@ impl Route {
 
     /// extends this route with the specified node
     pub fn extend_with(&mut self, node: &Node) {
+        // TODO: push into LineString or MultiLineString instead of Vec<Coord>
+        // so we don't have to do custom serialization
         self.geometry.push(node.geometry.into());
     }
+}
+
+/// custom serialization to first create a LineString from a Vec<Coord>
+/// and then serialize into geojson
+pub fn serialize_route<S>(geometry: &[Coord], serializer: S) -> Result<S::Ok, S::Error>
+where
+    S: Serializer,
+{
+    let line_string = LineString::new(geometry.to_vec());
+    serialize_geometry(&line_string, serializer)
 }
 
 #[derive(Clone, Debug)]
@@ -65,16 +77,6 @@ impl TraversalSegment {
     }
 }
 
-/// custom serialization to first create a LineString from a Vec<Coord>
-/// and then serialize into geojson
-pub fn serialize_route<S>(geometry: &[Coord], serializer: S) -> Result<S::Ok, S::Error>
-where
-    S: Serializer,
-{
-    let line_string = LineString::new(geometry.to_vec());
-    serialize_geometry(&line_string, serializer)
-}
-
 impl Graph {
     pub fn new() -> Result<Self, anyhow::Error> {
         Ok(Self {
@@ -88,7 +90,7 @@ impl Graph {
     pub fn route_between(&self, start: Point, end: Point) -> Result<Route, anyhow::Error> {
         let traversal = self.traverse_between(start, end)?;
 
-        let end_node = Node::from_point(END_NODE_ID, &end);
+        let end_node = Node::new(END_NODE_ID, &end);
 
         println!("constructing route from {:#?}", traversal);
 
@@ -108,7 +110,7 @@ impl Graph {
         }
 
         // TODO: reverse?
-        // TODO: retain route metadata during Route extensions?
+        // TODO: retain route metadata during Route extensions? condense per Way?
 
         Ok(route)
     }
@@ -121,8 +123,8 @@ impl Graph {
         start: Point,
         end: Point,
     ) -> Result<HashMap<NodeId, TraversalSegment>, anyhow::Error> {
-        let start_node = Node::from_point(START_NODE_ID, &start);
-        let end_node = Node::from_point(END_NODE_ID, &end);
+        let start_node = Node::new(START_NODE_ID, &start);
+        let end_node = Node::new(END_NODE_ID, &end);
 
         let starting_neighbors = self.guess_neighbors(start)?;
 
@@ -158,16 +160,13 @@ impl Graph {
 
             for neighbor in adjacent_neighbors {
                 // only act for neighbors that haven't been visited already
-                if !came_from.contains_key(&neighbor.node.id) {
-                    let segment = TraversalSegment::new_to_neighbor(
-                        &current.to,
-                        &neighbor,
-                        current.depth + 1,
-                    );
+                came_from.entry(neighbor.node.id).or_insert({
+                    let segment =
+                        TraversalSegment::new_to_neighbor(&current.to, &neighbor, current.depth + 1);
+                    queue.push_back(segment.clone());
 
-                    came_from.insert(neighbor.node.id, segment.clone());
-                    queue.push_back(segment);
-                }
+                    segment
+                });
             }
         }
 
@@ -181,41 +180,42 @@ impl Graph {
         start: Point,
         max_depth: usize,
     ) -> Result<Vec<TraversalSegment>, anyhow::Error> {
-        let start_node = Node::from_point(START_NODE_ID, &start);
+        let start_node = Node::new(START_NODE_ID, &start);
 
         let starting_neighbors = self.guess_neighbors(start)?;
 
         // init the traversal queue and visited set w/ the starting neighbors
-        let mut queue: VecDeque<(Neighbor, Depth)> =
-            starting_neighbors.iter().map(|n| (*n, 0)).collect();
+        let mut queue: VecDeque<TraversalSegment> = VecDeque::new();
         let mut came_from: HashMap<NodeId, TraversalSegment> = HashMap::new();
         for neighbor in starting_neighbors {
+            let segment = TraversalSegment::new_to_neighbor(&start_node, &neighbor, 0);
             came_from.insert(
                 neighbor.node.id,
-                TraversalSegment::new_to_neighbor(&start_node, &neighbor, 0),
+                segment,
             );
+            queue.push_back(segment);
         }
 
         while !queue.is_empty() {
-            let (current, depth) = queue.pop_front().unwrap();
+            let current = queue.pop_front().unwrap();
 
             // exit condition
-            if depth == max_depth {
+            if current.depth == max_depth {
                 break;
             }
 
             // find outbound segments for this node
-            let adjacent_neighbors = self.get_neighbors(current.node.id)?;
+            let adjacent_neighbors = self.get_neighbors(current.to.id)?;
 
             for neighbor in adjacent_neighbors {
                 // only act for neighbors that haven't been visited already
-                if !came_from.contains_key(&neighbor.node.id) {
+                came_from.entry(neighbor.node.id).or_insert({
                     let segment =
-                        TraversalSegment::new_to_neighbor(&current.node, &neighbor, depth);
+                        TraversalSegment::new_to_neighbor(&current.to, &neighbor, current.depth + 1);
+                    queue.push_back(segment.clone());
 
-                    came_from.insert(neighbor.node.id, segment);
-                    queue.push_back((neighbor, depth + 1));
-                }
+                    segment
+                });
             }
         }
 
@@ -256,7 +256,7 @@ impl Graph {
             // for each returned Node, calculate the distance from the start point
             Ok((
                 Neighbor {
-                    node: Node::from_point(row.get(0)?, &loc),
+                    node: Node::new(row.get(0)?, &loc),
                     way: row.get(3)?,
                     distance: start.haversine_distance(&loc),
                 },
@@ -315,7 +315,7 @@ impl Graph {
         let result = stmt.query_map([id], |row| {
             Ok(Neighbor {
                 way: row.get(0)?,
-                node: Node::new(row.get(1)?, row.get(2)?, row.get(3)?),
+                node: Node::new(row.get(1)?, &Point::new(row.get(2)?, row.get(3)?)),
                 distance: row.get(4)?,
             })
         })?;

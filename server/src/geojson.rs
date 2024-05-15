@@ -1,11 +1,11 @@
 // Collection of functions for formatting Graph structures into Geojson
-use crate::osm::graph::Route;
+use crate::osm::graph::{Route, TraversalSegment};
 use tracing::instrument;
 
 // reduces traversal geom lines to their minimal form
 // TODO: either implement this, or do reductions at traversal-time
 #[instrument]
-pub fn aggregate_traversal_geoms(traversal: &[Route]) -> Result<String, anyhow::Error> {
+pub fn aggregate_traversal_geoms(traversal: &[TraversalSegment]) -> Result<String, anyhow::Error> {
     Ok(geojson::ser::to_feature_collection_string(traversal)?)
 }
 

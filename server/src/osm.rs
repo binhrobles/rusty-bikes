@@ -27,28 +27,15 @@ pub struct Neighbor {
 #[derive(Debug, Copy, Clone, PartialEq, Deserialize)]
 pub struct Node {
     pub id: NodeId,
-    pub lon: f64,
-    pub lat: f64,
 
     #[serde(serialize_with = "serialize_geometry")]
     pub geometry: Point,
 }
 
 impl Node {
-    pub fn new(id: NodeId, lon: f64, lat: f64) -> Node {
+    pub fn new(id: NodeId, point: &Point) -> Node {
         Node {
             id,
-            lon,
-            lat,
-            geometry: Point::new(lon, lat),
-        }
-    }
-
-    pub fn from_point(id: NodeId, point: &Point) -> Node {
-        Node {
-            id,
-            lon: point.x(),
-            lat: point.y(),
             geometry: *point,
         }
     }

@@ -36,7 +36,7 @@ async fn main() {
 
     let app = Router::new()
         .route("/heartbeat", get(|| async { "OK" }))
-        // .route("/traverse", get(traverse_handler))
+        .route("/traverse", get(traverse_handler))
         .route("/route", get(route_handler))
         // applies a collection of Tower Layers to all of this Router's routes
         .layer(ServiceBuilder::new().layer(trace).layer(cors));
@@ -55,24 +55,23 @@ struct TraversalParams {
     depth: usize,
 }
 
-// TODO: figure out how to translate these traversals to geojson nicely!
-// async fn traverse_handler(query: extract::Query<TraversalParams>) -> Result<String, StatusCode> {
-//     info!(
-//         "traverse:: traversing from (lat, lon): ({}, {}) to depth {}",
-//         query.lat, query.lon, query.depth
-//     );
-//     let starting_coord = Point::new(query.lon, query.lat);
+async fn traverse_handler(query: extract::Query<TraversalParams>) -> Result<String, StatusCode> {
+    info!(
+        "traverse:: traversing from (lat, lon): ({}, {}) to depth {}",
+        query.lat, query.lon, query.depth
+    );
+    let starting_coord = Point::new(query.lon, query.lat);
 
-//     let graph = Graph::new().unwrap();
-//     let traversal = graph
-//         .traverse_from(starting_coord, query.depth)
-//         .map_err(|e| {
-//             error!("Routing Error: {e}");
-//             StatusCode::INTERNAL_SERVER_ERROR
-//         })?;
+    let graph = Graph::new().unwrap();
+    let traversal = graph
+        .traverse_from(starting_coord, query.depth)
+        .map_err(|e| {
+            error!("Routing Error: {e}");
+            StatusCode::INTERNAL_SERVER_ERROR
+        })?;
 
-//     geojson::aggregate_traversal_geoms(&traversal).map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)
-// }
+    geojson::aggregate_traversal_geoms(&traversal).map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)
+}
 
 #[derive(Debug, Deserialize)]
 struct RouteParams {

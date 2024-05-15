@@ -1,3 +1,4 @@
+use geo::Point;
 /// Governs the initial ETL process from the OSM export JSON to SQLite
 use serde::de::{SeqAccess, Visitor};
 use serde::{Deserialize, Deserializer};
@@ -34,7 +35,10 @@ pub struct Element {
 
 impl From<&Element> for Node {
     fn from(value: &Element) -> Self {
-        Node::new(value.id, value.lon.unwrap(), value.lat.unwrap())
+        Node::new(
+            value.id,
+            &Point::new(value.lon.unwrap(), value.lat.unwrap()),
+        )
     }
 }
 
