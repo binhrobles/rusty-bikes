@@ -1,7 +1,7 @@
 use geo::Point;
 use geojson::ser::serialize_geometry;
 use rusqlite::Connection;
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Serialize, Serializer};
 
 pub mod db;
 pub mod etl;
@@ -40,6 +40,14 @@ impl Node {
             geometry: *point,
         }
     }
+}
+
+/// simple serialization of a Node to just its ID
+pub fn serialize_node_simple<S>(node: &Node, serializer: S) -> Result<S::Ok, S::Error>
+where
+    S: Serializer,
+{
+    serializer.serialize_i64(node.id)
 }
 
 #[derive(Debug, Deserialize)]

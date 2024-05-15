@@ -1,6 +1,6 @@
-use super::{db, Graph, Neighbor, Node, NodeId, WayId};
-use anyhow::anyhow;
 /// Exposes DB interactions as a Graph interface
+use super::{db, serialize_node_simple, Graph, Neighbor, Node, NodeId, WayId};
+use anyhow::anyhow;
 use geo::prelude::*;
 use geo::{Coord, HaversineBearing, Line, LineString, Point};
 use geojson::ser::serialize_geometry;
@@ -45,7 +45,9 @@ where
 
 #[derive(Clone, Debug, Serialize)]
 pub struct TraversalSegment {
+    #[serde(serialize_with = "serialize_node_simple")]
     from: Node,
+    #[serde(serialize_with = "serialize_node_simple")]
     to: Node,
 
     #[serde(serialize_with = "serialize_geometry")]
@@ -150,7 +152,6 @@ impl Graph {
 
         while !queue.is_empty() {
             let current = queue.pop_front().unwrap();
-            println!("popped: {}", current.to.id);
 
             // exit condition -- entrypoint to DRY-able?
             if target_neighbor_node_ids.contains(&current.to.id) {
@@ -206,6 +207,24 @@ impl Graph {
         }
 
         while !queue.is_empty() {
+            // println!(
+            //     "queue: {:#?}",
+            //     queue
+            //         .clone()
+            //         .iter()
+            //         .map(|s| s.to.id)
+            //         .collect::<Vec<NodeId>>()
+            // );
+            // println!(
+            //     "came_from: {:#?}",
+            //     came_from
+            //         .clone()
+            //         .iter()
+            //         .map(|(k, v)| format!("{}: {}->{}", k, v.from.id, v.to.id))
+            //         .collect::<Vec<String>>()
+            // );
+            // println!("============");
+
             let current = queue.pop_front().unwrap();
 
             // exit condition
@@ -217,8 +236,7 @@ impl Graph {
             let adjacent_neighbors = self.get_neighbors(current.to.id)?;
 
             for neighbor in adjacent_neighbors {
-                // only act for neighbors that haven't been visited already
-                came_from.entry(neighbor.node.id).or_insert({
+                came_from.entry(neighbor.node.id).or_insert_with(|| {
                     let segment = TraversalSegment::new_to_neighbor(
                         &current.to,
                         &neighbor,
