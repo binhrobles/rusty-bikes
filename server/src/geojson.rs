@@ -1,5 +1,6 @@
 /// Middleware when formatting Graph structures into Geojson
-use crate::osm::graph::{Route, TraversalSegment};
+use crate::osm::graph::Route;
+use crate::osm::traversal::TraversalSegment;
 
 pub fn aggregate_traversal_geoms(traversal: &[TraversalSegment]) -> Result<String, anyhow::Error> {
     Ok(geojson::ser::to_feature_collection_string(traversal)?)

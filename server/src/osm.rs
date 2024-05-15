@@ -6,6 +6,7 @@ use serde::{Deserialize, Serialize, Serializer};
 pub mod db;
 pub mod etl;
 pub mod graph;
+pub mod traversal;
 
 #[derive(Debug)]
 pub struct Graph {

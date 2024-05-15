@@ -1,16 +1,12 @@
 /// Exposes DB interactions as a Graph interface
-use super::{db, serialize_node_simple, Graph, Neighbor, Node, NodeId, WayId};
+use super::{db, Graph, Neighbor, Node, NodeId};
+use crate::osm::traversal::{Traversal, TraversalSegment, END_NODE_ID, START_NODE_ID};
 use anyhow::anyhow;
 use geo::prelude::*;
-use geo::{Coord, HaversineBearing, Line, LineString, Point};
+use geo::{Coord, HaversineBearing, LineString, Point};
 use geojson::ser::serialize_geometry;
 use serde::{Serialize, Serializer};
-use std::collections::{HashMap, VecDeque};
-
-const START_NODE_ID: NodeId = 0;
-const END_NODE_ID: NodeId = -1;
-
-type Depth = usize;
+use std::collections::HashMap;
 
 #[derive(Serialize, Clone, Debug)]
 pub struct Route {
@@ -43,47 +39,6 @@ where
     serialize_geometry(&line_string, serializer)
 }
 
-#[derive(Clone, Debug, Serialize)]
-pub struct TraversalSegment {
-    #[serde(serialize_with = "serialize_node_simple")]
-    from: Node,
-    #[serde(serialize_with = "serialize_node_simple")]
-    to: Node,
-
-    #[serde(serialize_with = "serialize_geometry")]
-    geometry: Line,
-
-    // segment metadata for weighing / constructing the route
-    depth: Depth,
-    distance: f64,
-    way: WayId,
-    // cost
-}
-
-impl TraversalSegment {
-    pub fn new_to_neighbor(from: &Node, to: &Neighbor, depth: usize) -> TraversalSegment {
-        TraversalSegment {
-            from: *from,
-            to: to.node,
-            geometry: Line::new(from.geometry, to.node.geometry),
-            distance: to.distance,
-            depth,
-            way: to.way,
-        }
-    }
-
-    pub fn new_to_node(from: &Node, to: &Node, way: WayId, depth: usize) -> TraversalSegment {
-        TraversalSegment {
-            from: *from,
-            to: *to,
-            geometry: Line::new(from.geometry, to.geometry),
-            distance: from.geometry.haversine_distance(&to.geometry),
-            depth,
-            way,
-        }
-    }
-}
-
 impl Graph {
     pub fn new() -> Result<Self, anyhow::Error> {
         Ok(Self {
@@ -99,14 +54,11 @@ impl Graph {
 
         let end_node = Node::new(END_NODE_ID, &end);
 
-        println!("constructing route from {:#?}", traversal);
-
         // construct route from traversal information
         let mut route = Route::new(&end_node);
         let mut current_segment = traversal.get(&END_NODE_ID).unwrap();
 
         loop {
-            println!("extending with {}", current_segment.from.id);
             route.extend_with(&current_segment.from);
 
             if current_segment.from.id == START_NODE_ID {
@@ -125,36 +77,22 @@ impl Graph {
     /// Return a collection of all TraversalSegments examined while routing between the start and
     /// end Points. TraversalSegments will be decorated with both the depth of the traversal and
     /// the cost assigned, given the designated cost model
-    pub fn traverse_between(
+    fn traverse_between(
         &self,
         start: Point,
         end: Point,
     ) -> Result<HashMap<NodeId, TraversalSegment>, anyhow::Error> {
-        let start_node = Node::new(START_NODE_ID, &start);
         let end_node = Node::new(END_NODE_ID, &end);
-
-        let starting_neighbors = self.guess_neighbors(start)?;
-
-        // get all the possible Nodes we can connect to as "destination" targets
         let target_neighbors = self.guess_neighbors(end)?;
         let target_neighbor_node_ids: Vec<NodeId> =
             target_neighbors.iter().map(|n| n.node.id).collect();
 
-        // init the traversal queue and visited set w/ the starting neighbors
-        let mut queue: VecDeque<TraversalSegment> = VecDeque::new();
-        let mut came_from: HashMap<NodeId, TraversalSegment> = HashMap::new();
+        let mut context = self.initialize_traversal(&start)?;
 
-        for neighbor in starting_neighbors {
-            let segment = TraversalSegment::new_to_neighbor(&start_node, &neighbor, 0);
-            came_from.insert(neighbor.node.id, segment.clone());
-            queue.push_back(segment);
-        }
-
-        while !queue.is_empty() {
-            let current = queue.pop_front().unwrap();
-
-            // exit condition -- entrypoint to DRY-able?
-            if target_neighbor_node_ids.contains(&current.to.id) {
+        self.traverse(
+            &mut context,
+            |current| target_neighbor_node_ids.contains(&current.to.id),
+            |current, came_from| {
                 let segment = TraversalSegment::new_to_node(
                     &current.to,
                     &end_node,
@@ -162,28 +100,10 @@ impl Graph {
                     current.depth + 1,
                 );
                 came_from.insert(END_NODE_ID, segment);
-                return Ok(came_from);
-            }
+            },
+        )?;
 
-            // find neighbors at the end of this segment
-            let adjacent_neighbors = self.get_neighbors(current.to.id)?;
-
-            for neighbor in adjacent_neighbors {
-                // only act for neighbors that haven't been visited already
-                came_from.entry(neighbor.node.id).or_insert({
-                    let segment = TraversalSegment::new_to_neighbor(
-                        &current.to,
-                        &neighbor,
-                        current.depth + 1,
-                    );
-                    queue.push_back(segment.clone());
-
-                    segment
-                });
-            }
-        }
-
-        Err(anyhow!("No route found!"))
+        Ok(context.came_from)
     }
 
     /// Return a collection of TraversalSegments from traversing the Graph from the start point to
@@ -193,63 +113,15 @@ impl Graph {
         start: Point,
         max_depth: usize,
     ) -> Result<Vec<TraversalSegment>, anyhow::Error> {
-        let start_node = Node::new(START_NODE_ID, &start);
+        let mut context = self.initialize_traversal(&start)?;
 
-        let starting_neighbors = self.guess_neighbors(start)?;
+        self.traverse(
+            &mut context,
+            |current| current.depth == max_depth,
+            |_current, _came_from| {},
+        )?;
 
-        // init the traversal queue and visited set w/ the starting neighbors
-        let mut queue: VecDeque<TraversalSegment> = VecDeque::new();
-        let mut came_from: HashMap<NodeId, TraversalSegment> = HashMap::new();
-        for neighbor in starting_neighbors {
-            let segment = TraversalSegment::new_to_neighbor(&start_node, &neighbor, 0);
-            came_from.insert(neighbor.node.id, segment.clone());
-            queue.push_back(segment);
-        }
-
-        while !queue.is_empty() {
-            // println!(
-            //     "queue: {:#?}",
-            //     queue
-            //         .clone()
-            //         .iter()
-            //         .map(|s| s.to.id)
-            //         .collect::<Vec<NodeId>>()
-            // );
-            // println!(
-            //     "came_from: {:#?}",
-            //     came_from
-            //         .clone()
-            //         .iter()
-            //         .map(|(k, v)| format!("{}: {}->{}", k, v.from.id, v.to.id))
-            //         .collect::<Vec<String>>()
-            // );
-            // println!("============");
-
-            let current = queue.pop_front().unwrap();
-
-            // exit condition
-            if current.depth == max_depth {
-                break;
-            }
-
-            // find outbound segments for this node
-            let adjacent_neighbors = self.get_neighbors(current.to.id)?;
-
-            for neighbor in adjacent_neighbors {
-                came_from.entry(neighbor.node.id).or_insert_with(|| {
-                    let segment = TraversalSegment::new_to_neighbor(
-                        &current.to,
-                        &neighbor,
-                        current.depth + 1,
-                    );
-                    queue.push_back(segment.clone());
-
-                    segment
-                });
-            }
-        }
-
-        Ok(came_from.values().cloned().collect())
+        Ok(context.came_from.values().cloned().collect())
     }
 
     /// Returns Edges to the closest Node(s) to the location provided
