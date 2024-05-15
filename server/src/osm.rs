@@ -1,6 +1,7 @@
 use geo::Point;
+use geojson::ser::serialize_geometry;
 use rusqlite::Connection;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 
 pub mod db;
 pub mod etl;
@@ -24,7 +25,7 @@ pub struct Neighbor {
     pub distance: Distance,
 }
 
-#[derive(Debug, Copy, Clone, PartialEq, Deserialize)]
+#[derive(Debug, Copy, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Node {
     pub id: NodeId,
 

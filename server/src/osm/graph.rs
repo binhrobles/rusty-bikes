@@ -2,7 +2,7 @@ use super::{db, Graph, Neighbor, Node, NodeId, WayId};
 use anyhow::anyhow;
 /// Exposes DB interactions as a Graph interface
 use geo::prelude::*;
-use geo::{Coord, HaversineBearing, LineString, Point};
+use geo::{Coord, HaversineBearing, Line, LineString, Point};
 use geojson::ser::serialize_geometry;
 use serde::{Serialize, Serializer};
 use std::collections::{HashMap, VecDeque};
@@ -43,10 +43,13 @@ where
     serialize_geometry(&line_string, serializer)
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize)]
 pub struct TraversalSegment {
     from: Node,
     to: Node,
+
+    #[serde(serialize_with = "serialize_geometry")]
+    geometry: Line,
 
     // segment metadata for weighing / constructing the route
     depth: Depth,
@@ -60,6 +63,7 @@ impl TraversalSegment {
         TraversalSegment {
             from: *from,
             to: to.node,
+            geometry: Line::new(from.geometry, to.node.geometry),
             distance: to.distance,
             depth,
             way: to.way,
@@ -70,6 +74,7 @@ impl TraversalSegment {
         TraversalSegment {
             from: *from,
             to: *to,
+            geometry: Line::new(from.geometry, to.geometry),
             distance: from.geometry.haversine_distance(&to.geometry),
             depth,
             way,
@@ -149,8 +154,12 @@ impl Graph {
 
             // exit condition -- entrypoint to DRY-able?
             if target_neighbor_node_ids.contains(&current.to.id) {
-                let segment =
-                    TraversalSegment::new_to_node(&current.to, &end_node, current.way, current.depth + 1);
+                let segment = TraversalSegment::new_to_node(
+                    &current.to,
+                    &end_node,
+                    current.way,
+                    current.depth + 1,
+                );
                 came_from.insert(END_NODE_ID, segment);
                 return Ok(came_from);
             }
@@ -161,8 +170,11 @@ impl Graph {
             for neighbor in adjacent_neighbors {
                 // only act for neighbors that haven't been visited already
                 came_from.entry(neighbor.node.id).or_insert({
-                    let segment =
-                        TraversalSegment::new_to_neighbor(&current.to, &neighbor, current.depth + 1);
+                    let segment = TraversalSegment::new_to_neighbor(
+                        &current.to,
+                        &neighbor,
+                        current.depth + 1,
+                    );
                     queue.push_back(segment.clone());
 
                     segment
@@ -189,10 +201,7 @@ impl Graph {
         let mut came_from: HashMap<NodeId, TraversalSegment> = HashMap::new();
         for neighbor in starting_neighbors {
             let segment = TraversalSegment::new_to_neighbor(&start_node, &neighbor, 0);
-            came_from.insert(
-                neighbor.node.id,
-                segment,
-            );
+            came_from.insert(neighbor.node.id, segment.clone());
             queue.push_back(segment);
         }
 
@@ -210,8 +219,11 @@ impl Graph {
             for neighbor in adjacent_neighbors {
                 // only act for neighbors that haven't been visited already
                 came_from.entry(neighbor.node.id).or_insert({
-                    let segment =
-                        TraversalSegment::new_to_neighbor(&current.to, &neighbor, current.depth + 1);
+                    let segment = TraversalSegment::new_to_neighbor(
+                        &current.to,
+                        &neighbor,
+                        current.depth + 1,
+                    );
                     queue.push_back(segment.clone());
 
                     segment
