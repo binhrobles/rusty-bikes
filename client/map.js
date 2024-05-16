@@ -2,6 +2,8 @@
 
 // ------ global inits / imports ------ //
 const RUSTY_BASE_URL = 'http://localhost:3000';
+const START_NODE_ID = -1;
+const END_NODE_ID = -2;
 
 const rainbow = new Rainbow();
 const map = L.map('map').setView([40.70, -73.98], 13);
@@ -65,42 +67,56 @@ const state = {
 
 // generates the html shown in the popup div when a feature is clicked
 const generateTraversalPopupHtml = (feature) => {
+  const [from, fromWrapper] = feature.properties.from === START_NODE_ID
+    ? ['Start', '<span>']
+    : [
+      feature.properties.from,
+      `<a
+        href="https://www.openstreetmap.org/node/${feature.properties.from}"
+        target="_blank"
+        rel="noopener noreferrer">`,
+    ];
+
+  const [to, toWrapper] = feature.properties.to === END_NODE_ID
+    ? ['End', '<span>']
+    : [
+      feature.properties.to,
+      `<a
+        href="https://www.openstreetmap.org/node/${feature.properties.from}"
+        target="_blank"
+        rel="noopener noreferrer">`,
+    ];
   let html = `
-    <h4>Segment</h4>
-    <hr>
-    <table>
-      <tr>
-        <td><strong>from</strong></td>
-        <td><a
-          href="https://www.openstreetmap.org/node/${feature.properties.from}"
-          target="_blank"
-          rel="noopener noreferrer"
-        >${feature.properties.from}</td>
-      </tr>
-      <tr>
-        <td><strong>to</strong></td>
-        <td><a
-          href="https://www.openstreetmap.org/node/${feature.properties.to}"
-          target="_blank"
-          rel="noopener noreferrer"
-        >${feature.properties.to}</td>
-      </tr>
-      <tr>
-        <td><strong>way</strong></td>
-        <td><a
-          href="https://www.openstreetmap.org/way/${feature.properties.way}"
-          target="_blank"
-          rel="noopener noreferrer"
-        >${feature.properties.way}</td>
-      </tr>`;
+            <h4>Segment</h4>
+            <hr>
+              <table>
+                <tr>
+                  <td><strong>from</strong></td>
+                  <td>${fromWrapper}${from}</td>
+                </tr>
+                <tr>
+                  <td><strong>to</strong></td>
+                  <td>${toWrapper}${to}</td>
+                </tr>
+                <tr>
+                  <td><strong>way</strong></td>
+                  <td><a
+                    href="https://www.openstreetmap.org/way/${feature.properties.way}"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >${feature.properties.way}</td>
+                </tr>`;
 
   Object.keys(feature.properties).forEach((key) => {
     if (!['from', 'to', 'way'].includes(key)) {
+      const value = feature.properties[key] % 1
+        ? feature.properties[key].toFixed(2)
+        : feature.properties[key];
       html += `
-        <tr>
-          <td><strong>${key}</strong></td>
-          <td>${feature.properties[key] % 1 ? feature.properties[key].toFixed(2) : feature.properties[key]}</td>
-        </tr>`;
+                <tr>
+                  <td><strong>${key}</strong></td>
+                  <td>${value}</td>
+                </tr>`;
     }
   });
 
@@ -109,25 +125,30 @@ const generateTraversalPopupHtml = (feature) => {
   return html;
 };
 
+const makeFeatureClickable = (feature, layer) => {
+  const featurePopupDiv = L.DomUtil.create('div', 'feature-popup');
+  L.DomEvent
+    .disableClickPropagation(featurePopupDiv)
+    .disableScrollPropagation(featurePopupDiv);
+  if (feature.properties) {
+    featurePopupDiv.innerHTML = generateTraversalPopupHtml(feature);
+    layer.bindPopup(featurePopupDiv);
+  }
+};
+
 const geoJsonOptions = {
   [MODE.TRAVERSE]: {
     // paint different depths differently: https://leafletjs.com/examples/geojson/
     style: (feature) => ({
       color: `#${rainbow.colourAt(feature.properties.depth)}`,
     }),
-    onEachFeature: (feature, layer) => {
-      const featurePopupDiv = L.DomUtil.create('div', 'feature-popup');
-      L.DomEvent
-        .disableClickPropagation(featurePopupDiv)
-        .disableScrollPropagation(featurePopupDiv);
-      if (feature.properties) {
-        featurePopupDiv.innerHTML = generateTraversalPopupHtml(feature);
-        layer.bindPopup(featurePopupDiv);
-      }
-    },
+    onEachFeature: makeFeatureClickable,
     bubblingMouseEvents: false,
   },
-  [MODE.ROUTE]: {},
+  [MODE.ROUTE]: {
+    onEachFeature: makeFeatureClickable,
+    bubblingMouseEvents: false,
+  },
 };
 
 // Uses global state to fetch and paint graph from starting loc
@@ -172,16 +193,16 @@ control.onAdd = () => {
 
 control.update = () => {
   let header = `
-    <h4>Rusty Bikes</h4>
-    <label for="mode-select">Mode:</label>
-    <select name="mode-select" id="mode-select" onchange="updateMode(this.value)">
-  `;
+              <h4>Rusty Bikes</h4>
+              <label for="mode-select">Mode:</label>
+              <select name="mode-select" id="mode-select" onchange="updateMode(this.value)">
+                `;
 
   Object.keys(MODE).forEach((mode) => {
     header += `<option ${state.mode === mode && 'selected'} value="${mode}">${modeMeta[mode].label}</option>`;
   });
 
-  header += '</select><hr/>';
+  header += '</select><hr />';
 
   let content;
   // only repaint this on mode change
@@ -189,32 +210,32 @@ control.update = () => {
   switch (state.mode) {
     case MODE.TRAVERSE:
       content = `
-        <label for="depthValue">Traversal Depth:</label>
-        <span id="depthValue"></span>
-        <br/>
-        <input class="slider" id="depthRange" type="range" min="0" max="100" value="${state.depth}" onchange="updateDepth(this.value)">
-        <br/>
+              <label for="depthValue">Traversal Depth:</label>
+              <span id="depthValue"></span>
+              <br />
+              <input class="slider" id="depthRange" type="range" min="0" max="100" value="${state.depth}" onchange="updateDepth(this.value)">
+                <br />
 
-        <label"traversalLon">Clicked (lon, lat):</label>
-        <br/>
-  (<span id="traversalLon"></span>, <span id="traversalLat"></span>)
-    `;
+                <label"traversalLon">Clicked (lon, lat):</label>
+              <br />
+              (<span id="traversalLon"></span>, <span id="traversalLat"></span>)
+              `;
       break;
     case MODE.ROUTE:
       // TODO: highlight last selected text field? to indicate the
       //       field that will populate when map clicked
       content = `
-        <table class="route-table">
-          <tr>
-            <td><label for="startInput">Start:</label></td>
-            <td><input type="text" id="startInput" placeholder="Click to select start point"></td>
-          </tr>
-          <tr>
-            <td><label for="endInput">End:</label></td>
-            <td><input type="text" id="endInput" placeholder="Click to select end point"></td>
-          </tr>
-        </table >
-    `;
+              <table class="route-table">
+                <tr>
+                  <td><label for="startInput">Start:</label></td>
+                  <td><input type="text" id="startInput" placeholder="Click to select start point"></td>
+                </tr>
+                <tr>
+                  <td><label for="endInput">End:</label></td>
+                  <td><input type="text" id="endInput" placeholder="Click to select end point"></td>
+                </tr>
+              </table >
+              `;
       break;
     default:
       break;
