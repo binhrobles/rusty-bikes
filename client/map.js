@@ -29,7 +29,7 @@ const modeMeta = {
   },
 };
 
-const PAINTABLE_METADATA_KEYS = ['depth', 'distance'];
+const PAINTABLE_METADATA_KEYS = ['depth', 'distance', 'distance_so_far'];
 
 const getModeFromUrl = () => {
   const params = new URLSearchParams(document.location.search);
@@ -140,9 +140,25 @@ const makeFeatureClickable = (feature, layer) => {
 };
 
 // instructs leaflet to paint each geojson feature a color, programmatically
-const geoJsonStyleFeatureFn = (rainbowInstance, paint) => (feature) => ({
-  color: `#${rainbowInstance.colourAt(feature.properties[paint])}`,
-});
+const geoJsonStyleFeatureFn = (rainbowInstance, paint) => {
+  // ensure the current paint conditions are honored
+  switch (state.paint) {
+    case 'depth':
+      rainbowInstance.setNumberRange(1, state.depth);
+      break;
+    case 'distance':
+      rainbowInstance.setNumberRange(1, 300);
+      break;
+    case 'distance_so_far':
+      rainbowInstance.setNumberRange(1, state.depth * 50);
+      break;
+    default:
+  }
+
+  return (feature) => ({
+    color: `#${rainbowInstance.colourAt(feature.properties[paint])}`,
+  });
+};
 
 const getGeoJsonOptions = (mode) => {
   switch (mode) {
@@ -222,31 +238,38 @@ control.update = () => {
   // update content using updates to HTMLElements
   switch (state.mode) {
     case MODE.TRAVERSE:
+      // slider
       content = `
-              <br />
-
               <label for="depthValue">Traversal Depth:</label>
               <span id="depthValue"></span>
               <br />
 
-              <input class="slider" id="depthRange" type="range" min="0" max="100" value=20 onchange="updateDepth(this.value)">
-              <br />
+              <input class="slider" id="depthRange" type="range" min="0" max="100" value=${state.depth} onchange="updateDepth(this.value)">
+              <br />`;
 
-              <label"traversalLon">Clicked (lon, lat):</label>
-              <br />
-              (<span id="traversalLon"></span>, <span id="traversalLat"></span>)
+      // paint selection
+      content += `
               <label for="paint-select">Paint with:</label>
               <select
                 name="paint-select"
                 id="paint-select"
                 onchange="updatePaint(this.value)"
-              >
-              `;
-
+              > `;
       PAINTABLE_METADATA_KEYS.forEach((key) => {
-        content += `<option ${key === 'depth' && 'selected'} value="${key}">${key}</option>`;
+        content += `<option ${key === state.paint && 'selected'} value="${key}">${key}</option>`;
       });
       content += '</select>';
+
+      // lon-lat label
+      content += `
+              <br />
+              <br />
+
+              <label for="traversalLon">Clicked (lon, lat):</label>
+              <br />
+              (<span id="traversalLon"></span>, <span id="traversalLat"></span>)
+              `;
+
       break;
     case MODE.ROUTE:
       // TODO: highlight last selected text field? to indicate the
@@ -288,15 +311,7 @@ const updateMode = (mode) => {
 const updatePaint = (paint) => {
   state.paint = paint;
 
-  // update geoJson style
-  if (state.paint === 'depth') {
-    rainbow.setNumberRange(1, state.depth);
-  } else {
-    rainbow.setNumberRange(1, 350);
-  }
   state.currentGeoJson.setStyle(geoJsonStyleFeatureFn(rainbow, state.paint));
-
-  control.update();
 };
 
 // Update the depth value on slider change
@@ -305,7 +320,6 @@ const updateDepth = (value) => {
   state.depth = Number(value);
 
   document.getElementById('depthValue').innerText = state.depth;
-  rainbow.setNumberRange(1, state.depth);
 
   // if a paint exists, repaint it
   if (state.currentGeoJson) fetchAndPaintGraph();
