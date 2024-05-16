@@ -3,41 +3,8 @@ use super::{db, Graph, Neighbor, Node, NodeId};
 use crate::osm::traversal::{Traversal, TraversalSegment, END_NODE_ID, START_NODE_ID};
 use anyhow::anyhow;
 use geo::prelude::*;
-use geo::{Coord, HaversineBearing, LineString, Point};
-use geojson::ser::serialize_geometry;
-use serde::{Serialize, Serializer};
-use std::collections::HashMap;
-
-#[derive(Serialize, Clone, Debug)]
-pub struct Route {
-    #[serde(serialize_with = "serialize_route")]
-    geometry: Vec<Coord>,
-}
-
-impl Route {
-    pub fn new(node: &Node) -> Route {
-        Route {
-            geometry: vec![node.geometry.into()],
-        }
-    }
-
-    /// extends this route with the specified node
-    pub fn extend_with(&mut self, node: &Node) {
-        // TODO: push into LineString or MultiLineString instead of Vec<Coord>
-        // so we don't have to do custom serialization
-        self.geometry.push(node.geometry.into());
-    }
-}
-
-/// custom serialization to first create a LineString from a Vec<Coord>
-/// and then serialize into geojson
-pub fn serialize_route<S>(geometry: &[Coord], serializer: S) -> Result<S::Ok, S::Error>
-where
-    S: Serializer,
-{
-    let line_string = LineString::new(geometry.to_vec());
-    serialize_geometry(&line_string, serializer)
-}
+use geo::{HaversineBearing, Point};
+use std::collections::{HashMap, VecDeque};
 
 impl Graph {
     pub fn new() -> Result<Self, anyhow::Error> {
@@ -46,32 +13,25 @@ impl Graph {
         })
     }
 
-    /// This boring function returns the route bw the points provided, as a single, pretty Route
-    /// struct with no fun decorations or anything
-    /// Uses the most ADVANCED algorithm currently known to {me}
-    pub fn route_between(&self, start: Point, end: Point) -> Result<Route, anyhow::Error> {
+    /// the route bw the points provided, as a vector
+    /// pretty Route struct with no fun decorations or anything
+    pub fn route_between(&self, start: Point, end: Point) -> Result<Vec<TraversalSegment>, anyhow::Error> {
         let traversal = self.traverse_between(start, end)?;
-
-        let end_node = Node::new(END_NODE_ID, &end);
+        println!("got traversal of len: {}", traversal.clone().keys().len());
 
         // construct route from traversal information
-        let mut route = Route::new(&end_node);
         let mut current_segment = traversal.get(&END_NODE_ID).unwrap();
+        let mut result: VecDeque<TraversalSegment> = VecDeque::from([current_segment.clone()]);
 
         loop {
-            route.extend_with(&current_segment.from);
-
             if current_segment.from.id == START_NODE_ID {
                 break;
             }
-
             current_segment = traversal.get(&current_segment.from.id).unwrap();
+            result.push_front(current_segment.clone());
         }
 
-        // TODO: reverse?
-        // TODO: retain route metadata during Route extensions? condense per Way?
-
-        Ok(route)
+        Ok(result.make_contiguous().to_vec())
     }
 
     /// Return a collection of all TraversalSegments examined while routing between the start and

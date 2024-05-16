@@ -24,6 +24,7 @@ pub struct Neighbor {
     pub way: WayId,
     pub node: Node,
     pub distance: Distance,
+    // TODO: bearing?
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Serialize, Deserialize)]
@@ -35,8 +36,8 @@ pub struct Node {
 }
 
 impl Node {
-    pub fn new(id: NodeId, point: &Point) -> Node {
-        Node {
+    pub fn new(id: NodeId, point: &Point) -> Self {
+        Self {
             id,
             geometry: *point,
         }

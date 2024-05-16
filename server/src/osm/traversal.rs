@@ -1,3 +1,4 @@
+/// Structs and logic specific to traversing a Graph
 use super::{serialize_node_simple, Graph, Neighbor, Node, NodeId, WayId};
 use anyhow::anyhow;
 use geo::{HaversineDistance, Line, Point};
@@ -28,8 +29,8 @@ pub struct TraversalSegment {
 }
 
 impl TraversalSegment {
-    pub fn new_to_neighbor(from: &Node, to: &Neighbor, depth: usize) -> TraversalSegment {
-        TraversalSegment {
+    pub fn new_to_neighbor(from: &Node, to: &Neighbor, depth: usize) -> Self {
+        Self {
             from: *from,
             to: to.node,
             geometry: Line::new(from.geometry, to.node.geometry),
@@ -39,8 +40,8 @@ impl TraversalSegment {
         }
     }
 
-    pub fn new_to_node(from: &Node, to: &Node, way: WayId, depth: usize) -> TraversalSegment {
-        TraversalSegment {
+    pub fn new_to_node(from: &Node, to: &Node, way: WayId, depth: usize) -> Self {
+        Self {
             from: *from,
             to: *to,
             geometry: Line::new(from.geometry, to.geometry),
