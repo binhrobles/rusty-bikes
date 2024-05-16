@@ -103,9 +103,18 @@ impl TraversalSegment {
     }
 }
 
+pub type TraversalQueue = VecDeque<TraversalSegment>;
+pub type TraversalMap = HashMap<NodeId, TraversalSegment>;
+pub type TraversalRoute = Vec<TraversalSegment>;
+pub type Traversal = Vec<TraversalSegment>;
+
+pub fn get_traversal(map: &TraversalMap) -> Traversal {
+    map.values().cloned().collect()
+}
+
 pub struct TraversalContext {
-    pub queue: VecDeque<TraversalSegment>,
-    pub came_from: HashMap<NodeId, TraversalSegment>,
+    pub queue: TraversalQueue,
+    pub came_from: TraversalMap,
 }
 
 impl TraversalContext {
@@ -123,7 +132,7 @@ impl Default for TraversalContext {
     }
 }
 
-pub trait Traversal {
+pub trait Traversable {
     fn initialize_traversal(&self, start: &Point) -> Result<TraversalContext, anyhow::Error>;
     fn traverse<F, G>(
         &self,
@@ -133,10 +142,10 @@ pub trait Traversal {
     ) -> Result<(), anyhow::Error>
     where
         F: Fn(&TraversalSegment) -> bool,
-        G: Fn(&TraversalSegment, &mut HashMap<NodeId, TraversalSegment>);
+        G: Fn(&TraversalSegment, &mut TraversalMap);
 }
 
-impl Traversal for Graph {
+impl Traversable for Graph {
     /// initializes the structures required to traverse this graph, leveraging the guess_neighbors
     /// function to snap the starting Point into the graph
     fn initialize_traversal(&self, start: &Point) -> Result<TraversalContext, anyhow::Error> {
@@ -164,7 +173,7 @@ impl Traversal for Graph {
     ) -> Result<(), anyhow::Error>
     where
         F: Fn(&TraversalSegment) -> bool,
-        G: Fn(&TraversalSegment, &mut HashMap<NodeId, TraversalSegment>),
+        G: Fn(&TraversalSegment, &mut TraversalMap),
     {
         while let Some(current) = context.queue.pop_front() {
             if exit_condition(&current) {

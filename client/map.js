@@ -18,6 +18,7 @@ L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
 const MODE = {
   ROUTE: 'ROUTE',
   TRAVERSE: 'TRAVERSE',
+  RNT: 'RNT',
 };
 
 const modeMeta = {
@@ -25,7 +26,10 @@ const modeMeta = {
     label: 'Traverse',
   },
   [MODE.ROUTE]: {
-    label: 'Routing',
+    label: 'Route',
+  },
+  [MODE.RNT]: {
+    label: 'Route + Traverse',
   },
 };
 
@@ -112,6 +116,7 @@ const generateTraversalPopupHtml = (feature) => {
 
   Object.keys(feature.properties).forEach((key) => {
     if (!['from', 'to', 'way'].includes(key)) {
+      // if value is a float, fix it to 2 sigfigs
       const value = feature.properties[key] % 1
         ? feature.properties[key].toFixed(2)
         : feature.properties[key];
@@ -141,6 +146,13 @@ const makeFeatureClickable = (feature, layer) => {
 
 // instructs leaflet to paint each geojson feature a color, programmatically
 const geoJsonStyleFeatureFn = (rainbowInstance, paint) => {
+  // if painting a traversal under a route, make it a cool blue grey
+  if (paint === 'rnt') {
+    return () => ({
+      color: '#F26F75',
+    });
+  }
+
   // ensure the current paint conditions are honored
   switch (state.paint) {
     case 'depth':
@@ -162,19 +174,17 @@ const geoJsonStyleFeatureFn = (rainbowInstance, paint) => {
 
 const getGeoJsonOptions = (mode) => {
   switch (mode) {
-    case MODE.TRAVERSE: {
+    case MODE.TRAVERSE:
       return {
         style: geoJsonStyleFeatureFn(rainbow, state.paint),
         onEachFeature: makeFeatureClickable,
         bubblingMouseEvents: false,
       };
-    }
-    case MODE.ROUTE: {
+    case MODE.ROUTE:
       return {
         onEachFeature: makeFeatureClickable,
         bubblingMouseEvents: false,
       };
-    }
     default:
       return {};
   }
@@ -184,28 +194,54 @@ const getGeoJsonOptions = (mode) => {
 const fetchAndPaintGraph = async () => {
   let res;
 
-  switch (state.mode) {
-    case MODE.TRAVERSE: {
-      const { lat, lng } = state.currentMarker.getLatLng();
-      res = await fetch(`${RUSTY_BASE_URL}/traverse?lat=${lat}&lon=${lng}&depth=${state.depth}`);
-      break;
+  try {
+    switch (state.mode) {
+      case MODE.TRAVERSE: {
+        const { lat, lng } = state.currentMarker.getLatLng();
+        res = await fetch(`${RUSTY_BASE_URL}/traverse?lat=${lat}&lon=${lng}&depth=${state.depth}`);
+        break;
+      }
+      case MODE.ROUTE: {
+        const { lng: startLon, lat: startLat } = state.startMarker.getLatLng();
+        const { lng: endLon, lat: endLat } = state.endMarker.getLatLng();
+        res = await fetch(`${RUSTY_BASE_URL}/route?start=${startLon},${startLat}&end=${endLon},${endLat}`);
+        break;
+      }
+      case MODE.RNT: {
+        const { lng: startLon, lat: startLat } = state.startMarker.getLatLng();
+        const { lng: endLon, lat: endLat } = state.endMarker.getLatLng();
+        res = await fetch(`${RUSTY_BASE_URL}/route?start=${startLon},${startLat}&end=${endLon},${endLat}&with_traversal=true`);
+        break;
+      }
+      default:
+        console.error(`bad state -- mode=${state.mode}`);
+        return;
     }
-    case MODE.ROUTE: {
-      const { lng: startLon, lat: startLat } = state.startMarker.getLatLng();
-      const { lng: endLon, lat: endLat } = state.endMarker.getLatLng();
-      res = await fetch(`${RUSTY_BASE_URL}/route?start=${startLon},${startLat}&end=${endLon},${endLat}`);
-      break;
+
+    const json = await res.json();
+
+    if (state.currentGeoJson) state.currentGeoJson.remove();
+    state.currentGeoJson = L.featureGroup([]);
+
+    // TODO: this is smelly
+    //       should have interfaces around UI mode handling -> data fetch -> rendering
+    // if traversal exists, paint it
+    if (json.traversal) {
+      if (state.mode === MODE.RNT) {
+        state.paint = 'rnt';
+      }
+      L.geoJSON(json.traversal, getGeoJsonOptions(MODE.TRAVERSE)).addTo(state.currentGeoJson);
     }
-    default:
-      console.error(`bad state -- mode=${state.mode}`);
-      return;
+
+    // if route exists, paint it
+    if (json.route) {
+      L.geoJSON(json.route, getGeoJsonOptions(MODE.ROUTE)).addTo(state.currentGeoJson);
+    }
+
+    state.currentGeoJson.addTo(map);
+  } catch (e) {
+    console.error('failed to fetch traversal: ', e);
   }
-
-  const json = await res.json();
-
-  if (state.currentGeoJson) state.currentGeoJson.remove();
-  state.currentGeoJson = L.geoJSON(json, getGeoJsonOptions(state.mode));
-  state.currentGeoJson.addTo(map);
 };
 
 // ------ control initialization ------ //
@@ -271,6 +307,7 @@ control.update = () => {
               `;
 
       break;
+    case MODE.RNT:
     case MODE.ROUTE:
       // TODO: highlight last selected text field? to indicate the
       //       field that will populate when map clicked
@@ -390,6 +427,7 @@ map.on('click', (clickEvent) => {
     case MODE.TRAVERSE:
       handleTraversalClick(clickEvent);
       break;
+    case MODE.RNT:
     case MODE.ROUTE:
       handleRouteClick(clickEvent);
       break;

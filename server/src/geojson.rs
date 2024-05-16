@@ -88,12 +88,12 @@ where
     serialize_geometry(&line_string, serializer)
 }
 
-pub fn aggregate_traversal_geoms(traversal: &[TraversalSegment]) -> Result<String, anyhow::Error> {
+pub fn serialize_traversal_geoms(traversal: &[TraversalSegment]) -> Result<String, anyhow::Error> {
     Ok(geojson::ser::to_feature_collection_string(traversal)?)
 }
 
-pub fn route_geom(segments: &[TraversalSegment]) -> Result<String, anyhow::Error> {
+pub fn serialize_route_geom(segments: &[TraversalSegment]) -> Result<String, anyhow::Error>
+{
     let route: Route = segments.into();
-
     Ok(geojson::ser::to_feature_collection_string(&route.steps)?)
 }

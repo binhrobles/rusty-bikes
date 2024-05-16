@@ -1,10 +1,10 @@
 /// Exposes DB interactions as a Graph interface
 use super::{db, Graph, Neighbor, Node, NodeId};
-use crate::osm::traversal::{Traversal, TraversalSegment, END_NODE_ID, START_NODE_ID};
+use crate::osm::traversal::{self, Traversable, Traversal, TraversalRoute, TraversalMap, TraversalSegment, END_NODE_ID, START_NODE_ID};
 use anyhow::anyhow;
 use geo::prelude::*;
 use geo::{HaversineBearing, Point};
-use std::collections::{HashMap, VecDeque};
+use std::collections::VecDeque;
 
 impl Graph {
     pub fn new() -> Result<Self, anyhow::Error> {
@@ -13,29 +13,31 @@ impl Graph {
         })
     }
 
-    /// the route bw the points provided, as a vector
-    /// pretty Route struct with no fun decorations or anything
     pub fn route_between(
         &self,
         start: Point,
         end: Point,
-    ) -> Result<Vec<TraversalSegment>, anyhow::Error> {
-        let traversal = self.traverse_between(start, end)?;
-        println!("got traversal of len: {}", traversal.clone().keys().len());
+        with_traversal: bool,
+    ) -> Result<(TraversalRoute, Option<Traversal>), anyhow::Error> {
+        let traversal_map = self.traverse_between(start, end)?;
+        println!("got traversal_map of len: {}", traversal_map.clone().keys().len());
 
         // construct route from traversal information
-        let mut current_segment = traversal.get(&END_NODE_ID).unwrap();
+        let mut current_segment = traversal_map.get(&END_NODE_ID).unwrap();
         let mut result: VecDeque<TraversalSegment> = VecDeque::from([current_segment.clone()]);
 
         loop {
             if current_segment.from.id == START_NODE_ID {
                 break;
             }
-            current_segment = traversal.get(&current_segment.from.id).unwrap();
+            current_segment = traversal_map.get(&current_segment.from.id).unwrap();
             result.push_front(current_segment.clone());
         }
 
-        Ok(result.make_contiguous().to_vec())
+        // include the traversal if requested
+        let traversal = if with_traversal { Some(traversal::get_traversal(&traversal_map)) } else { None };
+
+        Ok((result.make_contiguous().to_vec(), traversal))
     }
 
     /// Return a collection of all TraversalSegments examined while routing between the start and
@@ -45,7 +47,7 @@ impl Graph {
         &self,
         start: Point,
         end: Point,
-    ) -> Result<HashMap<NodeId, TraversalSegment>, anyhow::Error> {
+    ) -> Result<TraversalMap, anyhow::Error> {
         let end_node = Node::new(END_NODE_ID, &end);
         let target_neighbors = self.guess_neighbors(end)?;
         let target_neighbor_node_ids: Vec<NodeId> =
@@ -83,7 +85,7 @@ impl Graph {
             |_current, _came_from| {},
         )?;
 
-        Ok(context.came_from.values().cloned().collect())
+        Ok(traversal::get_traversal(&context.came_from))
     }
 
     /// Returns Edges to the closest Node(s) to the location provided

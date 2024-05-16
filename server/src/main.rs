@@ -1,9 +1,8 @@
 use anyhow::anyhow;
 use axum::{
     extract,
-    http::{Method, StatusCode},
-    routing::get,
-    Router,
+ http::{Method, StatusCode},
+ routing::{get, Router},
 };
 use dotenvy::dotenv;
 use geo::Point;
@@ -56,10 +55,6 @@ struct TraversalParams {
 }
 
 async fn traverse_handler(query: extract::Query<TraversalParams>) -> Result<String, StatusCode> {
-    info!(
-        "traverse:: traversing from (lat, lon): ({}, {}) to depth {}",
-        query.lat, query.lon, query.depth
-    );
     let starting_coord = Point::new(query.lon, query.lat);
 
     let graph = Graph::new().unwrap();
@@ -70,13 +65,15 @@ async fn traverse_handler(query: extract::Query<TraversalParams>) -> Result<Stri
             StatusCode::INTERNAL_SERVER_ERROR
         })?;
 
-    geojson::aggregate_traversal_geoms(&traversal).map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)
+    let traversal = geojson::serialize_traversal_geoms(&traversal).map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    Ok(format!("{{ \"traversal\": {} }}", traversal))
 }
 
 #[derive(Debug, Deserialize)]
 struct RouteParams {
     start: String,
     end: String,
+    with_traversal: Option<bool>,
 }
 
 fn parse_point(param: &str) -> Result<Point, anyhow::Error> {
@@ -92,17 +89,25 @@ fn parse_point(param: &str) -> Result<Point, anyhow::Error> {
 async fn route_handler(query: extract::Query<RouteParams>) -> Result<String, StatusCode> {
     let start = parse_point(&query.start).map_err(|_| StatusCode::BAD_REQUEST)?;
     let end = parse_point(&query.end).map_err(|_| StatusCode::BAD_REQUEST)?;
-
-    info!("{:?} to {:?}", start, end);
+    let with_traversal = query.with_traversal.unwrap_or_default();
 
     let graph = Graph::new().unwrap();
 
-    let route = graph
-        .route_between(start, end)
+    let (route, traversal) = graph
+        .route_between(start, end, with_traversal)
         .map_err(|e| {
             error!("Routing Error: {e}");
             StatusCode::INTERNAL_SERVER_ERROR
         })?;
 
-    geojson::route_geom(&route).map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)
+    let route = geojson::serialize_route_geom(&route).map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    let traversal = match traversal {
+        Some(t) => geojson::serialize_traversal_geoms(&t).map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?,
+        None => "null".to_string(),
+    };
+
+    // TODO: oh god how do we use struct serialization to help us here
+    //       had issues trying to leverage the geojson serialization helpers in a custom
+    //       Serializer impl for a RouteResponse struct
+    Ok(format!("{{ \"route\": {route}, \"traversal\": {traversal} }}"))
 }
