@@ -29,6 +29,8 @@ const modeMeta = {
   },
 };
 
+const PAINTABLE_METADATA_KEYS = ['depth', 'distance'];
+
 const getModeFromUrl = () => {
   const params = new URLSearchParams(document.location.search);
   const mode = params.get('mode');
@@ -39,6 +41,7 @@ const state = {
   currentGeoJson: null,
 
   mode: getModeFromUrl() || MODE.ROUTE,
+  paint: PAINTABLE_METADATA_KEYS[0],
 
   // traversal state
   currentMarker: null,
@@ -136,19 +139,29 @@ const makeFeatureClickable = (feature, layer) => {
   }
 };
 
-const geoJsonOptions = {
-  [MODE.TRAVERSE]: {
-    // paint different depths differently: https://leafletjs.com/examples/geojson/
-    style: (feature) => ({
-      color: `#${rainbow.colourAt(feature.properties.depth)}`,
-    }),
-    onEachFeature: makeFeatureClickable,
-    bubblingMouseEvents: false,
-  },
-  [MODE.ROUTE]: {
-    onEachFeature: makeFeatureClickable,
-    bubblingMouseEvents: false,
-  },
+// instructs leaflet to paint each geojson feature a color, programmatically
+const geoJsonStyleFeatureFn = (rainbowInstance, paint) => (feature) => ({
+  color: `#${rainbowInstance.colourAt(feature.properties[paint])}`,
+});
+
+const getGeoJsonOptions = (mode) => {
+  switch (mode) {
+    case MODE.TRAVERSE: {
+      return {
+        style: geoJsonStyleFeatureFn(rainbow, state.paint),
+        onEachFeature: makeFeatureClickable,
+        bubblingMouseEvents: false,
+      };
+    }
+    case MODE.ROUTE: {
+      return {
+        onEachFeature: makeFeatureClickable,
+        bubblingMouseEvents: false,
+      };
+    }
+    default:
+      return {};
+  }
 };
 
 // Uses global state to fetch and paint graph from starting loc
@@ -175,7 +188,7 @@ const fetchAndPaintGraph = async () => {
   const json = await res.json();
 
   if (state.currentGeoJson) state.currentGeoJson.remove();
-  state.currentGeoJson = L.geoJSON(json, geoJsonOptions[state.mode]);
+  state.currentGeoJson = L.geoJSON(json, getGeoJsonOptions(state.mode));
   state.currentGeoJson.addTo(map);
 };
 
@@ -210,16 +223,30 @@ control.update = () => {
   switch (state.mode) {
     case MODE.TRAVERSE:
       content = `
+              <br />
+
               <label for="depthValue">Traversal Depth:</label>
               <span id="depthValue"></span>
               <br />
-              <input class="slider" id="depthRange" type="range" min="0" max="100" value="${state.depth}" onchange="updateDepth(this.value)">
-                <br />
 
-                <label"traversalLon">Clicked (lon, lat):</label>
+              <input class="slider" id="depthRange" type="range" min="0" max="100" value=20 onchange="updateDepth(this.value)">
+              <br />
+
+              <label"traversalLon">Clicked (lon, lat):</label>
               <br />
               (<span id="traversalLon"></span>, <span id="traversalLat"></span>)
+              <label for="paint-select">Paint with:</label>
+              <select
+                name="paint-select"
+                id="paint-select"
+                onchange="updatePaint(this.value)"
+              >
               `;
+
+      PAINTABLE_METADATA_KEYS.forEach((key) => {
+        content += `<option ${key === 'depth' && 'selected'} value="${key}">${key}</option>`;
+      });
+      content += '</select>';
       break;
     case MODE.ROUTE:
       // TODO: highlight last selected text field? to indicate the
@@ -246,7 +273,7 @@ control.update = () => {
 
 control.addTo(map);
 
-// ------ mode control ------ //
+// ------ view controls ------ //
 // eslint-disable-next-line no-unused-vars
 const updateMode = (mode) => {
   state.mode = mode;
@@ -257,8 +284,20 @@ const updateMode = (mode) => {
   control.update();
 };
 
-// ------ traversal mode handlers ------ //
-rainbow.setNumberRange(1, state.depth);
+// eslint-disable-next-line no-unused-vars
+const updatePaint = (paint) => {
+  state.paint = paint;
+
+  // update geoJson style
+  if (state.paint === 'depth') {
+    rainbow.setNumberRange(1, state.depth);
+  } else {
+    rainbow.setNumberRange(1, 350);
+  }
+  state.currentGeoJson.setStyle(geoJsonStyleFeatureFn(rainbow, state.paint));
+
+  control.update();
+};
 
 // Update the depth value on slider change
 // eslint-disable-next-line no-unused-vars
@@ -271,6 +310,9 @@ const updateDepth = (value) => {
   // if a paint exists, repaint it
   if (state.currentGeoJson) fetchAndPaintGraph();
 };
+
+// ------ traversal mode handlers ------ //
+rainbow.setNumberRange(1, state.depth);
 
 // clicks will update the marker location and fetch a graph traversal from that location
 const handleTraversalClick = (clickEvent) => {
