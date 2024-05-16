@@ -15,7 +15,11 @@ impl Graph {
 
     /// the route bw the points provided, as a vector
     /// pretty Route struct with no fun decorations or anything
-    pub fn route_between(&self, start: Point, end: Point) -> Result<Vec<TraversalSegment>, anyhow::Error> {
+    pub fn route_between(
+        &self,
+        start: Point,
+        end: Point,
+    ) -> Result<Vec<TraversalSegment>, anyhow::Error> {
         let traversal = self.traverse_between(start, end)?;
         println!("got traversal of len: {}", traversal.clone().keys().len());
 
@@ -53,12 +57,10 @@ impl Graph {
             &mut context,
             |current| target_neighbor_node_ids.contains(&current.to.id),
             |current, came_from| {
-                let segment = TraversalSegment::new_to_node(
-                    &current.to,
-                    &end_node,
-                    current.way,
-                    current.depth + 1,
-                );
+                let segment = TraversalSegment::build_to_node(&current.to, &end_node, current.way)
+                    .with_depth(current.depth + 1)
+                    .with_prev_distance(current.distance_so_far)
+                    .build();
                 came_from.insert(END_NODE_ID, segment);
             },
         )?;

@@ -53,10 +53,10 @@ pub struct RouteStep {
     geometry: Vec<Coord>,
 
     // route step metadata from TraversalSegment
-    pub distance: Distance,
     pub from: NodeId,
     pub to: NodeId,
     pub way: WayId,
+    pub distance: Distance,
 }
 
 impl RouteStep {

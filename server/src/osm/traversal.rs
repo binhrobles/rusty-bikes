@@ -1,5 +1,5 @@
 /// Structs and logic specific to traversing a Graph
-use super::{serialize_node_simple, Graph, Neighbor, Node, NodeId, WayId};
+use super::{serialize_node_simple, Distance, Graph, Neighbor, Node, NodeId, WayId};
 use anyhow::anyhow;
 use geo::{HaversineDistance, Line, Point};
 use geojson::ser::serialize_geometry;
@@ -22,33 +22,84 @@ pub struct TraversalSegment {
     pub geometry: Line,
 
     // segment metadata for weighing / constructing the route
-    pub depth: Depth,
-    pub distance: f64,
     pub way: WayId,
+    pub depth: Depth,
+    pub distance: Distance,
+    pub distance_so_far: Distance,
     // cost
 }
 
-impl TraversalSegment {
-    pub fn new_to_neighbor(from: &Node, to: &Neighbor, depth: usize) -> Self {
+pub struct TraversalSegmentBuilder {
+    from: Node,
+    to: Node,
+    way: WayId,
+    distance: Distance,
+    geometry: Line,
+
+    depth: Depth,
+    distance_so_far: Distance,
+}
+
+impl TraversalSegmentBuilder {
+    pub fn new_from_neighbor(from: &Node, to: &Neighbor) -> Self {
         Self {
             from: *from,
             to: to.node,
-            geometry: Line::new(from.geometry, to.node.geometry),
-            distance: to.distance,
-            depth,
             way: to.way,
+            distance: to.distance,
+            geometry: Line::new(from.geometry, to.node.geometry),
+
+            depth: 0,
+            distance_so_far: to.distance,
         }
     }
 
-    pub fn new_to_node(from: &Node, to: &Node, way: WayId, depth: usize) -> Self {
+    pub fn new_from_node(from: &Node, to: &Node, way: WayId) -> Self {
+        let distance = from.geometry.haversine_distance(&to.geometry);
         Self {
             from: *from,
             to: *to,
-            geometry: Line::new(from.geometry, to.geometry),
-            distance: from.geometry.haversine_distance(&to.geometry),
-            depth,
             way,
+            distance,
+            geometry: Line::new(from.geometry, to.geometry),
+
+            depth: 0,
+            distance_so_far: distance,
         }
+    }
+
+    pub fn with_depth(mut self, depth: Depth) -> Self {
+        self.depth = depth;
+        self
+    }
+
+    /// distance_so_far = this provided distance + initialized segment distance
+    pub fn with_prev_distance(mut self, distance: Distance) -> Self {
+        self.distance_so_far += distance;
+        self
+    }
+
+    pub fn build(self) -> TraversalSegment {
+        TraversalSegment {
+            from: self.from,
+            to: self.to,
+            way: self.way,
+            distance: self.distance,
+            geometry: self.geometry,
+
+            depth: self.depth,
+            distance_so_far: self.distance_so_far,
+        }
+    }
+}
+
+impl TraversalSegment {
+    pub fn build_to_neighbor(from: &Node, to: &Neighbor) -> TraversalSegmentBuilder {
+        TraversalSegmentBuilder::new_from_neighbor(from, to)
+    }
+
+    pub fn build_to_node(from: &Node, to: &Node, way: WayId) -> TraversalSegmentBuilder {
+        TraversalSegmentBuilder::new_from_node(from, to, way)
     }
 }
 
@@ -95,7 +146,7 @@ impl Traversal for Graph {
         let mut context = TraversalContext::new();
 
         for neighbor in starting_neighbors {
-            let segment = TraversalSegment::new_to_neighbor(&start_node, &neighbor, 0);
+            let segment = TraversalSegment::build_to_neighbor(&start_node, &neighbor).build();
             context.came_from.insert(neighbor.node.id, segment.clone());
             context.queue.push_back(segment);
         }
@@ -128,11 +179,10 @@ impl Traversal for Graph {
                     .came_from
                     .entry(neighbor.node.id)
                     .or_insert_with(|| {
-                        let segment = TraversalSegment::new_to_neighbor(
-                            &current.to,
-                            &neighbor,
-                            current.depth + 1,
-                        );
+                        let segment = TraversalSegment::build_to_neighbor(&current.to, &neighbor)
+                            .with_depth(current.depth + 1)
+                            .with_prev_distance(current.distance_so_far)
+                            .build();
                         context.queue.push_back(segment.clone());
                         segment
                     });
