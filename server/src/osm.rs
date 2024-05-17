@@ -52,6 +52,14 @@ where
     serializer.serialize_i64(node.id)
 }
 
+/// serialization of a float to an int
+pub fn serialize_float_as_int<S>(float: &f64, serializer: S) -> Result<S::Ok, S::Error>
+where
+    S: Serializer,
+{
+    serializer.serialize_i64(*float as i64)
+}
+
 #[derive(Debug, Deserialize)]
 pub struct Way {
     pub id: WayId,

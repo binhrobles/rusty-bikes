@@ -64,7 +64,7 @@ impl RouteStep {
         Self {
             geometry: vec![segment.geometry.start, segment.geometry.end],
 
-            distance: segment.distance,
+            distance: segment.length,
             from: segment.from.id,
             to: segment.to.id,
             way: segment.way,
@@ -73,7 +73,7 @@ impl RouteStep {
 
     pub fn extend_with(&mut self, segment: &TraversalSegment) {
         self.geometry.push(segment.geometry.end);
-        self.distance += segment.distance;
+        self.distance += segment.length;
         self.to = segment.to.id;
     }
 }

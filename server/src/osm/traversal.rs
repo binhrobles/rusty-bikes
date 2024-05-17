@@ -1,5 +1,7 @@
 /// Structs and logic specific to traversing a Graph
-use super::{serialize_node_simple, Distance, Graph, Neighbor, Node, NodeId, WayId};
+use super::{
+    serialize_float_as_int, serialize_node_simple, Distance, Graph, Neighbor, Node, NodeId, WayId,
+};
 use anyhow::anyhow;
 use geo::{HaversineDistance, Line, Point};
 use geojson::ser::serialize_geometry;
@@ -24,7 +26,10 @@ pub struct TraversalSegment {
     // segment metadata for weighing / constructing the route
     pub way: WayId,
     pub depth: Depth,
-    pub distance: Distance,
+
+    #[serde(serialize_with = "serialize_float_as_int")]
+    pub length: Distance,
+    #[serde(serialize_with = "serialize_float_as_int")]
     pub distance_so_far: Distance,
     // cost
 }
@@ -33,7 +38,7 @@ pub struct TraversalSegmentBuilder {
     from: Node,
     to: Node,
     way: WayId,
-    distance: Distance,
+    length: Distance,
     geometry: Line,
 
     depth: Depth,
@@ -46,7 +51,7 @@ impl TraversalSegmentBuilder {
             from: *from,
             to: to.node,
             way: to.way,
-            distance: to.distance,
+            length: to.distance,
             geometry: Line::new(from.geometry, to.node.geometry),
 
             depth: 0,
@@ -55,16 +60,16 @@ impl TraversalSegmentBuilder {
     }
 
     pub fn new_from_node(from: &Node, to: &Node, way: WayId) -> Self {
-        let distance = from.geometry.haversine_distance(&to.geometry);
+        let length = from.geometry.haversine_distance(&to.geometry);
         Self {
             from: *from,
             to: *to,
             way,
-            distance,
+            length,
             geometry: Line::new(from.geometry, to.geometry),
 
             depth: 0,
-            distance_so_far: distance,
+            distance_so_far: length,
         }
     }
 
@@ -73,7 +78,7 @@ impl TraversalSegmentBuilder {
         self
     }
 
-    /// distance_so_far = this provided distance + initialized segment distance
+    /// distance_so_far = this provided distance + initialized segment length
     pub fn with_prev_distance(mut self, distance: Distance) -> Self {
         self.distance_so_far += distance;
         self
@@ -84,7 +89,7 @@ impl TraversalSegmentBuilder {
             from: self.from,
             to: self.to,
             way: self.way,
-            distance: self.distance,
+            length: self.length,
             geometry: self.geometry,
 
             depth: self.depth,

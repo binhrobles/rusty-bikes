@@ -33,7 +33,7 @@ const modeMeta = {
   },
 };
 
-const PAINTABLE_METADATA_KEYS = ['depth', 'distance', 'distance_so_far'];
+const PAINTABLE_METADATA_KEYS = ['depth', 'length', 'distance_so_far'];
 
 const getModeFromUrl = () => {
   const params = new URLSearchParams(document.location.search);
@@ -63,6 +63,7 @@ const state = {
     if (state.currentMarker) state.currentMarker.remove();
     state.currentMarker = null;
     state.depth = 20;
+    state.paint = 'depth';
 
     // routing state
     if (state.startMarker) state.startMarker.remove();
@@ -158,7 +159,7 @@ const geoJsonStyleFeatureFn = (rainbowInstance, paint) => {
     case 'depth':
       rainbowInstance.setNumberRange(1, state.depth);
       break;
-    case 'distance':
+    case 'length':
       rainbowInstance.setNumberRange(1, 300);
       break;
     case 'distance_so_far':
@@ -208,6 +209,10 @@ const fetchAndPaintGraph = async () => {
         break;
       }
       case MODE.RNT: {
+        // TODO: this is smelly
+        //       should have interfaces around UI mode handling -> data fetch -> rendering
+        state.paint = 'rnt';
+
         const { lng: startLon, lat: startLat } = state.startMarker.getLatLng();
         const { lng: endLon, lat: endLat } = state.endMarker.getLatLng();
         res = await fetch(`${RUSTY_BASE_URL}/route?start=${startLon},${startLat}&end=${endLon},${endLat}&with_traversal=true`);
@@ -223,13 +228,8 @@ const fetchAndPaintGraph = async () => {
     if (state.currentGeoJson) state.currentGeoJson.remove();
     state.currentGeoJson = L.featureGroup([]);
 
-    // TODO: this is smelly
-    //       should have interfaces around UI mode handling -> data fetch -> rendering
     // if traversal exists, paint it
     if (json.traversal) {
-      if (state.mode === MODE.RNT) {
-        state.paint = 'rnt';
-      }
       L.geoJSON(json.traversal, getGeoJsonOptions(MODE.TRAVERSE)).addTo(state.currentGeoJson);
     }
 
