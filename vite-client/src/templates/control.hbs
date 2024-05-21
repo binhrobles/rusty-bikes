@@ -1,0 +1,13 @@
+<h4>Rusty Bikes</h4>
+</br>
+
+<label for="mode-select">Mode:</label>
+<select name="mode-select" id="mode-select">
+  {{#each this}}
+  <option id="{{ @key }}" value="{{ @key }}">{{ label }}</option>
+  {{/each}}
+</select>
+
+<hr>
+
+<div id="panel"></div>
