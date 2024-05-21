@@ -1,0 +1,20 @@
+<label for="depthValue">Traversal Depth:</label>
+<span id="depthValue"></span>
+<br />
+
+<input class="slider" id="depthRange" type="range" min="0" max="100" value="20">
+<br />
+
+<label for="paint-select">Paint with:</label>
+<select name="paint-select" id="paint-select">
+  {{#each this}}
+  <option id="{{ this }}" value="{{ this }}">{{ this }}</option>
+  {{/each}}
+</select>
+
+<br />
+<br />
+
+<label for="traversalLon">Clicked (lon, lat):</label>
+<br />
+(<span id="traversalLon"></span>, <span id="traversalLat"></span>)

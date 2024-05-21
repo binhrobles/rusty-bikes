@@ -1,19 +1,32 @@
 import L from 'leaflet';
 import Handlebars from 'handlebars';
 
-import { Mode, ModeMeta } from '../config.ts';
-import template from '../templates/control.hbs?raw';
+import { Mode, ModeMeta, PaintOptions } from '../config.ts';
 
-// compile template and generate HTML with static config on load
-const compiled = Handlebars.compile(template);
-const html = compiled(ModeMeta);
+// compile templates and generate HTML with static configs on load
+import controlTemplate from '../templates/control.hbs?raw';
+const compiledControlTemplate = Handlebars.compile(controlTemplate);
+const controlHtml = compiledControlTemplate(ModeMeta);
+
+import traversalPanelTemplate from '../templates/traversalPanel.hbs?raw';
+const compiledTraversalTemplate = Handlebars.compile(traversalPanelTemplate);
+
+import routePanelHtml from '../templates/routePanel.hbs?raw';
+
+const modeToHtmlMap = {
+  [Mode.Traverse]: compiledTraversalTemplate(PaintOptions),
+  [Mode.Route]: routePanelHtml,
+  [Mode.RouteViz]: routePanelHtml, // TODO: eventually, a distinct panel
+};
 
 /*
- * Checks if the `mode` queryParam has been set, otherwise returns Mode.Route
+ * Checks if the `mode` queryParam has been set to a valid Mode option,
+ * otherwise returns Mode.Route
  */
 const determineFirstMode = (): Mode => {
   const params = new URLSearchParams(document.location.search);
   const mode = params.get('mode');
+
   if (!(mode && Object.values<string>(Mode).includes(mode))) return Mode.Route;
 
   return mode as Mode;
@@ -22,8 +35,7 @@ const determineFirstMode = (): Mode => {
 const setSelectedMode = (mode: Mode) => {
   const modeOptionElement = document.getElementById(mode) as HTMLOptionElement;
   if (!modeOptionElement) {
-    console.error(`modeOption element ${mode} couldn't be found!`);
-    return;
+    return console.error(`modeOption element ${mode} couldn't be found!`);
   }
   modeOptionElement.selected = true;
 }
@@ -33,8 +45,7 @@ const wireModeChange = () => {
   //       think I like having the JS in JS rather than in the hbs file
   const modeSelectDiv = document.getElementById('mode-select');
   if (!modeSelectDiv) {
-    console.error('modeSelectDiv wasn\'t ready');
-    return;
+    return console.error('modeSelectDiv wasn\'t ready');
   }
 
   modeSelectDiv.onchange = (event: Event) => {
@@ -43,6 +54,15 @@ const wireModeChange = () => {
 
     // TODO: tie this back to some state update
   }
+}
+
+const renderControlPanel = (mode: Mode) => {
+  const panelDiv = document.getElementById('panel');
+  if (!panelDiv) {
+    return console.error('panelDiv wasn\'t ready');
+  }
+
+  panelDiv.innerHTML = modeToHtmlMap[mode];
 }
 
 /**
@@ -59,17 +79,17 @@ const render = (map: L.Map) => {
       .disableClickPropagation(controlDiv)
       .disableScrollPropagation(controlDiv);
 
-    controlDiv.innerHTML = html;
+    controlDiv.innerHTML = controlHtml;
     return controlDiv;
   };
 
   control.addTo(map);
 
-  // now, fill in with the appropriate panel
+  // now, set up the initial view + render the appropriate panel
   const mode = determineFirstMode();
-  setSelectedMode(mode);
 
-  // TODO: paint relevant control panel
+  setSelectedMode(mode);
+  renderControlPanel(mode);
 
   // add event listeners
   wireModeChange();
