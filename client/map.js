@@ -42,9 +42,9 @@ const getModeFromUrl = () => {
 };
 
 const state = {
-  currentGeoJson: null,
-
   mode: getModeFromUrl() || MODE.ROUTE,
+
+  currentGeoJson: null,
   paint: PAINTABLE_METADATA_KEYS[0],
 
   // traversal state
