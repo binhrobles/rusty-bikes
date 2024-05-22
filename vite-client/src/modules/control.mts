@@ -5,7 +5,7 @@ import { Mode, ModeMeta, PaintOptions, HtmlElementId, TraversalDefaults } from '
 
 import $mode from '../store/mode.ts';
 import { $depth, $paint, $marker as $traversalMarker } from '../store/traversal.ts';
-import { $startMarker, $endMarker } from '../store/route.ts';
+import { $startMarker, $endMarker, $selectedInput } from '../store/route.ts';
 
 import routePanelPartial from '../templates/routePanel.hbs?raw';
 import traversalPanelPartial from '../templates/traversalPanel.hbs?raw';
@@ -113,24 +113,41 @@ const render = (map: L.Map) => {
 
     switch (target.id) {
       // Traversal DOM event handlers
-      case HtmlElementId.DepthRange:
-        const value = (target as HTMLInputElement).value;
+      case HtmlElementId.DepthRange: {
+          const value = (target as HTMLInputElement).value;
 
-        const depthValue = document.getElementById(HtmlElementId.DepthValue);
-        if (!depthValue) throw 'depthValue wasn\'t ready';
+          const depthValue = document.getElementById(HtmlElementId.DepthValue);
+          if (!depthValue) throw 'depthValue wasn\'t ready';
 
-        depthValue.innerText = value;
-        $depth.set(Number(value));
+          depthValue.innerText = value;
+          $depth.set(Number(value));
+        }
         break;
-      case HtmlElementId.PaintSelect:
-        const paint = (target as HTMLSelectElement).value as PaintOptions;
-        $paint.set(paint);
+      case HtmlElementId.PaintSelect: {
+          const paint = (target as HTMLSelectElement).value as PaintOptions;
+          $paint.set(paint);
+        }
         break;
 
       // Routing
+      // TODO: trigger geosearch on start / end input values changed
 
       default:
         console.error(`no onChange event handler for ${target.id}`);
+    }
+  });
+
+
+  document.getElementById(HtmlElementId.PanelParent)?.addEventListener('click', (event: Event) => {
+    const target = event.target as HTMLElement;
+    switch (target.id) {
+      // when the Routing start / end inputs are clicked,
+      // queue them up to be changed on the next map click
+      case HtmlElementId.StartInput:
+      case HtmlElementId.EndInput:
+        $selectedInput.set(target.id);
+        break;
+      default:
     }
   });
 }

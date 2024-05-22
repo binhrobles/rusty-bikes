@@ -9,6 +9,14 @@ export const $marker = atom<MarkerType | null>(null);
 export const $depth = atom<number>(TraversalDefaults.depth);
 export const $paint = atom<PaintOptions>(TraversalDefaults.paint);
 
+// when mode switches away, clear marker
+$mode.listen((_, oldMode) => {
+  if (oldMode === Mode.Traverse) {
+    $marker.get()?.remove();
+    $marker.set(null);
+  }
+});
+
 // tie the Traversal $marker to map $clicks when in Traverse $mode
 $click.listen((event: LeafletMouseEvent | null) => {
   if ($mode.get() !== Mode.Traverse || !event) return;
