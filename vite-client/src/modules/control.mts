@@ -6,7 +6,6 @@ import { Mode, ModeMeta, PaintOptions, HtmlElementId, TraversalInitialState } fr
 import $mode from '../store/mode.ts';
 import { $depth, $paint, $marker } from '../store/traversal.ts';
 
-// compile control template and generate HTML with static configs on load
 import routePanelPartial from '../templates/routePanel.hbs?raw';
 import traversalPanelPartial from '../templates/traversalPanel.hbs?raw';
 import controlTemplate from '../templates/control.hbs?raw';
@@ -14,6 +13,8 @@ import controlTemplate from '../templates/control.hbs?raw';
 Handlebars.registerPartial('routePanel', routePanelPartial);
 Handlebars.registerPartial('traversalPanel', traversalPanelPartial);
 
+// compile control template (which includes partials)
+// and generate HTML with static configs on load
 const compiledControlTemplate = Handlebars.compile(controlTemplate);
 const controlHtml = compiledControlTemplate({
   ModeMeta,
@@ -32,22 +33,27 @@ const setSelectedMode = (mode: Mode) => {
   modeOptionElement.selected = true;
 }
 
-const wireMarkerChange = (marker: Readonly<L.Marker<any>> | null) => {
+// when the marker changes, ensure that the lonLat display
+// is tied to the initial and changing values
+const onTraversalMarkerChange = (marker: Readonly<L.Marker<any>> | null) => {
   if (!marker) return;
 
+  const lonLatSpan = document.getElementById(HtmlElementId.TraversalLonLat);
+  if (!lonLatSpan) {
+    return console.error('traversal-lon-lat not present');
+  }
+
+  const { lng, lat } = marker.getLatLng();
+  lonLatSpan.innerText = `(${lng}, ${lat})`;
+
   marker.on('move', (event: L.LeafletEvent) => {
-    const lonLatSpan = document.getElementById(HtmlElementId.TraversalLonLat);
-    if (!lonLatSpan) {
-      return console.error('traversal-lon-lat not present');
-    }
-
-    console.log(event);
-
-    // lonLatSpan.innerText = `(${event.latlng.lng}, ${event.latlng.lat})`;
+    const { latlng: { lng, lat }} = event as L.LeafletMouseEvent;
+    lonLatSpan.innerText = `(${lng}, ${lat})`;
   });
 }
 
 // sets the visibility of the selected panel
+// panels are already in the DOM, with `hidden` attributes
 const renderPanel = (mode: Mode, oldMode: Mode | null) => {
   const modePanel = document.getElementById(ModeMeta[mode].htmlElementId);
   if (!modePanel) {
@@ -119,14 +125,16 @@ const render = (map: L.Map) => {
       // Routing
 
       default:
-        console.error(`event listener for ${target.id}`);
+        console.error(`no onChange event handler for ${target.id}`);
     }
   });
 }
 
-// subscribe control panel renders to mode updates
+// subscribe control to state changes
+// updates to the mode should cause the appropriate panel to be rendered
 $mode.listen(renderPanel);
-$marker.listen(wireMarkerChange);
+// updates to the traversal marker should connect the lon/lat debugger
+$marker.listen(onTraversalMarkerChange);
 
 export default {
   render,

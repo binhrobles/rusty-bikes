@@ -1,11 +1,11 @@
 import { atom } from 'nanostores';
-import { Marker, LeafletMouseEvent } from 'leaflet';
+import { marker as Marker, Marker as MarkerType, LeafletMouseEvent } from 'leaflet';
 import { Mode, TraversalInitialState, PaintOptions } from '../consts.ts';
 
 import { $click } from './map.ts';
 import { $mode } from './mode.ts';
 
-export const $marker = atom<Marker | null>(null);
+export const $marker = atom<MarkerType | null>(null);
 export const $depth = atom<number>(TraversalInitialState.depth);
 export const $paint = atom<PaintOptions>(TraversalInitialState.paint);
 
@@ -16,4 +16,6 @@ $click.listen((event: LeafletMouseEvent | null) => {
   // remove the current marker if it exists
   $marker.get()?.remove();
 
+  // create a new marker at the mouse click location
+  $marker.set(Marker(event.latlng, { draggable: true }));
 });
