@@ -44,11 +44,11 @@ const onTraversalMarkerChange = (marker: Readonly<L.Marker<any>> | null) => {
   }
 
   const { lng, lat } = marker.getLatLng();
-  lonLatSpan.innerText = `(${lng}, ${lat})`;
+  lonLatSpan.innerText = `(${lng.toFixed(5)}, ${lat.toFixed(5)})`;
 
   marker.on('move', (event: L.LeafletEvent) => {
     const { latlng: { lng, lat }} = event as L.LeafletMouseEvent;
-    lonLatSpan.innerText = `(${lng}, ${lat})`;
+    lonLatSpan.innerText = `(${lng.toFixed(5)}, ${lat.toFixed(5)})`;
   });
 }
 
