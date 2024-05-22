@@ -1,6 +1,6 @@
 <div hidden id="{{ HtmlElementId.TraversePanel }}">
   <span>Traversal Depth:</span>
-  <span id="{{ HtmlElementId.DepthValue }}">{{ TraversalInitialState.depth }}</span>
+  <span id="{{ HtmlElementId.DepthValue }}">{{ TraversalDefaults.depth }}</span>
   <br />
 
   <input
@@ -9,7 +9,7 @@
     type="range"
     min="0"
     max="100"
-    value="{{ TraversalInitialState.depth }}">
+    value="{{ TraversalDefaults.depth }}">
   <br />
 
   <label for="{{ HtmlElementId.PaintSelect }}">Paint with:</label>
@@ -22,7 +22,9 @@
   <br />
   <br />
 
-  <span>Clicked (lon, lat):</span>
-  <br />
-  <span id="{{ HtmlElementId.TraversalLonLat }}">{{ TraversalInitialState.clickHint }}</span>
+  <label for="{{ HtmlElementId.TraversalLonLat }}">Clicked (lon, lat):</label>
+  <input
+    id="{{ HtmlElementId.TraversalLonLat }}"
+    type="text"
+    placeholder="{{ TraversalDefaults.clickHint }}"></input>
 </div>

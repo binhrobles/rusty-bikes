@@ -1,10 +1,11 @@
 import L from 'leaflet';
 import Handlebars from 'handlebars';
 
-import { Mode, ModeMeta, PaintOptions, HtmlElementId, TraversalInitialState } from '../consts.ts';
+import { Mode, ModeMeta, PaintOptions, HtmlElementId, TraversalDefaults } from '../consts.ts';
 
 import $mode from '../store/mode.ts';
-import { $depth, $paint, $marker } from '../store/traversal.ts';
+import { $depth, $paint, $marker as $traversalMarker } from '../store/traversal.ts';
+import { $startMarker, $endMarker } from '../store/route.ts';
 
 import routePanelPartial from '../templates/routePanel.hbs?raw';
 import traversalPanelPartial from '../templates/traversalPanel.hbs?raw';
@@ -19,7 +20,7 @@ const compiledControlTemplate = Handlebars.compile(controlTemplate);
 const controlHtml = compiledControlTemplate({
   ModeMeta,
   PaintOptions,
-  TraversalInitialState,
+  TraversalDefaults,
   HtmlElementId
 });
 
@@ -27,44 +28,38 @@ const controlHtml = compiledControlTemplate({
 // not intended to be used for dynamic mode changing atm
 const setSelectedMode = (mode: Mode) => {
   const modeOptionElement = document.getElementById(mode) as HTMLOptionElement;
-  if (!modeOptionElement) {
-    return console.error(`modeOption element ${mode} couldn't be found!`);
-  }
+  if (!modeOptionElement) throw `modeOption element ${mode} couldn't be found!`;
   modeOptionElement.selected = true;
 }
 
 // when the marker changes, ensure that the lonLat display
 // is tied to the initial and changing values
-const onTraversalMarkerChange = (marker: Readonly<L.Marker<any>> | null) => {
-  if (!marker) return;
+const onMarkerChange = (id: HtmlElementId) => {
+  const inputElement = document.getElementById(id) as HTMLInputElement;
+  if (!inputElement) throw `${id} not ready`;
 
-  const lonLatSpan = document.getElementById(HtmlElementId.TraversalLonLat);
-  if (!lonLatSpan) {
-    return console.error('traversal-lon-lat not present');
+  return (marker: Readonly<L.Marker<any>> | null) => {
+    if (!marker) return;
+
+    const { lng, lat } = marker.getLatLng();
+    inputElement.value = `(${lng.toFixed(5)}, ${lat.toFixed(5)})`;
+
+    marker.on('move', (event: L.LeafletEvent) => {
+      const { latlng: { lng, lat }} = event as L.LeafletMouseEvent;
+      inputElement.value = `(${lng.toFixed(5)}, ${lat.toFixed(5)})`;
+    });
   }
-
-  const { lng, lat } = marker.getLatLng();
-  lonLatSpan.innerText = `(${lng.toFixed(5)}, ${lat.toFixed(5)})`;
-
-  marker.on('move', (event: L.LeafletEvent) => {
-    const { latlng: { lng, lat }} = event as L.LeafletMouseEvent;
-    lonLatSpan.innerText = `(${lng.toFixed(5)}, ${lat.toFixed(5)})`;
-  });
 }
 
 // sets the visibility of the selected panel
 // panels are already in the DOM, with `hidden` attributes
 const renderPanel = (mode: Mode, oldMode: Mode | null) => {
   const modePanel = document.getElementById(ModeMeta[mode].htmlElementId);
-  if (!modePanel) {
-    return console.error('modePanel wasn\'t ready');
-  }
+  if (!modePanel) throw 'modePanel wasn\'t ready'
 
   if (oldMode) {
     const oldModePanel = document.getElementById(ModeMeta[oldMode].htmlElementId);
-    if (!oldModePanel) {
-      return console.error('modePanel wasn\'t ready');
-    }
+    if (!oldModePanel) throw 'oldModePanel wasn\'t ready';
     oldModePanel.hidden = true;
   }
 
@@ -96,6 +91,16 @@ const render = (map: L.Map) => {
   setSelectedMode($mode.get());
   renderPanel($mode.get(), null);
 
+  // subscribe control to state changes
+  // updates to the mode should cause the appropriate panel to be rendered
+  $mode.listen(renderPanel);
+
+  // updates markers should tie them to the relevant element
+  $traversalMarker.listen(onMarkerChange(HtmlElementId.TraversalLonLat));
+  $startMarker.listen(onMarkerChange(HtmlElementId.StartInput));
+  $endMarker.listen(onMarkerChange(HtmlElementId.EndInput));
+
+  // bind elements to publish to state
   // bind mode select changes to $mode state
   document.getElementById(HtmlElementId.ModeSelect)?.addEventListener('change', (event: Event) => {
     $mode.set((event.target as HTMLSelectElement).value as Mode);
@@ -112,7 +117,7 @@ const render = (map: L.Map) => {
         const value = (target as HTMLInputElement).value;
 
         const depthValue = document.getElementById(HtmlElementId.DepthValue);
-        if (!depthValue) return;
+        if (!depthValue) throw 'depthValue wasn\'t ready';
 
         depthValue.innerText = value;
         $depth.set(Number(value));
@@ -129,12 +134,6 @@ const render = (map: L.Map) => {
     }
   });
 }
-
-// subscribe control to state changes
-// updates to the mode should cause the appropriate panel to be rendered
-$mode.listen(renderPanel);
-// updates to the traversal marker should connect the lon/lat debugger
-$marker.listen(onTraversalMarkerChange);
 
 export default {
   render,

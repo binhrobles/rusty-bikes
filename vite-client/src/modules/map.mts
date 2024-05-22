@@ -2,6 +2,7 @@ import L from 'leaflet';
 
 import { $click } from '../store/map.ts';
 import { $marker as $traversalMarker } from '../store/traversal.ts';
+import { $startMarker, $endMarker } from '../store/route.ts';
 
 const container = document.getElementById('map');
 if (!container) throw new Error('no `map` div!');
@@ -18,10 +19,13 @@ const addToMap = (something: L.Layer | null) => {
   something.addTo(map);
 }
 
-// forward map clicks to our state mgmt
+// pub some clicks
 map.on('click', $click.set);
 
-// respond to state updates
-$traversalMarker.listen(marker => addToMap(marker as unknown as L.Layer));
+// sub some objects
+// updated markers just get added to the map
+[$traversalMarker, $startMarker, $endMarker].forEach($marker =>
+  $marker.listen(m => addToMap(m as unknown as L.Layer))
+)
 
 export default map;

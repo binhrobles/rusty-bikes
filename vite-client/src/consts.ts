@@ -5,15 +5,18 @@ export enum Mode {
   RouteViz = 'route-viz',
 };
 
+// typo mitigation
 export enum HtmlElementId {
   DepthRange = 'depth-range',
   DepthValue = 'depth-value',
+  EndInput = 'end-input',
   ModeSelect = 'mode-select',
   PaintSelect = 'paint-select',
   PanelParent = 'panel-parent',
+  RoutePanel = 'route-panel',
+  StartInput = 'start-input',
   TraversalLonLat = 'traversal-lon-lat',
   TraversePanel = 'traverse-panel',
-  RoutePanel = 'route-panel',
 };
 
 // holds mode-specific information
@@ -39,7 +42,7 @@ export enum PaintOptions {
   DistanceSoFar = 'distance_so_far',
 }
 
-export const TraversalInitialState = {
+export const TraversalDefaults = {
   depth: 20,
   paint: PaintOptions.Depth,
   clickHint: 'Click Somewhere!',
