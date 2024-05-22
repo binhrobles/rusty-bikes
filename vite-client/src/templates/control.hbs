@@ -3,11 +3,14 @@
 
 <label for="mode-select">Mode:</label>
 <select name="mode-select" id="mode-select">
-  {{#each this}}
+  {{#each ModeMeta }}
   <option id="{{ @key }}" value="{{ @key }}">{{ label }}</option>
   {{/each}}
 </select>
 
 <hr>
 
-<div id="panel"></div>
+<div id="{{ HtmlElementId.PanelParent }}">
+  {{> routePanel }}
+  {{> traversalPanel }}
+</div>

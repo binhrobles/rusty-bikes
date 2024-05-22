@@ -373,8 +373,11 @@ const handleTraversalClick = (clickEvent) => {
   state.currentMarker.addTo(map);
 
   // reacts to dragging
-  state.currentMarker.on('move', () => {
+  state.currentMarker.on('move', (event) => {
     fetchAndPaintGraph();
+
+    document.getElementById('traversalLon').innerText = event.latlng.lng;
+    document.getElementById('traversalLat').innerText = event.latlng.lat;
   });
 
   document.getElementById('traversalLon').innerText = clickEvent.latlng.lng;
