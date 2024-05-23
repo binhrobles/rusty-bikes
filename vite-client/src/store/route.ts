@@ -1,12 +1,13 @@
 import { atom } from 'nanostores';
 import { Marker, LeafletMouseEvent } from 'leaflet';
 import { Mode, HtmlElementId } from '../consts.ts';
+import { StoredMarker } from './marker.ts';
 
 import { $click } from './map.ts';
 import { $mode } from './mode.ts';
 
-export const $startMarker = atom<Marker | null>(null);
-export const $endMarker = atom<Marker | null>(null);
+export const { $marker: $startMarker, $latLng: $startMarkerLatLng } = StoredMarker();
+export const { $marker: $endMarker, $latLng: $endMarkerLatLng } = StoredMarker();
 export const $selectedInput =
   atom<HtmlElementId.StartInput | HtmlElementId.EndInput | null>(null);
 
@@ -44,15 +45,6 @@ $click.listen((event: LeafletMouseEvent | null) => {
   const start = $startMarker.get();
   if (!start) {
     $startMarker.set(marker);
-    return;
-  }
-
-  // if no end marker, lay _that_ down
-  const end = $endMarker.get();
-  if (!end) {
-    // create a new marker at the mouse click location
-    $endMarker.set(marker);
-    return;
   } else {
     // otherwise, move the end marker
     $endMarker.set(marker);

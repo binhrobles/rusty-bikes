@@ -1,17 +1,17 @@
-import { atom, batched, task } from 'nanostores';
+import { batched, task } from 'nanostores';
 import L from 'leaflet';
 import { FeatureCollection } from 'geojson';
 import { RUSTY_BASE_URL } from '../config.ts';
 import { Mode } from '../consts.ts';
 
 import { $markerLatLng as $traversalMarkerLatLng, $depth, $geoJsonRenderOptions as $traversalRenderOptions } from './traversal.ts';
+import { $startMarkerLatLng, $endMarkerLatLng } from './route.ts';
 import { $mode } from './mode.ts';
 
 type ServerResponse = {
   traversal: FeatureCollection,
   route: FeatureCollection,
 }
-
 
 // TODO: into modules/http?
 const fetchTraversal = async (lat: number, lon: number, depth: number): Promise<ServerResponse> => {
@@ -20,9 +20,12 @@ const fetchTraversal = async (lat: number, lon: number, depth: number): Promise<
 }
 
 // when traversal details change, refetch traversal geojson
-// TODO: client-side rate limit?
 export const $raw = batched(
-  [$mode, $traversalMarkerLatLng, $depth],
+  [
+    $mode,
+    $traversalMarkerLatLng, $depth,
+    $startMarkerLatLng, $endMarkerLatLng,
+  ],
   (mode, latLng, depth) => task(async () => {
     if (mode !== Mode.Traverse || !latLng) return;
 
@@ -35,33 +38,8 @@ export const $raw = batched(
     }
 }));
 
-// whenever a new json response is loaded, reinitialize the feature group
-// $raw.listen(json => {
-//   if (!json) return;
-
-//   // remove the group if it exists
-//   $featureGroup.get()?.remove();
-
-//   const featureGroup = new L.FeatureGroup([]);
-
-//   // if traversal exists, paint it
-//   if (json.traversal) {
-//     L.geoJSON(json.traversal, $traversalRenderOptions.get()).addTo(featureGroup);
-//   }
-
-//   // if route exists, paint it
-//   // if (json.route) {
-//   //   L.geoJSON(json.route, getGeoJsonOptions(MODE.ROUTE)).addTo(state.currentGeoJson);
-//   // }
-
-//   $featureGroup.set(featureGroup);
-// });
-
 export const $featureGroup = batched([$raw, $traversalRenderOptions], (json, options) => {
   if (!json) return;
-
-  // remove the group if it exists
-  // $featureGroup.get()?.remove();
 
   const featureGroup = new L.FeatureGroup([]);
 
@@ -75,6 +53,5 @@ export const $featureGroup = batched([$raw, $traversalRenderOptions], (json, opt
   //   L.geoJSON(json.route, getGeoJsonOptions(MODE.ROUTE)).addTo(state.currentGeoJson);
   // }
 
-  // $featureGroup.set(featureGroup);
   return featureGroup;
 });
