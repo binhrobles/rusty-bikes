@@ -35,8 +35,8 @@ export const addDebugClick = (feature: Feature<Geometry, any>, layer: L.Layer) =
   }
 };
 
-export const $renderOptions =
-  computed([$mode, $paint, $depth], (mode, paint, depth): L.GeoJSONOptions => {
+export const $style =
+  computed([$mode, $paint, $depth], (mode, paint, depth) => {
     let style;
 
     switch (mode) {
@@ -70,25 +70,28 @@ export const $renderOptions =
       default:
     }
 
-    return {
-      style,
-      onEachFeature: addDebugClick,
-      bubblingMouseEvents: false,
-    };
+    return style;
   });
 
-export const $featureGroup = computed([$raw, $renderOptions], (json, options) => {
+export const $featureGroup = computed([$raw, $style], (json, style) => {
   const featureGroup = new L.FeatureGroup([]);
   if (!json) return featureGroup;
 
   // if traversal exists, paint it
   if (json.traversal) {
-    L.geoJSON(json.traversal, options).addTo(featureGroup);
+    L.geoJSON(json.traversal, {
+      style,
+      onEachFeature: addDebugClick,
+      bubblingMouseEvents: false
+    }).addTo(featureGroup);
   }
 
   // if route exists, paint it
   if (json.route) {
-    L.geoJSON(json.route, /*getGeoJsonOptions(MODE.ROUTE)*/).addTo(featureGroup);
+    L.geoJSON(json.route, {
+      onEachFeature: addDebugClick,
+      bubblingMouseEvents: false
+    }).addTo(featureGroup);
   }
 
   return featureGroup;
