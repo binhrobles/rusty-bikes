@@ -3,7 +3,7 @@ import Handlebars from 'handlebars';
 
 import { Mode, ModeMeta, PaintOptions, HtmlElementId, TraversalDefaults } from '../consts.ts';
 
-import $mode from '../store/mode.ts';
+import { $mode } from '../store/mode.ts';
 import { $depth, $paint, $marker as $traversalMarker } from '../store/traversal.ts';
 import { $startMarker, $endMarker, $selectedInput } from '../store/route.ts';
 
@@ -45,7 +45,7 @@ const onMarkerChange = (id: HtmlElementId) => {
     inputElement.value = `(${lng.toFixed(5)}, ${lat.toFixed(5)})`;
 
     marker.on('move', (event: L.LeafletEvent) => {
-      const { latlng: { lng, lat }} = event as L.LeafletMouseEvent;
+      const { latlng: { lng, lat } } = event as L.LeafletMouseEvent;
       inputElement.value = `(${lng.toFixed(5)}, ${lat.toFixed(5)})`;
     });
   }
@@ -114,19 +114,19 @@ const render = (map: L.Map) => {
     switch (target.id) {
       // Traversal DOM event handlers
       case HtmlElementId.DepthRange: {
-          const value = (target as HTMLInputElement).value;
+        const value = (target as HTMLInputElement).value;
 
-          const depthValue = document.getElementById(HtmlElementId.DepthValue);
-          if (!depthValue) throw 'depthValue wasn\'t ready';
+        const depthValue = document.getElementById(HtmlElementId.DepthValue);
+        if (!depthValue) throw 'depthValue wasn\'t ready';
 
-          depthValue.innerText = value;
-          $depth.set(Number(value));
-        }
+        depthValue.innerText = value;
+        $depth.set(Number(value));
+      }
         break;
       case HtmlElementId.PaintSelect: {
-          const paint = (target as HTMLSelectElement).value as PaintOptions;
-          $paint.set(paint);
-        }
+        const paint = (target as HTMLSelectElement).value as PaintOptions;
+        $paint.set(paint);
+      }
         break;
 
       // Routing

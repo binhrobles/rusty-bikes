@@ -15,5 +15,3 @@ const determineFirstMode = (): Mode => {
 };
 
 export const $mode = atom<Mode>(determineFirstMode());
-
-export default $mode;

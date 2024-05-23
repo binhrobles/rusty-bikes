@@ -6,14 +6,16 @@ import { $click } from './map.ts';
 import { $mode } from './mode.ts';
 
 export const $marker = atom<Marker | null>(null);
+export const $markerLatLng = atom<L.LatLng | null>(null);
 export const $depth = atom<number>(TraversalDefaults.depth);
 export const $paint = atom<PaintOptions>(TraversalDefaults.paint);
 
-// when mode switches away, clear marker
+// when mode switches away, clear marker and coords
 $mode.listen((_, oldMode) => {
   if (oldMode === Mode.Traverse) {
     $marker.get()?.remove();
     $marker.set(null);
+    $markerLatLng.set(null);
   }
 });
 
@@ -25,5 +27,15 @@ $click.listen((event: LeafletMouseEvent | null) => {
   $marker.get()?.remove();
 
   // create a new marker at the mouse click location
-  $marker.set(new Marker(event.latlng, { draggable: true }));
+  const marker = new Marker(event.latlng, { draggable: true });
+
+  // update the latLon and attach a handler to the draggable event
+  $markerLatLng.set(marker.getLatLng());
+  marker.on('move', async event => {
+      $markerLatLng.set((event as L.LeafletMouseEvent).latlng);
+  });
+
+  // set the marker for map-related events
+  $marker.set(marker);
 });
+

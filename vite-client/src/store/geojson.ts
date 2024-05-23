@@ -1,32 +1,60 @@
-import { atom } from 'nanostores';
+import { atom, batched, task } from 'nanostores';
+import L from 'leaflet';
 import { FeatureCollection } from 'geojson';
-import { RUSTY_BASE_URL } from '../consts.ts';
+import { RUSTY_BASE_URL } from '../config.ts';
+import { Mode } from '../consts.ts';
 
-import { $marker as $traversalMarker, $depth } from './traversal.ts';
+import { $markerLatLng as $traversalMarkerLatLng, $depth } from './traversal.ts';
+import { $mode } from './mode.ts';
 
-export const $traversalGeoJson = atom<FeatureCollection | null>(null);
-export const $routeGeoJson = atom<FeatureCollection | null>(null);
+type ServerResponse = {
+  traversal: FeatureCollection,
+  route: FeatureCollection,
+}
 
-// when marker changes, fetch updated geojson
-// TODO: client-side rate limit? only once every 100ms max ?
-$traversalMarker.listen(async marker => {
-  console.log('fired');
-  if (!marker) return;
+export const $featureGroup = atom<L.FeatureGroup | null>(null);
 
-  try {
-    const { lat, lng } = marker.getLatLng();
+// TODO: into modules/http?
+const fetchTraversal = async (lat: number, lon: number, depth: number): Promise<ServerResponse> => {
+    const res = await fetch(`${RUSTY_BASE_URL}/traverse?lat=${lat}&lon=${lon}&depth=${depth}`);
+    return await res.json();
+}
 
-    const res = await fetch(`${RUSTY_BASE_URL}/traverse?lat=${lat}&lon=${lng}&depth=${$depth.get()}`);
-    const json = await res.json();
+// when traversal details change, refetch traversal geojson
+// TODO: client-side rate limit?
+export const $raw = batched(
+  [$mode, $traversalMarkerLatLng, $depth],
+  (mode, latLng, depth) => task(async () => {
+    if (mode !== Mode.Traverse || !latLng) return;
 
-    console.log(json);
-    $traversalGeoJson.set(json.traversal);
-  } catch (e) {
-    console.error('failed to fetch traversal: ', e);
+    try {
+      const { lat, lng } = latLng;
+      return await fetchTraversal(lat, lng, depth);
+    } catch (e) {
+      console.error('failed to fetch traversal: ', e);
+      return null;
+    }
+}));
+
+// whenever a new json response is loaded, reinitialize the feature group
+$raw.listen(json => {
+  if (!json) return;
+
+  // remove the group if it exists
+  $featureGroup.get()?.remove();
+
+  const featureGroup = new L.FeatureGroup([]);
+
+  // if traversal exists, paint it
+  if (json.traversal) {
+    L.geoJSON(json.traversal, /*getGeoJsonOptions(MODE.TRAVERSE)*/).addTo(featureGroup);
   }
+
+  // if route exists, paint it
+  // if (json.route) {
+  //   L.geoJSON(json.route, getGeoJsonOptions(MODE.ROUTE)).addTo(state.currentGeoJson);
+  // }
+
+  $featureGroup.set(featureGroup);
 });
 
-export default {
-  $traversalGeoJson,
-  $routeGeoJson,
-}

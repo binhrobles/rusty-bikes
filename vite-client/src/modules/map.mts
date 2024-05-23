@@ -3,7 +3,7 @@ import L from 'leaflet';
 import { $click } from '../store/map.ts';
 import { $marker as $traversalMarker } from '../store/traversal.ts';
 import { $startMarker, $endMarker } from '../store/route.ts';
-import { $traversalGeoJson } from '../store/geojson.ts';
+import { $featureGroup } from '../store/geojson.ts';
 
 const container = document.getElementById('map');
 if (!container) throw new Error('no `map` div!');
@@ -23,10 +23,9 @@ const addToMap = (something: L.Layer | null) => {
 // pub some clicks
 map.on('click', $click.set);
 
-// sub some objects
-// updated markers just get added to the map
-[$traversalMarker, $startMarker, $endMarker].forEach($marker =>
-  $marker.listen(m => addToMap(m as unknown as L.Layer))
+// sub some things that can be added to the map
+[$traversalMarker, $startMarker, $endMarker, $featureGroup].forEach($layer =>
+  $layer.listen(l => addToMap(l as unknown as L.Layer))
 )
 
 export default map;
