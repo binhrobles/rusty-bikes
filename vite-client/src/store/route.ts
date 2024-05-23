@@ -1,3 +1,7 @@
+/*
+ * All config concerning the Routing mode
+ *
+ */
 import { atom } from 'nanostores';
 import { Marker, LeafletMouseEvent } from 'leaflet';
 import { Mode, HtmlElementId } from '../consts.ts';

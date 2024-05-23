@@ -3,7 +3,7 @@ import L from 'leaflet';
 import { $click } from '../store/map.ts';
 import { $marker as $traversalMarker } from '../store/traversal.ts';
 import { $startMarker, $endMarker } from '../store/route.ts';
-import { $featureGroup } from '../store/geojson.ts';
+import { $featureGroup } from '../store/featureGroup.ts';
 
 const container = document.getElementById('map');
 if (!container) throw new Error('no `map` div!');

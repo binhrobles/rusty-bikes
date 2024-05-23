@@ -1,4 +1,8 @@
+/*
+ * Just forwards map clicks into a pub/sub-able atom
+ *
+ */
 import { atom } from 'nanostores';
-import { LeafletMouseEvent } from 'leaflet';
+import L from 'leaflet';
 
-export const $click = atom<LeafletMouseEvent | null>(null);
+export const $click = atom<L.LeafletMouseEvent | null>(null);

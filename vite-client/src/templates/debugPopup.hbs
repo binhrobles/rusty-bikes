@@ -1,0 +1,44 @@
+<h4>Segment</h4>
+<hr>
+<table>
+  <tr>
+    <td><strong>from</strong></td>
+    <td>
+    {{#if (isStartNode this.properties.from)}}
+      <span>Start</span>
+    {{else}}
+      <a
+        href="https://www.openstreetmap.org/node/{{this.properties.from}}"
+        target="_blank"
+        rel="noopener noreferrer">
+        {{this.properties.from}}
+      </a>
+    {{/if}}
+    </td>
+  </tr>
+
+  <tr>
+    <td><strong>to</strong></td>
+    <td>
+    {{#if (isEndNode this.properties.to)}}
+      <span>End</span>
+    {{else}}
+      <a
+        href="https://www.openstreetmap.org/node/{{this.properties.to}}"
+        target="_blank"
+        rel="noopener noreferrer">
+        {{this.properties.to}}
+      </a>
+    {{/if}}
+  </tr>
+
+  <tr>
+    <td><strong>way</strong></td>
+    <td><a
+      href="https://www.openstreetmap.org/way/{{this.properties.way}}"
+      target="_blank"
+      rel="noopener noreferrer"
+    >{{this.properties.way}}</td>
+  </tr>
+
+</table>
