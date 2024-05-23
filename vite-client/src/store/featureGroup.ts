@@ -1,8 +1,7 @@
 /**
  * Handles painting traversals / routes, given raw geojson availability
- *
  */
-import { batched, computed } from 'nanostores';
+import { computed } from 'nanostores';
 import L from 'leaflet';
 import Handlebars from 'handlebars';
 import { Feature, Geometry } from 'geojson';
@@ -15,6 +14,8 @@ import { $mode } from './mode.ts';
 import { $paint, $depth } from './traversal.ts';
 import { $raw } from './geojson.ts';
 
+const OSMKeys = ['from', 'to', 'way'];
+Handlebars.registerHelper('isNotOSMKey', key => !OSMKeys.includes(key));
 Handlebars.registerHelper('isStartNode', id => id === -1);
 Handlebars.registerHelper('isEndNode', id => id === -2);
 
@@ -74,13 +75,11 @@ export const $renderOptions =
       onEachFeature: addDebugClick,
       bubblingMouseEvents: false,
     };
-  }
-  );
+  });
 
-export const $featureGroup = batched([$raw, $renderOptions], (json, options) => {
-  if (!json) return;
-
+export const $featureGroup = computed([$raw, $renderOptions], (json, options) => {
   const featureGroup = new L.FeatureGroup([]);
+  if (!json) return featureGroup;
 
   // if traversal exists, paint it
   if (json.traversal) {

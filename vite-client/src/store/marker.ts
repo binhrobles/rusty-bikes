@@ -1,7 +1,6 @@
 /**
  * Abstraction for creating / working w/ draggable Markers and MarkerLatLngs
  * Adds ability to react to changes in _just_ the latlng of the marker
- *
  */
 import { atom, WritableAtom } from 'nanostores';
 import { Marker, LatLng } from 'leaflet';

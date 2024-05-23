@@ -1,6 +1,5 @@
 /**
  * Global `mode` of the app
- *
  */
 import { atom } from 'nanostores';
 import { Mode } from '../consts.ts';

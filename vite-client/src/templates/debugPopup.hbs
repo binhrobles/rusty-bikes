@@ -41,4 +41,12 @@
     >{{this.properties.way}}</td>
   </tr>
 
+  {{#each this.properties}}
+  {{#if (isNotOSMKey @key)}}
+      <tr>
+        <td><strong>{{@key}}</strong></td>
+        <td>{{this}}</td>
+      </tr>
+  {{/if}}
+  {{/each}}
 </table>

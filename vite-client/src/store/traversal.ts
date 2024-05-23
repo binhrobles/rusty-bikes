@@ -1,6 +1,5 @@
 /*
  * All config concerning the Traversal mode
- *
  */
 import { atom } from 'nanostores';
 import { Marker, LeafletMouseEvent } from 'leaflet';

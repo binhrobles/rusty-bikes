@@ -1,6 +1,5 @@
 /**
  * Handles formatting and making the request to Rusty Backend
- *
  */
 import { batched, task } from 'nanostores';
 import L from 'leaflet';
@@ -31,7 +30,7 @@ const fetchRoute = async (startLatLng: L.LatLng, endLatLng: L.LatLng, withTraver
     return await res.json();
 }
 
-// when traversal details change, refetch traversal geojson
+// make a fetch request whenever all conditions for the $mode have been met
 export const $raw = batched(
   [
     $mode,
