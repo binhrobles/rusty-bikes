@@ -1,3 +1,5 @@
+export const RUSTY_BASE_URL = 'http://localhost:3000';
+
 // available app Modes, tied to their queryParam id
 export enum Mode {
   Route = 'route',

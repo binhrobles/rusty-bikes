@@ -1,12 +1,12 @@
 import { atom } from 'nanostores';
-import { marker as Marker, Marker as MarkerType, LeafletMouseEvent } from 'leaflet';
+import { Marker, LeafletMouseEvent } from 'leaflet';
 import { Mode, HtmlElementId } from '../consts.ts';
 
 import { $click } from './map.ts';
 import { $mode } from './mode.ts';
 
-export const $startMarker = atom<MarkerType | null>(null);
-export const $endMarker = atom<MarkerType | null>(null);
+export const $startMarker = atom<Marker | null>(null);
+export const $endMarker = atom<Marker | null>(null);
 export const $selectedInput =
   atom<HtmlElementId.StartInput | HtmlElementId.EndInput | null>(null);
 
@@ -27,7 +27,7 @@ $click.listen((event: LeafletMouseEvent | null) => {
   if (mode !== Mode.Route && mode !== Mode.RouteViz || !event) return;
 
   // create a new marker at the mouse click location
-  const marker = Marker(event.latlng, { draggable: true });
+  const marker = new Marker(event.latlng, { draggable: true });
 
   // if one of the inputs were selected, change that one
   const selectedInput = $selectedInput.get();
