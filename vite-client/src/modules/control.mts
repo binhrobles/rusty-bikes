@@ -108,7 +108,6 @@ const render = (map: L.Map) => {
 
   // bind the panel's bubbled up change events to the appropriate state changes
   document.getElementById(HtmlElementId.PanelParent)?.addEventListener('change', (event: Event) => {
-    console.log(event);
     const target = event.target as HTMLElement;
 
     switch (target.id) {
