@@ -176,6 +176,7 @@ const geoJsonStyleFeatureFn = (rainbowInstance, paint) => {
 const getGeoJsonOptions = (mode) => {
   switch (mode) {
     case MODE.TRAVERSE:
+      // computed state?
       return {
         style: geoJsonStyleFeatureFn(rainbow, state.paint),
         onEachFeature: makeFeatureClickable,

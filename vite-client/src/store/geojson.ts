@@ -4,7 +4,7 @@ import { FeatureCollection } from 'geojson';
 import { RUSTY_BASE_URL } from '../config.ts';
 import { Mode } from '../consts.ts';
 
-import { $markerLatLng as $traversalMarkerLatLng, $depth } from './traversal.ts';
+import { $markerLatLng as $traversalMarkerLatLng, $depth, $geoJsonRenderOptions as $traversalRenderOptions } from './traversal.ts';
 import { $mode } from './mode.ts';
 
 type ServerResponse = {
@@ -12,7 +12,6 @@ type ServerResponse = {
   route: FeatureCollection,
 }
 
-export const $featureGroup = atom<L.FeatureGroup | null>(null);
 
 // TODO: into modules/http?
 const fetchTraversal = async (lat: number, lon: number, depth: number): Promise<ServerResponse> => {
@@ -37,17 +36,38 @@ export const $raw = batched(
 }));
 
 // whenever a new json response is loaded, reinitialize the feature group
-$raw.listen(json => {
+// $raw.listen(json => {
+//   if (!json) return;
+
+//   // remove the group if it exists
+//   $featureGroup.get()?.remove();
+
+//   const featureGroup = new L.FeatureGroup([]);
+
+//   // if traversal exists, paint it
+//   if (json.traversal) {
+//     L.geoJSON(json.traversal, $traversalRenderOptions.get()).addTo(featureGroup);
+//   }
+
+//   // if route exists, paint it
+//   // if (json.route) {
+//   //   L.geoJSON(json.route, getGeoJsonOptions(MODE.ROUTE)).addTo(state.currentGeoJson);
+//   // }
+
+//   $featureGroup.set(featureGroup);
+// });
+
+export const $featureGroup = batched([$raw, $traversalRenderOptions], (json, options) => {
   if (!json) return;
 
   // remove the group if it exists
-  $featureGroup.get()?.remove();
+  // $featureGroup.get()?.remove();
 
   const featureGroup = new L.FeatureGroup([]);
 
   // if traversal exists, paint it
   if (json.traversal) {
-    L.geoJSON(json.traversal, /*getGeoJsonOptions(MODE.TRAVERSE)*/).addTo(featureGroup);
+    L.geoJSON(json.traversal, options).addTo(featureGroup);
   }
 
   // if route exists, paint it
@@ -55,6 +75,6 @@ $raw.listen(json => {
   //   L.geoJSON(json.route, getGeoJsonOptions(MODE.ROUTE)).addTo(state.currentGeoJson);
   // }
 
-  $featureGroup.set(featureGroup);
+  // $featureGroup.set(featureGroup);
+  return featureGroup;
 });
-

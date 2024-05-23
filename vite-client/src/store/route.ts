@@ -14,7 +14,6 @@ export const $selectedInput =
 $mode.listen((_, oldMode) => {
   if (oldMode === Mode.Route || oldMode === Mode.RouteViz) {
     [$startMarker, $endMarker].forEach($marker => {
-      $marker.get()?.remove();
       $marker.set(null);
     });
     $selectedInput.set(null);
@@ -34,9 +33,9 @@ $click.listen((event: LeafletMouseEvent | null) => {
   if (selectedInput) {
     const $m = selectedInput === HtmlElementId.StartInput ? $startMarker : $endMarker;
 
-    // first remove, then set, then clear selected input bookmark
-    $m.get()?.remove();
     $m.set(marker);
+
+    // clear selected input bookmark
     $selectedInput.set(null);
     return;
   }
@@ -56,7 +55,6 @@ $click.listen((event: LeafletMouseEvent | null) => {
     return;
   } else {
     // otherwise, move the end marker
-    end.remove();
     $endMarker.set(marker);
   }
 });

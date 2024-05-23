@@ -15,17 +15,16 @@ L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
   attribution: '&copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a>',
 }).addTo(map);
 
-const addToMap = (something: L.Layer | null) => {
-  if (!something) return;
-  something.addTo(map);
-}
-
 // pub some clicks
 map.on('click', $click.set);
 
 // sub some things that can be added to the map
 [$traversalMarker, $startMarker, $endMarker, $featureGroup].forEach($layer =>
-  $layer.listen(l => addToMap(l as unknown as L.Layer))
+  $layer.listen((layer, oldLayer) => {
+    // handles removing and adding everything to the map on change
+    oldLayer?.remove();
+    layer?.addTo(map);
+  })
 )
 
 export default map;
