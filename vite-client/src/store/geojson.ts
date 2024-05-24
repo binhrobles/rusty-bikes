@@ -21,11 +21,11 @@ type ServerResponse = {
 
 const fetchTraversal = async (
   latLng: L.LatLng,
-  depth: number,
+  depth: number
 ): Promise<ServerResponse> => {
   const { lat, lng } = latLng;
   const res = await fetch(
-    `${RUSTY_BASE_URL}/traverse?lat=${lat}&lon=${lng}&depth=${depth}`,
+    `${RUSTY_BASE_URL}/traverse?lat=${lat}&lon=${lng}&depth=${depth}`
   );
   return await res.json();
 };
@@ -33,13 +33,13 @@ const fetchTraversal = async (
 const fetchRoute = async (
   startLatLng: L.LatLng,
   endLatLng: L.LatLng,
-  withTraversal: boolean,
+  withTraversal: boolean
 ): Promise<ServerResponse> => {
   const { lng: startLon, lat: startLat } = startLatLng;
   const { lng: endLon, lat: endLat } = endLatLng;
 
   const res = await fetch(
-    `${RUSTY_BASE_URL}/route?start=${startLon},${startLat}&end=${endLon},${endLat}&with_traversal=${withTraversal}`,
+    `${RUSTY_BASE_URL}/route?start=${startLon},${startLat}&end=${endLon},${endLat}&with_traversal=${withTraversal}`
   );
   return await res.json();
 };
@@ -65,7 +65,7 @@ export const $raw = batched(
           return await fetchRoute(
             startLatLng,
             endLatLng,
-            mode === Mode.RouteViz,
+            mode === Mode.RouteViz
           );
         } catch (e) {
           console.error('failed to fetch traversal: ', e);
@@ -74,5 +74,5 @@ export const $raw = batched(
       }
 
       return null;
-    }),
+    })
 );

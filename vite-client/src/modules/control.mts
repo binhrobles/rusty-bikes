@@ -48,7 +48,7 @@ const onMarkerChange = (id: HtmlElementId) => {
   const inputElement = document.getElementById(id) as HTMLInputElement;
   if (!inputElement) throw `${id} not ready`;
 
-  return (marker: Readonly<L.Marker<any>> | null) => {
+  return (marker: Readonly<L.Marker> | null) => {
     if (!marker) return;
 
     const { lng, lat } = marker.getLatLng();
@@ -71,7 +71,7 @@ const renderPanel = (mode: Mode, oldMode: Mode | null) => {
 
   if (oldMode) {
     const oldModePanel = document.getElementById(
-      ModeMeta[oldMode].htmlElementId,
+      ModeMeta[oldMode].htmlElementId
     );
     if (!oldModePanel) throw "oldModePanel wasn't ready";
     oldModePanel.hidden = true;
@@ -92,7 +92,7 @@ const render = (map: L.Map) => {
   control.onAdd = () => {
     const controlDiv = L.DomUtil.create('div', 'control');
     L.DomEvent.disableClickPropagation(controlDiv).disableScrollPropagation(
-      controlDiv,
+      controlDiv
     );
 
     controlDiv.innerHTML = controlHtml;
@@ -135,7 +135,7 @@ const render = (map: L.Map) => {
             const value = (target as HTMLInputElement).value;
 
             const depthValue = document.getElementById(
-              HtmlElementId.DepthValue,
+              HtmlElementId.DepthValue
             );
             if (!depthValue) throw "depthValue wasn't ready";
 

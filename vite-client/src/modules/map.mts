@@ -25,7 +25,7 @@ map.on('click', $click.set);
     // handles removing and adding everything to the map on change
     oldLayer?.remove();
     layer?.addTo(map);
-  }),
+  })
 );
 
 export default map;

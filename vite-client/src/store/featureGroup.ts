@@ -4,7 +4,7 @@
 import { computed } from 'nanostores';
 import L from 'leaflet';
 import Handlebars from 'handlebars';
-import { Feature, Geometry } from 'geojson';
+import { Feature } from 'geojson';
 import { Mode } from '../consts.ts';
 
 import Rainbow from 'rainbowvis.js';
@@ -22,14 +22,11 @@ Handlebars.registerHelper('isEndNode', (id) => id === -2);
 import debugPopupTemplate from '../templates/debugPopup.hbs?raw';
 const compiledDebugPopupTemplate = Handlebars.compile(debugPopupTemplate);
 
-export const addDebugClick = (
-  feature: Feature<Geometry, any>,
-  layer: L.Layer,
-) => {
+export const addDebugClick = (feature: Feature, layer: L.Layer) => {
   const featurePopupDiv = L.DomUtil.create('div', 'feature-popup');
 
   L.DomEvent.disableClickPropagation(featurePopupDiv).disableScrollPropagation(
-    featurePopupDiv,
+    featurePopupDiv
   );
 
   if (feature.properties) {
@@ -66,7 +63,7 @@ export const $style = computed(
             default:
           }
 
-          style = (feature: Feature<Geometry, any> | undefined) => ({
+          style = (feature: Feature | undefined) => ({
             color: feature?.properties
               ? `#${rainbow.colourAt(feature.properties[paint])}`
               : '#000000', // if black is painted...we got issues!
@@ -77,7 +74,7 @@ export const $style = computed(
     }
 
     return style;
-  },
+  }
 );
 
 export const $featureGroup = computed([$raw, $style], (json, style) => {
