@@ -7,7 +7,8 @@
     "dev": "vite",
     "lint": "eslint .",
     "build": "tsc && vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "depcruise": "depcruise src --include-only \"^src\" --output-type dot | dot -T svg > dependency-graph.svg"
   },
   "devDependencies": {
     "@stylistic/eslint-plugin": "^2.1.0",
