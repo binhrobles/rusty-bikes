@@ -15,19 +15,22 @@ import { $paint, $depth } from './traversal.ts';
 import { $raw } from './geojson.ts';
 
 const OSMKeys = ['from', 'to', 'way'];
-Handlebars.registerHelper('isNotOSMKey', key => !OSMKeys.includes(key));
-Handlebars.registerHelper('isStartNode', id => id === -1);
-Handlebars.registerHelper('isEndNode', id => id === -2);
+Handlebars.registerHelper('isNotOSMKey', (key) => !OSMKeys.includes(key));
+Handlebars.registerHelper('isStartNode', (id) => id === -1);
+Handlebars.registerHelper('isEndNode', (id) => id === -2);
 
 import debugPopupTemplate from '../templates/debugPopup.hbs?raw';
 const compiledDebugPopupTemplate = Handlebars.compile(debugPopupTemplate);
 
-export const addDebugClick = (feature: Feature<Geometry, any>, layer: L.Layer) => {
+export const addDebugClick = (
+  feature: Feature<Geometry, any>,
+  layer: L.Layer,
+) => {
   const featurePopupDiv = L.DomUtil.create('div', 'feature-popup');
 
-  L.DomEvent
-    .disableClickPropagation(featurePopupDiv)
-    .disableScrollPropagation(featurePopupDiv);
+  L.DomEvent.disableClickPropagation(featurePopupDiv).disableScrollPropagation(
+    featurePopupDiv,
+  );
 
   if (feature.properties) {
     featurePopupDiv.innerHTML = compiledDebugPopupTemplate(feature);
@@ -35,43 +38,47 @@ export const addDebugClick = (feature: Feature<Geometry, any>, layer: L.Layer) =
   }
 };
 
-export const $style =
-  computed([$mode, $paint, $depth], (mode, paint, depth) => {
+export const $style = computed(
+  [$mode, $paint, $depth],
+  (mode, paint, depth) => {
     let style;
 
     switch (mode) {
-      case Mode.RouteViz: {
-        style = () => ({
-          color: '#F26F75',
-        });
-      }
-        break;
-      case Mode.Traverse: {
-        switch (paint) {
-          case 'depth':
-            rainbow.setNumberRange(1, depth);
-            break;
-          case 'length':
-            rainbow.setNumberRange(1, 300);
-            break;
-          case 'distance_so_far':
-            rainbow.setNumberRange(1, depth * 50);
-            break;
-          default:
+      case Mode.RouteViz:
+        {
+          style = () => ({
+            color: '#F26F75',
+          });
         }
+        break;
+      case Mode.Traverse:
+        {
+          switch (paint) {
+            case 'depth':
+              rainbow.setNumberRange(1, depth);
+              break;
+            case 'length':
+              rainbow.setNumberRange(1, 300);
+              break;
+            case 'distance_so_far':
+              rainbow.setNumberRange(1, depth * 50);
+              break;
+            default:
+          }
 
-        style = (feature: Feature<Geometry, any> | undefined) => ({
-          color: feature?.properties ?
-            `#${rainbow.colourAt(feature.properties[paint])}` :
-            '#000000', // if black is painted...we got issues!
-        });
-      }
+          style = (feature: Feature<Geometry, any> | undefined) => ({
+            color: feature?.properties
+              ? `#${rainbow.colourAt(feature.properties[paint])}`
+              : '#000000', // if black is painted...we got issues!
+          });
+        }
         break;
       default:
     }
 
     return style;
-  });
+  },
+);
 
 export const $featureGroup = computed([$raw, $style], (json, style) => {
   const featureGroup = new L.FeatureGroup([]);
@@ -82,7 +89,7 @@ export const $featureGroup = computed([$raw, $style], (json, style) => {
     L.geoJSON(json.traversal, {
       style,
       onEachFeature: addDebugClick,
-      bubblingMouseEvents: false
+      bubblingMouseEvents: false,
     }).addTo(featureGroup);
   }
 
@@ -90,7 +97,7 @@ export const $featureGroup = computed([$raw, $style], (json, style) => {
   if (json.route) {
     L.geoJSON(json.route, {
       onEachFeature: addDebugClick,
-      bubblingMouseEvents: false
+      bubblingMouseEvents: false,
     }).addTo(featureGroup);
   }
 

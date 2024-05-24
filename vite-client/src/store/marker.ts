@@ -6,18 +6,18 @@ import { atom, WritableAtom } from 'nanostores';
 import { Marker, LatLng } from 'leaflet';
 
 type StoredMarker = {
-  $marker: WritableAtom<Marker | null>,
-  $latLng: WritableAtom<LatLng | null>,
-}
+  $marker: WritableAtom<Marker | null>;
+  $latLng: WritableAtom<LatLng | null>;
+};
 
 export const StoredMarker = (): StoredMarker => {
   const $marker = atom<Marker | null>(null);
   const $latLng = atom<LatLng | null>(null);
 
   // update the latLon and attach a handler to update on the drag event
-  $marker.listen(marker => {
+  $marker.listen((marker) => {
     $latLng.set(marker?.getLatLng() || null);
-    marker?.on('move', async event => {
+    marker?.on('move', async (event) => {
       $latLng.set((event as L.LeafletMouseEvent).latlng);
     });
   });

@@ -3,7 +3,7 @@ export enum Mode {
   Route = 'route',
   Traverse = 'traverse',
   RouteViz = 'route-viz',
-};
+}
 
 // typo mitigation
 export enum HtmlElementId {
@@ -17,7 +17,7 @@ export enum HtmlElementId {
   StartInput = 'start-input',
   TraversalLonLat = 'traversal-lon-lat',
   TraversePanel = 'traverse-panel',
-};
+}
 
 // holds mode-specific information
 export const ModeMeta = {
