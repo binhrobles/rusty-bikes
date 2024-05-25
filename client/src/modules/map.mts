@@ -3,12 +3,9 @@ import L from 'leaflet';
 import { $click } from '../store/map.ts';
 import { $marker as $traversalMarker } from '../store/traversal.ts';
 import { $startMarker, $endMarker } from '../store/route.ts';
-import { $featureGroup } from '../store/featureGroup.ts';
+import { $featureGroup, onFeatureGroupAdded } from '../store/render.ts';
 
-const container = document.getElementById('map');
-if (!container) throw new Error('no `map` div!');
-
-const map = L.map(container).setView([40.7, -73.98], 13);
+const map = L.map('map').setView([40.7, -73.98], 13);
 
 L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
   maxZoom: 19,
@@ -20,12 +17,19 @@ L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
 map.on('click', $click.set);
 
 // sub some things that can be added to the map
-[$traversalMarker, $startMarker, $endMarker, $featureGroup].forEach(($layer) =>
+[$traversalMarker, $startMarker, $endMarker].forEach(($layer) =>
   $layer.listen((layer, oldLayer) => {
     // handles removing and adding everything to the map on change
     oldLayer?.remove();
     layer?.addTo(map);
   })
 );
+
+// on feature group add, also trigger render store callback
+$featureGroup.listen((layer, oldLayer) => {
+  oldLayer?.remove();
+  layer?.addTo(map);
+  onFeatureGroupAdded();
+})
 
 export default map;

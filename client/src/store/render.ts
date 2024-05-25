@@ -35,7 +35,7 @@ export const addDebugClick = (feature: Feature, layer: L.Layer) => {
   }
 };
 
-export const $style = computed(
+export const $traversalStyle = computed(
   [$mode, $paint, $depth],
   (mode, paint, depth) => {
     let style;
@@ -43,9 +43,19 @@ export const $style = computed(
     switch (mode) {
       case Mode.RouteViz:
         {
-          style = () => ({
-            color: '#F26F75',
-          });
+          style = (feature: Feature | undefined) => {
+            if (!feature?.properties) {
+              console.error(
+                `unable to style feature: ${JSON.stringify(feature)}`
+              );
+              return {};
+            }
+
+            return {
+              color: '#F26F75',
+              className: `depth-${feature.properties.depth}`,
+            };
+          };
         }
         break;
       case Mode.Traverse:
@@ -63,11 +73,19 @@ export const $style = computed(
             default:
           }
 
-          style = (feature: Feature | undefined) => ({
-            color: feature?.properties
-              ? `#${rainbow.colourAt(feature.properties[paint])}`
-              : '#000000', // if black is painted...we got issues!
-          });
+          style = (feature: Feature | undefined) => {
+            if (!feature?.properties) {
+              console.error(
+                `unable to style feature: ${JSON.stringify(feature)}`
+              );
+              return {};
+            }
+
+            return {
+              color: `#${rainbow.colourAt(feature.properties[paint])}`,
+              className: `depth-${feature.properties.depth}`,
+            };
+          };
         }
         break;
       default:
@@ -77,7 +95,7 @@ export const $style = computed(
   }
 );
 
-export const $featureGroup = computed([$raw, $style], (json, style) => {
+export const $featureGroup = computed([$raw, $traversalStyle], (json, style) => {
   const featureGroup = new L.FeatureGroup([]);
   if (!json) return featureGroup;
 
@@ -100,3 +118,20 @@ export const $featureGroup = computed([$raw, $style], (json, style) => {
 
   return featureGroup;
 });
+
+// callback invoked after the feature group has been added to the Dom
+// parses out SVG component depths into a map to be used for animation
+export const onFeatureGroupAdded = async () => {
+  for (let i = 0; i <= $depth.get(); i++) {
+    const collection = document.getElementsByClassName(`depth-${i}`);
+    for (let j = 0; j < collection.length; j++) {
+      const feature = collection.item(j);
+      feature?.setAttribute('visibility', 'hidden');
+
+      setTimeout(
+        () => feature?.setAttribute('visibility', 'visible'),
+        i * 100
+      );
+    }
+  }
+};
