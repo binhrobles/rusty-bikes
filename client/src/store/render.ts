@@ -53,6 +53,7 @@ export const $traversalStyle = computed(
 
             return {
               color: '#F26F75',
+              opacity: 0, // start off invisible
               className: `depth-${feature.properties.depth}`,
             };
           };
@@ -83,6 +84,7 @@ export const $traversalStyle = computed(
 
             return {
               color: `#${rainbow.colourAt(feature.properties[paint])}`,
+              opacity: 0, // start off invisible
               className: `depth-${feature.properties.depth}`,
             };
           };
@@ -120,16 +122,29 @@ export const $featureGroup = computed([$raw, $traversalStyle], (json, style) => 
 });
 
 // callback invoked after the feature group has been added to the Dom
-// parses out SVG component depths into a map to be used for animation
+// animates traversals
 export const onFeatureGroupAdded = async () => {
-  for (let i = 0; i <= $depth.get(); i++) {
+  const mode = $mode.get();
+  let depth;
+
+  // if RouteViz, get the depth from the last step in the route response
+  if (mode === Mode.RouteViz) {
+    const features = $raw.get()?.route.features;
+    if (!features) return;
+    depth = features[features?.length - 1].properties?.depth; // TODO: route steps need depth
+    if (!depth) return;
+  } else if (mode === Mode.Traverse) {
+    depth = $depth.get();
+  } else {
+    return;
+  }
+
+  for (let i = 0; i <= depth; i++) {
     const collection = document.getElementsByClassName(`depth-${i}`);
     for (let j = 0; j < collection.length; j++) {
       const feature = collection.item(j);
-      feature?.setAttribute('visibility', 'hidden');
-
       setTimeout(
-        () => feature?.setAttribute('visibility', 'visible'),
+        () => feature?.setAttribute('stroke-opacity', '1'),
         i * 100
       );
     }
