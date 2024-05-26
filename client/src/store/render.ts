@@ -35,76 +35,66 @@ export const addDebugClick = (feature: Feature, layer: L.Layer) => {
   }
 };
 
-export const $traversalStyle = computed(
-  [$mode, $paint, $depth],
-  (mode, paint, depth) => {
-    let style;
-
-    switch (mode) {
-      case Mode.RouteViz:
-        {
-          style = (feature: Feature | undefined) => {
-            if (!feature?.properties) {
-              console.error(
-                `unable to style feature: ${JSON.stringify(feature)}`
-              );
-              return {};
-            }
-
-            return {
-              color: '#F26F75',
-              opacity: 0, // start off invisible
-              className: `depth-${feature.properties.depth}`,
-            };
-          };
-        }
-        break;
-      case Mode.Traverse:
-        {
-          switch (paint) {
-            case 'depth':
-              rainbow.setNumberRange(1, depth);
-              break;
-            case 'length':
-              rainbow.setNumberRange(1, 300);
-              break;
-            case 'distance_so_far':
-              rainbow.setNumberRange(1, depth * 50);
-              break;
-            default:
-          }
-
-          style = (feature: Feature | undefined) => {
-            if (!feature?.properties) {
-              console.error(
-                `unable to style feature: ${JSON.stringify(feature)}`
-              );
-              return {};
-            }
-
-            return {
-              color: `#${rainbow.colourAt(feature.properties[paint])}`,
-              opacity: 0, // start off invisible
-              className: `depth-${feature.properties.depth}`,
-            };
-          };
-        }
-        break;
-      default:
+const $routeStyle = computed($mode, (mode) => {
+  return (feature: Feature | undefined) => {
+    if (!feature?.properties) {
+      console.error(`unable to style feature: ${JSON.stringify(feature)}`);
+      return {};
     }
 
-    return style;
+    return {
+      opacity: mode === Mode.RouteViz ? 0 : 1,
+      weight: mode === Mode.RouteViz ? 5 : 3,
+      className: `route-depth-${feature.properties.depth} step-${feature.properties.idx}`,
+    };
+  };
+});
+
+const $traversalStyle = computed(
+  [$mode, $paint, $depth],
+  (mode, paint, depth) => {
+    let color = (_properties: Record<string, number>): string => '#F26F75';
+
+    if (mode === Mode.Traverse) {
+      switch (paint) {
+        case 'depth':
+          rainbow.setNumberRange(1, depth);
+          break;
+        case 'length':
+          rainbow.setNumberRange(1, 300);
+          break;
+        case 'distance_so_far':
+          rainbow.setNumberRange(1, depth * 50);
+          break;
+        default:
+      }
+
+      color = (properties) => `#${rainbow.colourAt(properties[paint])}`;
+    }
+
+    return (feature: Feature | undefined) => {
+      if (!feature?.properties) {
+        console.error(`unable to style feature: ${JSON.stringify(feature)}`);
+        return {};
+      }
+
+      return {
+        color: color(feature.properties),
+        opacity: 0, // start off invisible
+        className: `depth-${feature.properties.depth}`,
+      };
+    };
   }
 );
 
-export const $featureGroup = computed([$raw, $traversalStyle], (json, style) => {
+export const $featureGroup = computed($raw, (json) => {
   const featureGroup = new L.FeatureGroup([]);
   if (!json) return featureGroup;
 
   // if traversal exists, paint it
   if (json.traversal) {
     L.geoJSON(json.traversal, {
-      style,
+      style: $traversalStyle.get(),
       onEachFeature: addDebugClick,
       bubblingMouseEvents: false,
     }).addTo(featureGroup);
@@ -113,6 +103,7 @@ export const $featureGroup = computed([$raw, $traversalStyle], (json, style) => 
   // if route exists, paint it
   if (json.route) {
     L.geoJSON(json.route, {
+      style: $routeStyle.get(),
       onEachFeature: addDebugClick,
       bubblingMouseEvents: false,
     }).addTo(featureGroup);
@@ -126,12 +117,14 @@ export const $featureGroup = computed([$raw, $traversalStyle], (json, style) => 
 export const onFeatureGroupAdded = async () => {
   const mode = $mode.get();
   let depth;
+  let steps;
 
-  // if RouteViz, get the depth from the last step in the route response
+  // if RouteViz, get the depth and step count from the last step in the route response
   if (mode === Mode.RouteViz) {
     const features = $raw.get()?.route.features;
     if (!features) return;
-    depth = features[features?.length - 1].properties?.depth; // TODO: route steps need depth
+    depth = features[features?.length - 1].properties?.depth;
+    steps = features[features?.length - 1].properties?.idx;
     if (!depth) return;
   } else if (mode === Mode.Traverse) {
     depth = $depth.get();
@@ -143,10 +136,21 @@ export const onFeatureGroupAdded = async () => {
     const collection = document.getElementsByClassName(`depth-${i}`);
     for (let j = 0; j < collection.length; j++) {
       const feature = collection.item(j);
-      setTimeout(
-        () => feature?.setAttribute('stroke-opacity', '1'),
-        i * 100
-      );
+      setTimeout(() => feature?.setAttribute('stroke-opacity', '1'), i * 100);
+    }
+  }
+
+  // when doing route visualization, also paint route after traversal, in reverse
+  if (mode === Mode.RouteViz) {
+    for (let i = 0; i <= steps; i++) {
+      const collection = document.getElementsByClassName(`step-${steps - i}`);
+      for (let j = 0; j < collection.length; j++) {
+        const feature = collection.item(j);
+        setTimeout(
+          () => feature?.setAttribute('stroke-opacity', '1'),
+          depth * 100 + i * 100
+        );
+      }
     }
   }
 };

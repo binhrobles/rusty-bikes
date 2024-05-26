@@ -7,12 +7,18 @@ use serde::{Serialize, Serializer};
 #[derive(Serialize, Clone, Debug)]
 pub struct Route {
     steps: Vec<RouteStep>,
+
+    len: usize,
+    last_step_way: WayId,
 }
 
 impl Route {
     pub fn new(segment: &TraversalSegment) -> Self {
+        let init_step = RouteStep::new(segment, 0);
         Self {
-            steps: vec![RouteStep::new(segment)],
+            steps: vec![init_step],
+            len: 1,
+            last_step_way: segment.way,
         }
     }
 
@@ -20,16 +26,15 @@ impl Route {
     /// attempts to add to the last RouteStep (if on the same Way).
     /// otherwise, inits a new RouteStep
     pub fn extend_with(&mut self, segment: &TraversalSegment) {
-        // check last RouteStep
-        let len = self.steps.len();
-        let last_step = self.steps.get_mut(len - 1).unwrap();
-
         // if still on the same way, extend the existing step
-        if last_step.way == segment.way {
+        if self.last_step_way == segment.way {
+            let last_step = self.steps.get_mut(self.len - 1).unwrap();
             last_step.extend_with(segment);
         } else {
             // otherwise, create and append a new step
-            self.steps.push(RouteStep::new(segment));
+            self.len += 1;
+            self.last_step_way = segment.way;
+            self.steps.push(RouteStep::new(segment, self.len));
         }
     }
 }
@@ -58,10 +63,11 @@ pub struct RouteStep {
     pub way: WayId,
     pub distance: Distance,
     pub depth: Depth,
+    pub idx: usize,
 }
 
 impl RouteStep {
-    pub fn new(segment: &TraversalSegment) -> Self {
+    pub fn new(segment: &TraversalSegment, idx: usize) -> Self {
         Self {
             geometry: vec![segment.geometry.start, segment.geometry.end],
 
@@ -70,6 +76,7 @@ impl RouteStep {
             to: segment.to.id,
             way: segment.way,
             depth: segment.depth,
+            idx,
         }
     }
 
