@@ -1,5 +1,5 @@
 /// Middleware when formatting Graph structures into Geojson
-use crate::osm::{traversal::TraversalSegment, Distance, NodeId, WayId};
+use crate::osm::{traversal::TraversalSegment, traversal::Depth, Distance, NodeId, WayId};
 use geo::{Coord, LineString};
 use geojson::ser::serialize_geometry;
 use serde::{Serialize, Serializer};
@@ -57,6 +57,7 @@ pub struct RouteStep {
     pub to: NodeId,
     pub way: WayId,
     pub distance: Distance,
+    pub depth: Depth,
 }
 
 impl RouteStep {
@@ -68,6 +69,7 @@ impl RouteStep {
             from: segment.from.id,
             to: segment.to.id,
             way: segment.way,
+            depth: segment.depth,
         }
     }
 
@@ -75,6 +77,7 @@ impl RouteStep {
         self.geometry.push(segment.geometry.end);
         self.distance += segment.length;
         self.to = segment.to.id;
+        self.depth = segment.depth; // takes the depth of the last segment appended
     }
 }
 

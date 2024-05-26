@@ -11,7 +11,7 @@ use std::collections::{HashMap, VecDeque};
 pub const START_NODE_ID: NodeId = -1;
 pub const END_NODE_ID: NodeId = -2;
 
-type Depth = usize;
+pub type Depth = usize;
 
 #[derive(Clone, Debug, Serialize)]
 pub struct TraversalSegment {
