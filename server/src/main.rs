@@ -1,18 +1,15 @@
 use anyhow::anyhow;
-use axum::{
-    extract,
- http::{Method, StatusCode},
- routing::{get, Router},
-};
+use axum::{extract, http::StatusCode as AxumStatus};
 use dotenvy::dotenv;
 use geo::Point;
-use serde::Deserialize;
-use tower::ServiceBuilder;
-use tower_http::{
-    cors::{Any, CorsLayer},
-    trace::TraceLayer,
+use lambda_http::{
+    http::{Response as LambdaResponse, StatusCode},
+    run, service_fn, Error as LambdaError, IntoResponse, Request as LambdaRequest, RequestExt,
 };
-use tracing::{info, error};
+use query_map::QueryMap;
+use serde::Deserialize;
+use serde_json::{json, Value};
+use tracing::error;
 
 use rusty_router::geojson;
 use rusty_router::osm::Graph;
@@ -26,25 +23,7 @@ async fn main() {
         .with_max_level(tracing::Level::DEBUG)
         .init();
 
-    let trace = TraceLayer::new_for_http();
-
-    let cors = CorsLayer::new()
-        .allow_methods([Method::GET, Method::POST])
-        .allow_headers(Any)
-        .allow_origin(Any);
-
-    let app = Router::new()
-        .route("/heartbeat", get(|| async { "OK" }))
-        .route("/traverse", get(traverse_handler))
-        .route("/route", get(route_handler))
-        // applies a collection of Tower Layers to all of this Router's routes
-        .layer(ServiceBuilder::new().layer(trace).layer(cors));
-
-    // run app w/ hyper, bind to 3000
-    let listener = tokio::net::TcpListener::bind("0.0.0.0:3000").await.unwrap();
-
-    info!("listening on 3000!");
-    axum::serve(listener, app).await.unwrap();
+    run(service_fn(traverse_handler)).await.unwrap();
 }
 
 #[derive(Debug, Deserialize)]
@@ -54,19 +33,53 @@ struct TraversalParams {
     depth: usize,
 }
 
-async fn traverse_handler(query: extract::Query<TraversalParams>) -> Result<String, StatusCode> {
-    let starting_coord = Point::new(query.lon, query.lat);
+impl TryFrom<&QueryMap> for TraversalParams {
+    type Error = anyhow::Error;
+
+    // TODO: dry or a lib?
+    fn try_from(query_map: &QueryMap) -> Result<Self, Self::Error> {
+        let lon = query_map
+            .first("lon")
+            .ok_or_else(|| anyhow!("missing lon"))?
+            .parse::<f64>()
+            .map_err(|_| anyhow!("invalid lon"))?;
+        let lat = query_map
+            .first("lat")
+            .ok_or_else(|| anyhow!("missing lat"))?
+            .parse::<f64>()
+            .map_err(|_| anyhow!("invalid lat"))?;
+        let depth = query_map
+            .first("depth")
+            .ok_or_else(|| anyhow!("missing depth"))?
+            .parse::<usize>()
+            .map_err(|_| anyhow!("invalid depth"))?;
+
+        Ok(Self { lon, lat, depth })
+    }
+}
+
+async fn traverse_handler(event: LambdaRequest) -> Result<impl IntoResponse, LambdaError> {
+    let params = TraversalParams::try_from(&event.query_string_parameters()).map_err(|e| {
+        error!("Parsing Error: {:?}", e);
+        e
+    })?;
+
+    let starting_coord = Point::new(params.lon, params.lat);
 
     let graph = Graph::new().unwrap();
     let traversal = graph
-        .traverse_from(starting_coord, query.depth)
+        .traverse_from(starting_coord, params.depth)
         .map_err(|e| {
             error!("Routing Error: {e}");
-            StatusCode::INTERNAL_SERVER_ERROR
+            e
         })?;
 
-    let traversal = geojson::serialize_traversal_geoms(&traversal).map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
-    Ok(format!("{{ \"traversal\": {} }}", traversal))
+    let traversal = geojson::serialize_traversal_geoms(&traversal).map_err(|e| {
+        error!("Serialization Error: {e}");
+        e
+    })?;
+
+    Ok(format!("{{ \"traversal\": {traversal} }}"))
 }
 
 #[derive(Debug, Deserialize)]
@@ -86,9 +99,9 @@ fn parse_point(param: &str) -> Result<Point, anyhow::Error> {
     }
 }
 
-async fn route_handler(query: extract::Query<RouteParams>) -> Result<String, StatusCode> {
-    let start = parse_point(&query.start).map_err(|_| StatusCode::BAD_REQUEST)?;
-    let end = parse_point(&query.end).map_err(|_| StatusCode::BAD_REQUEST)?;
+async fn route_handler(query: extract::Query<RouteParams>) -> Result<String, AxumStatus> {
+    let start = parse_point(&query.start).map_err(|_| AxumStatus::BAD_REQUEST)?;
+    let end = parse_point(&query.end).map_err(|_| AxumStatus::BAD_REQUEST)?;
     let with_traversal = query.with_traversal.unwrap_or_default();
 
     let graph = Graph::new().unwrap();
@@ -97,17 +110,22 @@ async fn route_handler(query: extract::Query<RouteParams>) -> Result<String, Sta
         .route_between(start, end, with_traversal)
         .map_err(|e| {
             error!("Routing Error: {e}");
-            StatusCode::INTERNAL_SERVER_ERROR
+            AxumStatus::INTERNAL_SERVER_ERROR
         })?;
 
-    let route = geojson::serialize_route_geom(&route).map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    let route =
+        geojson::serialize_route_geom(&route).map_err(|_| AxumStatus::INTERNAL_SERVER_ERROR)?;
     let traversal = match traversal {
-        Some(t) => geojson::serialize_traversal_geoms(&t).map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?,
+        Some(t) => {
+            geojson::serialize_traversal_geoms(&t).map_err(|_| AxumStatus::INTERNAL_SERVER_ERROR)?
+        }
         None => "null".to_string(),
     };
 
     // TODO: oh god how do we use struct serialization to help us here
     //       had issues trying to leverage the geojson serialization helpers in a custom
     //       Serializer impl for a RouteResponse struct
-    Ok(format!("{{ \"route\": {route}, \"traversal\": {traversal} }}"))
+    Ok(format!(
+        "{{ \"route\": {route}, \"traversal\": {traversal} }}"
+    ))
 }
