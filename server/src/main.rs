@@ -36,7 +36,7 @@ struct TraversalParams {
 impl TryFrom<&QueryMap> for TraversalParams {
     type Error = anyhow::Error;
 
-    // TODO: dry or a lib?
+    // TODO: DRY or a lib?
     fn try_from(query_map: &QueryMap) -> Result<Self, Self::Error> {
         let lon = query_map
             .first("lon")
