@@ -10,6 +10,7 @@ import { Mode } from '../consts.ts';
 import Rainbow from 'rainbowvis.js';
 const rainbow = new Rainbow();
 
+import { $clickTime } from './map.ts';
 import { $mode } from './mode.ts';
 import { $paint, $depth } from './traversal.ts';
 import { $raw } from './geojson.ts';
@@ -42,10 +43,13 @@ const $routeStyle = computed($mode, (mode) => {
       return {};
     }
 
+    let className = `route-depth-${feature.properties.depth} step-${feature.properties.idx}`;
+    if (mode === Mode.RouteViz) className += ' svg-path';
+
     return {
       opacity: mode === Mode.RouteViz ? 0 : 1,
       weight: mode === Mode.RouteViz ? 5 : 3,
-      className: `route-depth-${feature.properties.depth} step-${feature.properties.idx}`,
+      className,
     };
   };
 });
@@ -81,15 +85,18 @@ const $traversalStyle = computed(
       return {
         color: color(feature.properties),
         opacity: 0, // start off invisible
-        className: `depth-${feature.properties.depth}`,
+        className: `svg-path depth-${feature.properties.depth}`,
       };
     };
   }
 );
 
-export const $featureGroup = computed($raw, (json) => {
+export const $featureGroup = computed([$clickTime, $raw], (clickTime, json) => {
   const featureGroup = new L.FeatureGroup([]);
-  if (!json) return featureGroup;
+
+  // if no geojson or if the new map click happened recently,
+  // return an empty feature group / clear the map
+  if (!json || Date.now() - clickTime < 10) return featureGroup;
 
   // if traversal exists, paint it
   if (json.traversal) {
@@ -133,24 +140,46 @@ export const onFeatureGroupAdded = async () => {
   }
 
   for (let i = 0; i <= depth; i++) {
-    const collection = document.getElementsByClassName(`depth-${i}`);
+    const collection = document.getElementsByClassName(
+      `depth-${i}`
+    ) as HTMLCollectionOf<HTMLElement>;
     for (let j = 0; j < collection.length; j++) {
       const feature = collection.item(j);
-      setTimeout(() => feature?.setAttribute('stroke-opacity', '1'), i * 100);
+      feature?.style.setProperty('animation-delay', `${i * 75}ms`);
+      feature?.style.setProperty('animation-play-state', 'running');
     }
   }
 
   // when doing route visualization, also paint route after traversal, in reverse
   if (mode === Mode.RouteViz) {
     for (let i = 0; i <= steps; i++) {
-      const collection = document.getElementsByClassName(`step-${steps - i}`);
+      const collection = document.getElementsByClassName(
+        `step-${steps - i}`
+      ) as HTMLCollectionOf<HTMLElement>;
       for (let j = 0; j < collection.length; j++) {
         const feature = collection.item(j);
-        setTimeout(
-          () => feature?.setAttribute('stroke-opacity', '1'),
-          depth * 100 + i * 100
+        feature?.style.setProperty(
+          'animation-delay',
+          `${depth * 75 + i * 75}ms`
         );
+        feature?.style.setProperty('animation-play-state', 'running');
       }
     }
+  }
+};
+
+document.pause = () => {
+  const collection = document.getElementsByClassName(
+    `svg-path`
+  ) as HTMLCollectionOf<HTMLElement>;
+
+  const state = collection
+    .item(0)
+    ?.style.getPropertyValue('animation-play-state');
+  const desired = state === 'running' ? 'paused' : 'running';
+
+  for (let i = 0; i <= collection.length; i++) {
+    const feature = collection.item(i);
+    feature?.style.setProperty('animation-play-state', desired);
   }
 };

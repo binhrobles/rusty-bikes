@@ -14,7 +14,9 @@ L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
 }).addTo(map);
 
 // pub some clicks
-map.on('click', $click.set);
+map.on('click', (click) => {
+  $click.set(click);
+});
 
 // sub some things that can be added to the map
 [$traversalMarker, $startMarker, $endMarker].forEach(($layer) =>

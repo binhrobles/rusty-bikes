@@ -7,7 +7,7 @@ import { Marker, LeafletMouseEvent } from 'leaflet';
 import { StoredMarker } from './marker.ts';
 import { Mode, TraversalDefaults, PaintOptions } from '../consts.ts';
 
-import { $click } from './map.ts';
+import { $click, $clickTime } from './map.ts';
 import { $mode } from './mode.ts';
 
 export const { $marker, $latLng: $markerLatLng } = StoredMarker();
@@ -30,4 +30,6 @@ $click.listen((event: LeafletMouseEvent | null) => {
 
   // set the marker for map-related events
   $marker.set(marker);
+
+  console.log(`marker created @ ${Date.now() - $clickTime.get()}`)
 });

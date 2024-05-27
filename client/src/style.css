@@ -29,3 +29,27 @@ h4 {
 .route-table input {
   width: 75%;
 }
+
+.svg-path {
+  animation-name: fadein;
+  animation-duration: 500ms;
+
+  /* stay at the `to` CSS once animation complete */
+  animation-fill-mode: forwards;
+
+  /* to be started in JS once an animation delay is dynamically set */
+  animation-play-state: paused;
+}
+
+@keyframes fadein {
+  from {
+    stroke-opacity: 0;
+    stroke-width: 7;
+  }
+  to {
+    stroke-opacity: 1;
+    stroke-width: 3;
+  }
+  }
+}
+
