@@ -1,2 +1,6 @@
 ors-map-client/
 osm-data/
+
+.aws-sam
+build
+samconfig.toml
