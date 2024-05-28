@@ -1,14 +1,11 @@
 use anyhow::anyhow;
-use axum::{extract, http::StatusCode as AxumStatus};
 use dotenvy::dotenv;
 use geo::Point;
 use lambda_http::{
-    http::{Response as LambdaResponse, StatusCode},
     run, service_fn, Error as LambdaError, IntoResponse, Request as LambdaRequest, RequestExt,
 };
 use query_map::QueryMap;
 use serde::Deserialize;
-use serde_json::{json, Value};
 use tracing::error;
 
 use rusty_router::geojson;
@@ -23,7 +20,7 @@ async fn main() {
         .with_max_level(tracing::Level::DEBUG)
         .init();
 
-    run(service_fn(traverse_handler)).await.unwrap();
+    run(service_fn(handler)).await.unwrap();
 }
 
 #[derive(Debug, Deserialize)]
@@ -58,7 +55,15 @@ impl TryFrom<&QueryMap> for TraversalParams {
     }
 }
 
-async fn traverse_handler(event: LambdaRequest) -> Result<impl IntoResponse, LambdaError> {
+async fn handler(event: LambdaRequest) -> Result<impl IntoResponse, LambdaError> {
+    match event.raw_http_path() {
+        "/traverse" => traverse_handler(event).await,
+        "/route" => route_handler(event).await,
+        _ => Err(anyhow!("invalid path").into()),
+    }
+}
+
+async fn traverse_handler(event: LambdaRequest) -> Result<String, LambdaError> {
     let params = TraversalParams::try_from(&event.query_string_parameters()).map_err(|e| {
         error!("Parsing Error: {:?}", e);
         e
@@ -84,9 +89,9 @@ async fn traverse_handler(event: LambdaRequest) -> Result<impl IntoResponse, Lam
 
 #[derive(Debug, Deserialize)]
 struct RouteParams {
-    start: String,
-    end: String,
-    with_traversal: Option<bool>,
+    start: Point,
+    end: Point,
+    with_traversal: bool,
 }
 
 fn parse_point(param: &str) -> Result<Point, anyhow::Error> {
@@ -99,26 +104,59 @@ fn parse_point(param: &str) -> Result<Point, anyhow::Error> {
     }
 }
 
-async fn route_handler(query: extract::Query<RouteParams>) -> Result<String, AxumStatus> {
-    let start = parse_point(&query.start).map_err(|_| AxumStatus::BAD_REQUEST)?;
-    let end = parse_point(&query.end).map_err(|_| AxumStatus::BAD_REQUEST)?;
-    let with_traversal = query.with_traversal.unwrap_or_default();
+impl TryFrom<&QueryMap> for RouteParams {
+    type Error = anyhow::Error;
+
+    // TODO: DRY or a lib?
+    fn try_from(query_map: &QueryMap) -> Result<Self, Self::Error> {
+        let start = query_map
+            .first("start")
+            .ok_or_else(|| anyhow!("missing start"))?;
+        let start = parse_point(start).map_err(|_| anyhow!("invalid start"))?;
+
+        let end = query_map
+            .first("end")
+            .ok_or_else(|| anyhow!("missing end"))?;
+        let end = parse_point(end).map_err(|_| anyhow!("invalid end"))?;
+
+        let with_traversal: bool = query_map
+            .first("with_traversal")
+            .unwrap_or("false")
+            .parse()
+            .map_err(|_| anyhow!("invalid with_traversal"))?;
+
+        Ok(Self {
+            start,
+            end,
+            with_traversal,
+        })
+    }
+}
+
+async fn route_handler(event: LambdaRequest) -> Result<String, LambdaError> {
+    let params = RouteParams::try_from(&event.query_string_parameters()).map_err(|e| {
+        error!("Parsing Error: {:?}", e);
+        e
+    })?;
 
     let graph = Graph::new().unwrap();
 
     let (route, traversal) = graph
-        .route_between(start, end, with_traversal)
+        .route_between(params.start, params.end, params.with_traversal)
         .map_err(|e| {
             error!("Routing Error: {e}");
-            AxumStatus::INTERNAL_SERVER_ERROR
+            e
         })?;
 
-    let route =
-        geojson::serialize_route_geom(&route).map_err(|_| AxumStatus::INTERNAL_SERVER_ERROR)?;
+    let route = geojson::serialize_route_geom(&route).map_err(|e| {
+        error!("Serialization Error: {e}");
+        e
+    })?;
     let traversal = match traversal {
-        Some(t) => {
-            geojson::serialize_traversal_geoms(&t).map_err(|_| AxumStatus::INTERNAL_SERVER_ERROR)?
-        }
+        Some(t) => geojson::serialize_traversal_geoms(&t).map_err(|e| {
+            error!("Serialization Error: {e}");
+            e
+        })?,
         None => "null".to_string(),
     };
 
