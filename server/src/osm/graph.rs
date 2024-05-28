@@ -20,7 +20,6 @@ impl Graph {
         with_traversal: bool,
     ) -> Result<(TraversalRoute, Option<Traversal>), anyhow::Error> {
         let traversal_map = self.traverse_between(start, end)?;
-        println!("got traversal_map of len: {}", traversal_map.clone().keys().len());
 
         // construct route from traversal information
         let mut current_segment = traversal_map.get(&END_NODE_ID).unwrap();

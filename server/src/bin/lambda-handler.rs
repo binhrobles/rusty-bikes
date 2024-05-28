@@ -11,6 +11,11 @@ use tracing::error;
 use rusty_router::geojson;
 use rusty_router::osm::Graph;
 
+// create a singleton of the Graph struct on lambda boot
+thread_local! {
+    static GRAPH: Graph = Graph::new().unwrap();
+}
+
 #[tokio::main]
 async fn main() {
     dotenv().expect(".env file not found");
@@ -20,7 +25,19 @@ async fn main() {
         .with_max_level(tracing::Level::DEBUG)
         .init();
 
+    // TODO: when loading SQLite DB from Lambda Layer, any on-cold-start work that needs to happen
+
     run(service_fn(handler)).await.unwrap();
+}
+
+async fn handler(event: LambdaRequest) -> Result<impl IntoResponse, LambdaError> {
+    GRAPH.with(|graph| {
+        match event.raw_http_path() {
+            "/traverse" => traverse_handler(graph, event),
+            "/route" => route_handler(graph, event),
+            _ => Err(anyhow!("invalid path").into()),
+        }
+    })
 }
 
 #[derive(Debug, Deserialize)]
@@ -55,15 +72,7 @@ impl TryFrom<&QueryMap> for TraversalParams {
     }
 }
 
-async fn handler(event: LambdaRequest) -> Result<impl IntoResponse, LambdaError> {
-    match event.raw_http_path() {
-        "/traverse" => traverse_handler(event).await,
-        "/route" => route_handler(event).await,
-        _ => Err(anyhow!("invalid path").into()),
-    }
-}
-
-async fn traverse_handler(event: LambdaRequest) -> Result<String, LambdaError> {
+fn traverse_handler(graph: &Graph, event: LambdaRequest) -> Result<String, LambdaError> {
     let params = TraversalParams::try_from(&event.query_string_parameters()).map_err(|e| {
         error!("Parsing Error: {:?}", e);
         e
@@ -71,7 +80,6 @@ async fn traverse_handler(event: LambdaRequest) -> Result<String, LambdaError> {
 
     let starting_coord = Point::new(params.lon, params.lat);
 
-    let graph = Graph::new().unwrap();
     let traversal = graph
         .traverse_from(starting_coord, params.depth)
         .map_err(|e| {
@@ -133,13 +141,11 @@ impl TryFrom<&QueryMap> for RouteParams {
     }
 }
 
-async fn route_handler(event: LambdaRequest) -> Result<String, LambdaError> {
+fn route_handler(graph: &Graph, event: LambdaRequest) -> Result<String, LambdaError> {
     let params = RouteParams::try_from(&event.query_string_parameters()).map_err(|e| {
         error!("Parsing Error: {:?}", e);
         e
     })?;
-
-    let graph = Graph::new().unwrap();
 
     let (route, traversal) = graph
         .route_between(params.start, params.end, params.with_traversal)
