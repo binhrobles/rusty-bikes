@@ -2,6 +2,7 @@
 
 ### Requirements
 - A JSON OSM export for the area you want to serve (see [OSM Data](#osm-data) for an example query)
+- [Cargo Lambda](https://github.com/awslabs/aws-lambda-rust-runtime)
 
 ### Bootstrapping
 
@@ -11,11 +12,11 @@ The server:
 cargo run --bin init-db
 cargo run --bin populate-db ./path/to/your/osm/json
 
-# host it at localhost:3000
-cargo run --bin rusty_router
+# host it at localhost:9000 using Cargo Lambda
+cargo lambda watch
 
-# enable request/response tracing
-RUST_LOG=tower_http=trace cargo run --bin rusty_router
+# hit it
+curl http://localhost:9000/lambda-url/lambda-handler/traverse?lat=40.68376227690408&lon=-73.96167755126955&depth=20
 ```
 
 ## How it's happening
@@ -101,6 +102,7 @@ erDiagram
     NODE }|..o{ SEGMENT : in
 ```
 
-### Future things to consider
-- Cost model
-    - avoid Vision Zero priority corridors
+### Deployment
+Since the SQlite DB is ~15MB zipped and the data access is read-only, currently packaging the DB into the lambda artifact. To reduce deploy times (though marginally) and have a more sacred deploy artifact, I'll probably upload the SQLite DB as a separate Lambda Layer that will get updated on some regular basis, w/ a separate Lambda cron. After that, it's just a simple HTTP API Gateway -> Lambda integration to host this real cheap.
+
+I kinda felt bad about making this choice, because I was a bit excited about getting deep on Tokio concurrency and such, and the AWS Lambda environment brings concurrency to the system-level, but being able to host this simply, for free, outweighed that.
