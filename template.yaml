@@ -13,6 +13,12 @@ Globals:
       LogFormat: JSON
 
 Resources:
+  Api:
+    Type: AWS::Serverless::Api
+    Properties:
+      Cors: "'https://binhrobles.com/rusty-bikes/'"
+      StageName: Prod
+
   ApiFunction:
     Type: AWS::Serverless::Function
     Metadata:
@@ -35,6 +41,7 @@ Resources:
           Type: Api
           Properties:
             Path: /traverse
+            RestApiId: !Ref Api
             Method: get
             RequestParameters:
             - method.request.querystring.lat:
@@ -47,6 +54,7 @@ Resources:
           Type: Api
           Properties:
             Path: /route
+            RestApiId: !Ref Api
             Method: get
             RequestParameters:
             - method.request.querystring.start:
@@ -59,17 +67,17 @@ Resources:
   NYCSqliteLayer:
     Type: AWS::Serverless::LayerVersion
     Properties:
-      LayerName: nyc-sqlite-db
+      # when a new zip is uploaded, change the name to trigger a new version / association
+      LayerName: nyc-sqlite-db-5-28
       Description: Layer containing NYC SQLite DB
-      ContentUri: .aws-sam/build/nyc-sqlite-db-layer.zip
+      ContentUri: s3://rusty-bikes-osm-data/nyc-sqlite-db-layer.zip
       CompatibleRuntimes:
         - provided.al2023
 
 Outputs:
-  # ServerlessRestApi is an implicit API created out of Events key under Serverless::Function
   RustyBikesApi:
     Description: API Gateway endpoint URL for Prod stage for Rusty Bikes API function
-    Value: !Sub "https://${ServerlessRestApi}.execute-api.${AWS::Region}.amazonaws.com/Prod/"
+    Value: !Sub "https://${Api}.execute-api.${AWS::Region}.amazonaws.com/Prod/"
   ApiFunction:
     Description: API Lambda Function ARN
     Value: !GetAtt ApiFunction.Arn
