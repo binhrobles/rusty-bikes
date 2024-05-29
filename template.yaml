@@ -7,8 +7,8 @@ Description: >
 
 Globals:
   Function:
-    Timeout: 3
-    MemorySize: 128
+    Timeout: 10
+    MemorySize: 512
     LoggingConfig:
       LogFormat: JSON
 
@@ -35,8 +35,7 @@ Resources:
         Variables:
           DB_PATH: "/opt/lib/nyc.db3" # unzipped here by lambda layer
       Architectures:
-      - x86_64
-      Timeout: 10
+      - arm64 # seems to be a free lunch? https://aws.amazon.com/blogs/apn/comparing-aws-lambda-arm-vs-x86-performance-cost-and-analysis-2/
       Events:
         Traverse:
           Type: Api
