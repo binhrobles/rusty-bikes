@@ -40,17 +40,19 @@ jobs:
           node-version: 22
           cache: 'yarn'
           cache-dependency-path: './client/yarn.lock'
+
       - name: Install dependencies
         run: yarn --frozen-lockfile
       - name: Build
         run: yarn build
+
       - name: Setup Pages
         uses: actions/configure-pages@v4
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
           # Upload dist folder
-          path: './dist'
+          path: './client/dist'
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
