@@ -41,7 +41,7 @@ jobs:
           cache: 'yarn'
           cache-dependency-path: './client/yarn.lock'
       - name: Install dependencies
-        run: yarn ci
+        run: yarn --frozen-lockfile
       - name: Build
         run: yarn build
       - name: Setup Pages
