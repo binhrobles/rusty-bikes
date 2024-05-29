@@ -16,7 +16,7 @@ build:
 	sam build
 
 deploy:
-	sam deploy
+	sam deploy --no-confirm-changeset
 
 clean:
 	rm -rf .aws-sam/build/
