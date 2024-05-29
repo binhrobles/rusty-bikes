@@ -4,7 +4,7 @@
 import { batched, task } from 'nanostores';
 import L from 'leaflet';
 import { FeatureCollection } from 'geojson';
-import { RUSTY_BASE_URL } from '../config.ts';
+import { RUSTY_BASE_URL, ORIGIN } from '../config.ts';
 import { Mode } from '../consts.ts';
 
 import {
@@ -26,9 +26,15 @@ const fetchTraversal = async (
 ): Promise<ServerResponse> => {
   const { lat, lng } = latLng;
   const res = await fetch(
-    `${RUSTY_BASE_URL}/traverse?lat=${lat}&lon=${lng}&depth=${depth}`
+    `${RUSTY_BASE_URL}/traverse?lat=${lat}&lon=${lng}&depth=${depth}`,
+    {
+      headers: {
+        'Content-Type': 'application/json',
+        'Access-Control-Allow-Origin': ORIGIN,
+      },
+    }
   );
-  console.log(`raw fetched @ ${Date.now() - $clickTime.get()}`)
+  console.log(`raw fetched @ ${Date.now() - $clickTime.get()}`);
   return await res.json();
 };
 
@@ -41,9 +47,15 @@ const fetchRoute = async (
   const { lng: endLon, lat: endLat } = endLatLng;
 
   const res = await fetch(
-    `${RUSTY_BASE_URL}/route?start=${startLon},${startLat}&end=${endLon},${endLat}&with_traversal=${withTraversal}`
+    `${RUSTY_BASE_URL}/route?start=${startLon},${startLat}&end=${endLon},${endLat}&with_traversal=${withTraversal}`,
+    {
+      headers: {
+        'Content-Type': 'application/json',
+        'Access-Control-Allow-Origin': ORIGIN,
+      },
+    }
   );
-  console.log(`raw fetched @ ${Date.now() - $clickTime.get()}`)
+  console.log(`raw fetched @ ${Date.now() - $clickTime.get()}`);
   return await res.json();
 };
 
@@ -52,7 +64,7 @@ export const $raw = batched(
   [$mode, $traversalMarkerLatLng, $depth, $startMarkerLatLng, $endMarkerLatLng],
   (mode, traversalLatLng, depth, startLatLng, endLatLng) =>
     task(async () => {
-      console.log(`fetch beginning @ ${Date.now() - $clickTime.get()}`)
+      console.log(`fetch beginning @ ${Date.now() - $clickTime.get()}`);
 
       if (mode === Mode.Traverse && traversalLatLng) {
         try {
