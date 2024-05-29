@@ -167,19 +167,3 @@ export const onFeatureGroupAdded = async () => {
     }
   }
 };
-
-document.pause = () => {
-  const collection = document.getElementsByClassName(
-    `svg-path`
-  ) as HTMLCollectionOf<HTMLElement>;
-
-  const state = collection
-    .item(0)
-    ?.style.getPropertyValue('animation-play-state');
-  const desired = state === 'running' ? 'paused' : 'running';
-
-  for (let i = 0; i <= collection.length; i++) {
-    const feature = collection.item(i);
-    feature?.style.setProperty('animation-play-state', desired);
-  }
-};
