@@ -16,7 +16,7 @@ Resources:
   Api:
     Type: AWS::Serverless::Api
     Properties:
-      Cors: "'https://binhrobles.com/rusty-bikes/'"
+      Cors: "'https://binhrobles.com'"
       StageName: Prod
 
   ApiFunction:

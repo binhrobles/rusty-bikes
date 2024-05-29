@@ -3,5 +3,5 @@ export const RUSTY_BASE_URL = import.meta.env.PROD ?
   'http://localhost:9000/lambda-url/lambda-handler';
 
 export const ORIGIN = import.meta.env.PROD ?
-  'https://binhrobles.com/rusty-bikes/' :
+  'https://binhrobles.com' :
   'http://localhost:5173';

@@ -1,6 +1,6 @@
 BUILD=.aws-sam/build
 
-all: build $(BUILD)/nyc-sqlite-db-layer.zip deploy
+all: build deploy
 
 $(BUILD)/nyc-sqlite-db-layer.zip: osm-data/nyc.db3
 	mkdir -p $(BUILD)/lib/
