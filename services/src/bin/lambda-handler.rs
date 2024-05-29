@@ -31,9 +31,8 @@ async fn handler(event: Request) -> Result<Response<String>, LambdaError> {
             "/traverse" => traverse_handler(graph, event),
             "/route" => route_handler(graph, event),
             _ => Err(anyhow!("invalid path").into()),
-        };
+        }?;
 
-        let body = body?;
         Ok(Response::builder()
             .header("Access-Control-Allow-Headers", "Content-Type")
             .header("Access-Control-Allow-Origin", "*")

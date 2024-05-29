@@ -36,6 +36,7 @@ Resources:
           DB_PATH: "/opt/lib/nyc.db3" # unzipped here by lambda layer
       Architectures:
       - x86_64
+      Timeout: 10
       Events:
         Traverse:
           Type: Api
