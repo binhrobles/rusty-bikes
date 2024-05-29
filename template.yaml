@@ -5,31 +5,34 @@ Description: >
 
   Sample SAM Template for rusty-bikes
 
-# More info about Globals: https://github.com/awslabs/serverless-application-model/blob/master/docs/globals.rst
 Globals:
   Function:
     Timeout: 3
     MemorySize: 128
-
-    # You can add LoggingConfig parameters such as the Logformat, Log Group, and SystemLogLevel or ApplicationLogLevel. Learn more here https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/sam-resource-function.html#sam-function-loggingconfig.
     LoggingConfig:
       LogFormat: JSON
+
 Resources:
   ApiFunction:
-    Type: AWS::Serverless::Function # More info about Function Resource: https://github.com/awslabs/serverless-application-model/blob/master/versions/2016-10-31.md#awsserverlessfunction
+    Type: AWS::Serverless::Function
     Metadata:
-      BuildMethod: rust-cargolambda # More info about Cargo Lambda: https://github.com/cargo-lambda/cargo-lambda
+      BuildMethod: rust-cargolambda
       BuildProperties:
         Binary: lambda-handler
     Properties:
-      CodeUri: ./services   # Points to dir of Cargo.toml
+      CodeUri: ./services
       Handler: bootstrap    # Do not change, as this is the default executable name produced by Cargo Lambda
+      Layers:
+        - !Ref NYCSqliteLayer
       Runtime: provided.al2023
+      Environment:
+        Variables:
+          DB_PATH: "/opt/lib/nyc.db3" # unzipped here by lambda layer
       Architectures:
       - x86_64
       Events:
         Traverse:
-          Type: Api # More info about API Event Source: https://github.com/awslabs/serverless-application-model/blob/master/versions/2016-10-31.md#api
+          Type: Api
           Properties:
             Path: /traverse
             Method: get
@@ -40,11 +43,30 @@ Resources:
                 Required: true
             - method.request.querystring.depth:
                 Required: true
+        Route:
+          Type: Api
+          Properties:
+            Path: /route
+            Method: get
+            RequestParameters:
+            - method.request.querystring.start:
+                Required: true
+            - method.request.querystring.end:
+                Required: true
+            - method.request.querystring.with_traversal:
+                Required: false
+
+  NYCSqliteLayer:
+    Type: AWS::Serverless::LayerVersion
+    Properties:
+      LayerName: nyc-sqlite-db
+      Description: Layer containing NYC SQLite DB
+      ContentUri: .aws-sam/build/nyc-sqlite-db-layer.zip
+      CompatibleRuntimes:
+        - provided.al2023
 
 Outputs:
   # ServerlessRestApi is an implicit API created out of Events key under Serverless::Function
-  # Find out more about other implicit resources you can reference within SAM
-  # https://github.com/awslabs/serverless-application-model/blob/master/docs/internals/generated_resources.rst#api
   RustyBikesApi:
     Description: API Gateway endpoint URL for Prod stage for Rusty Bikes API function
     Value: !Sub "https://${ServerlessRestApi}.execute-api.${AWS::Region}.amazonaws.com/Prod/"
