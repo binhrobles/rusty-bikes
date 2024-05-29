@@ -22,18 +22,14 @@ async fn main() {
         .with_max_level(tracing::Level::DEBUG)
         .init();
 
-    // TODO: when loading SQLite DB from Lambda Layer, any on-cold-start work that needs to happen
-
     run(service_fn(handler)).await.unwrap();
 }
 
 async fn handler(event: LambdaRequest) -> Result<impl IntoResponse, LambdaError> {
-    GRAPH.with(|graph| {
-        match event.raw_http_path() {
-            "/traverse" => traverse_handler(graph, event),
-            "/route" => route_handler(graph, event),
-            _ => Err(anyhow!("invalid path").into()),
-        }
+    GRAPH.with(|graph| match event.raw_http_path() {
+        "/traverse" => traverse_handler(graph, event),
+        "/route" => route_handler(graph, event),
+        _ => Err(anyhow!("invalid path").into()),
     })
 }
 

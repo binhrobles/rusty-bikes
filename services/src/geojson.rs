@@ -1,5 +1,5 @@
 /// Middleware when formatting Graph structures into Geojson
-use crate::osm::{traversal::TraversalSegment, traversal::Depth, Distance, NodeId, WayId};
+use crate::osm::{traversal::Depth, traversal::TraversalSegment, Distance, NodeId, WayId};
 use geo::{Coord, LineString};
 use geojson::ser::serialize_geometry;
 use serde::{Serialize, Serializer};
@@ -102,8 +102,7 @@ pub fn serialize_traversal_geoms(traversal: &[TraversalSegment]) -> Result<Strin
     Ok(geojson::ser::to_feature_collection_string(traversal)?)
 }
 
-pub fn serialize_route_geom(segments: &[TraversalSegment]) -> Result<String, anyhow::Error>
-{
+pub fn serialize_route_geom(segments: &[TraversalSegment]) -> Result<String, anyhow::Error> {
     let route: Route = segments.into();
     Ok(geojson::ser::to_feature_collection_string(&route.steps)?)
 }

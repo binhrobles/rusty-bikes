@@ -1,6 +1,9 @@
 /// Exposes DB interactions as a Graph interface
 use super::{db, Graph, Neighbor, Node, NodeId};
-use crate::osm::traversal::{self, Traversable, Traversal, TraversalRoute, TraversalMap, TraversalSegment, END_NODE_ID, START_NODE_ID};
+use crate::osm::traversal::{
+    self, Traversable, Traversal, TraversalMap, TraversalRoute, TraversalSegment, END_NODE_ID,
+    START_NODE_ID,
+};
 use anyhow::anyhow;
 use geo::prelude::*;
 use geo::{HaversineBearing, Point};
@@ -34,7 +37,11 @@ impl Graph {
         }
 
         // include the traversal if requested
-        let traversal = if with_traversal { Some(traversal::get_traversal(&traversal_map)) } else { None };
+        let traversal = if with_traversal {
+            Some(traversal::get_traversal(&traversal_map))
+        } else {
+            None
+        };
 
         Ok((result.make_contiguous().to_vec(), traversal))
     }
@@ -42,11 +49,7 @@ impl Graph {
     /// Return a collection of all TraversalSegments examined while routing between the start and
     /// end Points. TraversalSegments will be decorated with both the depth of the traversal and
     /// the cost assigned, given the designated cost model
-    fn traverse_between(
-        &self,
-        start: Point,
-        end: Point,
-    ) -> Result<TraversalMap, anyhow::Error> {
+    fn traverse_between(&self, start: Point, end: Point) -> Result<TraversalMap, anyhow::Error> {
         let end_node = Node::new(END_NODE_ID, &end);
         let target_neighbors = self.guess_neighbors(end)?;
         let target_neighbor_node_ids: Vec<NodeId> =
