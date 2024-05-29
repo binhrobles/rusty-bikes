@@ -1,5 +1,4 @@
 use anyhow::anyhow;
-use dotenvy::dotenv;
 use geo::Point;
 use lambda_http::{
     run, service_fn, Error as LambdaError, IntoResponse, Request as LambdaRequest, RequestExt,
@@ -18,8 +17,6 @@ thread_local! {
 
 #[tokio::main]
 async fn main() {
-    dotenv().expect(".env file not found");
-
     tracing_subscriber::fmt()
         .compact()
         .with_max_level(tracing::Level::DEBUG)

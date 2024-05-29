@@ -5,7 +5,6 @@ edition = "2021"
 
 [dependencies]
 anyhow = "1.0.82"
-dotenvy = "0.15.7"
 geo = "0.28.0"
 geojson = "0.24.1"
 lambda_http = { version = "0.11.1", features = ["apigw_http"] }
@@ -17,3 +16,6 @@ serde_json = "1.0.115"
 tokio = { version = "1.37.0", features = ["macros"] }
 tracing = "0.1.40"
 tracing-subscriber = "0.3.18"
+
+[package.metadata.lambda.env]
+DB_PATH = "./db.db3"

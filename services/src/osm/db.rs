@@ -2,15 +2,15 @@
 use rusqlite::{Connection, Transaction};
 
 use geo::prelude::*;
-use geo::{ Point, point };
+use geo::{point, Point};
 
 use crate::osm::{etl::Element, Way};
-
-const DB_PATH: &str = "./db.db3";
+use std::env;
 
 /// get a SQLite Connection for queries and stuff
 pub fn get_conn() -> anyhow::Result<Connection> {
-    let conn = Connection::open(DB_PATH)?;
+    let db_path = env::var("DB_PATH")?;
+    let conn = Connection::open(db_path)?;
     conn.pragma_update(None, "foreign_keys", "ON")?;
     Ok(conn)
 }
@@ -138,11 +138,7 @@ pub fn insert_way_element(tx: &Transaction, element: Element) -> anyhow::Result<
             y: node_coords.get(pos).unwrap().lat,
         );
         // ensure each Node exists in Nodes
-        let node_params = (
-            n_id,
-            p.x(),
-            p.y(),
-        );
+        let node_params = (n_id, p.x(), p.y());
         node_insert_stmt.execute(node_params).unwrap_or_else(|e| {
             eprintln!("Failed implied Node: {:#?}", node_params);
             panic!("{e}");
