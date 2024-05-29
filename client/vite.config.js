@@ -5,6 +5,7 @@ import handlebars from 'vite-plugin-handlebars';
 import eslint from 'vite-plugin-eslint';
 
 export default defineConfig({
+  base: '/rusty-bikes/',
   plugins: [
     eslint(),
     handlebars({
