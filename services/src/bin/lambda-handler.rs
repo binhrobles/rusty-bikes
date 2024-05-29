@@ -1,7 +1,7 @@
 use anyhow::anyhow;
 use geo::Point;
 use lambda_http::{
-    run, service_fn, Error as LambdaError, IntoResponse, Request as LambdaRequest, RequestExt,
+    run, service_fn, Error as LambdaError, Request, RequestExt, Response,
 };
 use query_map::QueryMap;
 use serde::Deserialize;
@@ -25,11 +25,20 @@ async fn main() {
     run(service_fn(handler)).await.unwrap();
 }
 
-async fn handler(event: LambdaRequest) -> Result<impl IntoResponse, LambdaError> {
-    GRAPH.with(|graph| match event.raw_http_path() {
-        "/traverse" => traverse_handler(graph, event),
-        "/route" => route_handler(graph, event),
-        _ => Err(anyhow!("invalid path").into()),
+async fn handler(event: Request) -> Result<Response<String>, LambdaError> {
+    GRAPH.with(|graph| {
+        let body = match event.raw_http_path() {
+            "/traverse" => traverse_handler(graph, event),
+            "/route" => route_handler(graph, event),
+            _ => Err(anyhow!("invalid path").into()),
+        };
+
+        let body = body?;
+        Ok(Response::builder()
+            .header("Access-Control-Allow-Headers", "Content-Type")
+            .header("Access-Control-Allow-Origin", "*")
+            .header("Access-Control-Allow-Methods", "GET")
+            .body(body)?)
     })
 }
 
@@ -65,7 +74,7 @@ impl TryFrom<&QueryMap> for TraversalParams {
     }
 }
 
-fn traverse_handler(graph: &Graph, event: LambdaRequest) -> Result<String, LambdaError> {
+fn traverse_handler(graph: &Graph, event: Request) -> Result<String, LambdaError> {
     let params = TraversalParams::try_from(&event.query_string_parameters()).map_err(|e| {
         error!("Parsing Error: {:?}", e);
         e
@@ -134,7 +143,7 @@ impl TryFrom<&QueryMap> for RouteParams {
     }
 }
 
-fn route_handler(graph: &Graph, event: LambdaRequest) -> Result<String, LambdaError> {
+fn route_handler(graph: &Graph, event: Request) -> Result<String, LambdaError> {
     let params = RouteParams::try_from(&event.query_string_parameters()).map_err(|e| {
         error!("Parsing Error: {:?}", e);
         e
