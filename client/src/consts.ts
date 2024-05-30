@@ -46,4 +46,5 @@ export const TraversalDefaults = {
   depth: 20,
   paint: PaintOptions.Depth,
   clickHint: 'Click Somewhere!',
+  stepDelayMs: 75,
 };

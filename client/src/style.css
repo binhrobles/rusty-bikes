@@ -36,9 +36,6 @@ h4 {
 
   /* stay at the `to` CSS once animation complete */
   animation-fill-mode: forwards;
-
-  /* to be started in JS once an animation delay is dynamically set */
-  animation-play-state: paused;
 }
 
 @keyframes fadein {

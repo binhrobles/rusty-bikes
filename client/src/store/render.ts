@@ -5,7 +5,8 @@ import { computed } from 'nanostores';
 import L from 'leaflet';
 import Handlebars from 'handlebars';
 import { Feature } from 'geojson';
-import { Mode } from '../consts.ts';
+import { Mode, TraversalDefaults } from '../consts.ts';
+const { stepDelayMs } = TraversalDefaults;
 
 import Rainbow from 'rainbowvis.js';
 const rainbow = new Rainbow();
@@ -36,6 +37,17 @@ export const addDebugClick = (feature: Feature, layer: L.Layer) => {
   }
 };
 
+//get the depth and step count from the last step in the route response
+const getRouteDepthAndSteps = () => {
+  const features = $raw.get()?.route?.features;
+  if (!features) return {};
+
+  const depth: number = features[features.length - 1].properties?.depth;
+  const steps: number = features[features.length - 1].properties?.idx;
+
+  return { depth, steps };
+};
+
 const $routeStyle = computed($mode, (mode) => {
   return (feature: Feature | undefined) => {
     if (!feature?.properties) {
@@ -53,6 +65,26 @@ const $routeStyle = computed($mode, (mode) => {
     };
   };
 });
+
+// the number of CSS classes created for the `depth` animation
+let depthClassesCreated = 0;
+
+const ensureDepthAnimationClassesExist = (depth: number) => {
+  if (depth > depthClassesCreated) {
+    console.log(`generating classes from ${depthClassesCreated} to ${depth}`);
+    const styleSheet = document.createElement('style');
+
+    let classes = '';
+    for (let i = depthClassesCreated + 1; i <= depth; i++) {
+      classes += `.depth-${i} { animation-delay: ${i * stepDelayMs}ms; }\n`;
+    }
+
+    styleSheet.innerText = classes;
+    document.head.appendChild(styleSheet);
+
+    depthClassesCreated = depth;
+  }
+};
 
 const $traversalStyle = computed(
   [$mode, $paint, $depth],
@@ -76,6 +108,8 @@ const $traversalStyle = computed(
       color = (properties) => `#${rainbow.colourAt(properties[paint])}`;
     }
 
+    ensureDepthAnimationClassesExist(depth);
+
     return (feature: Feature | undefined) => {
       if (!feature?.properties) {
         console.error(`unable to style feature: ${JSON.stringify(feature)}`);
@@ -97,6 +131,15 @@ export const $featureGroup = computed([$clickTime, $raw], (clickTime, json) => {
   // if no geojson or if the new map click happened recently,
   // return an empty feature group / clear the map
   if (!json || Date.now() - clickTime < 10) return featureGroup;
+
+  // if we're doing the fancy route viz thingy, just quickly ensure that classes to this depth exist
+  // we need to do this _before_ traversal gets created / added to the DOM
+  if ($mode.get() === Mode.RouteViz) {
+    const { depth } = getRouteDepthAndSteps();
+    console.log(`got depth ${depth} from getRouteDepthAndSteps`);
+    // there's probably a catastrophic failure mode here but hey
+    if (depth) ensureDepthAnimationClassesExist(depth);
+  }
 
   // if traversal exists, paint it
   if (json.traversal) {
@@ -123,35 +166,15 @@ export const $featureGroup = computed([$clickTime, $raw], (clickTime, json) => {
 // animates traversals
 export const onFeatureGroupAdded = async () => {
   const mode = $mode.get();
-  let depth;
-  let steps;
 
   // if RouteViz, get the depth and step count from the last step in the route response
+  // and paint route animation in reverse from end to start
   if (mode === Mode.RouteViz) {
-    const features = $raw.get()?.route.features;
+    const features = $raw.get()?.route?.features;
     if (!features) return;
-    depth = features[features?.length - 1].properties?.depth;
-    steps = features[features?.length - 1].properties?.idx;
-    if (!depth) return;
-  } else if (mode === Mode.Traverse) {
-    depth = $depth.get();
-  } else {
-    return;
-  }
+    const { depth, steps } = getRouteDepthAndSteps();
+    if (!depth || !steps) return;
 
-  for (let i = 0; i <= depth; i++) {
-    const collection = document.getElementsByClassName(
-      `depth-${i}`
-    ) as HTMLCollectionOf<HTMLElement>;
-    for (let j = 0; j < collection.length; j++) {
-      const feature = collection.item(j);
-      feature?.style.setProperty('animation-delay', `${i * 75}ms`);
-      feature?.style.setProperty('animation-play-state', 'running');
-    }
-  }
-
-  // when doing route visualization, also paint route after traversal, in reverse
-  if (mode === Mode.RouteViz) {
     for (let i = 0; i <= steps; i++) {
       const collection = document.getElementsByClassName(
         `step-${steps - i}`
@@ -160,9 +183,8 @@ export const onFeatureGroupAdded = async () => {
         const feature = collection.item(j);
         feature?.style.setProperty(
           'animation-delay',
-          `${depth * 75 + i * 75}ms`
+          `${depth * stepDelayMs + i * stepDelayMs}ms`
         );
-        feature?.style.setProperty('animation-play-state', 'running');
       }
     }
   }
