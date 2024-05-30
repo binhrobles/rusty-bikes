@@ -1,7 +1,7 @@
 use anyhow::anyhow;
 use geo::Point;
 use lambda_http::{
-    run, service_fn, Error as LambdaError, Request, RequestExt, Response,
+    run, Body, service_fn, Error as LambdaError, Request, RequestExt, Response,
 };
 use query_map::QueryMap;
 use serde::Deserialize;
@@ -20,25 +20,31 @@ async fn main() {
     tracing_subscriber::fmt()
         .compact()
         .with_max_level(tracing::Level::DEBUG)
+        .with_target(false)
+        .without_time()
         .init();
 
     run(service_fn(handler)).await.unwrap();
 }
 
-async fn handler(event: Request) -> Result<Response<String>, LambdaError> {
-    GRAPH.with(|graph| {
-        let body = match event.raw_http_path() {
+async fn handler(event: Request) -> Result<Response<Body>, LambdaError> {
+    let body = GRAPH.with(|graph| {
+        match event.raw_http_path() {
             "/traverse" => traverse_handler(graph, event),
             "/route" => route_handler(graph, event),
             _ => Err(anyhow!("invalid path").into()),
-        }?;
+        }
+    })?;
 
-        Ok(Response::builder()
-            .header("Access-Control-Allow-Headers", "Content-Type")
-            .header("Access-Control-Allow-Origin", "*")
-            .header("Access-Control-Allow-Methods", "GET")
-            .body(body)?)
-    })
+    let response = Response::builder()
+        .status(200)
+        .header("content-type", "application/json")
+        .header("Access-Control-Allow-Headers", "Content-Type")
+        .header("Access-Control-Allow-Origin", "*")
+        .header("Access-Control-Allow-Methods", "GET")
+        .body(body.into())?;
+
+    Ok(response)
 }
 
 #[derive(Debug, Deserialize)]
