@@ -21,7 +21,6 @@ where
     serializer.serialize_i64(*float as i64)
 }
 
-
 #[derive(Serialize, Clone, Debug)]
 pub struct Route {
     steps: Vec<RouteStep>,

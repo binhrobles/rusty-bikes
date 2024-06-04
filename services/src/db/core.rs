@@ -4,8 +4,8 @@ use rusqlite::{Connection, Transaction};
 use geo::prelude::*;
 use geo::{point, Point};
 
-use crate::osm::Way;
 use super::Element;
+use crate::osm::Way;
 use std::env;
 
 pub type DBConnection = Connection;
