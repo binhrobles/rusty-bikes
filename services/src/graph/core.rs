@@ -19,7 +19,7 @@ impl Graph {
         })
     }
 
-    /// Calculates a Route between the start and end points, optionally attaching the raw underlying traversal map
+    /// Calculates a Route between the start and end points, optionally attaching the raw underlying traversal
     pub fn route_between(
         &self,
         start: Point,
@@ -57,13 +57,12 @@ impl Graph {
         Ok((result.make_contiguous().to_vec(), traversal))
     }
 
-    /// Return a collection of TraversalSegments from traversing the Graph from the start point to
-    /// the depth specified
+    /// returns a traversal map from the start point to the depth specified
     pub fn traverse_from(
         &self,
         start: Point,
         max_depth: usize,
-    ) -> Result<Vec<TraversalSegment>, anyhow::Error> {
+    ) -> Result<Traversal, anyhow::Error> {
         let mut context = super::initialize_traversal(self, &start)?;
 
         super::traverse_from(self, &mut context, max_depth)?;

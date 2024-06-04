@@ -190,6 +190,8 @@ pub fn traverse_between(
     Err(anyhow!("Traversal failed"))
 }
 
+/// Return a collection of TraversalSegments from traversing the Graph from the start point to
+/// the depth specified
 pub fn traverse_from(
     graph: &Graph,
     context: &mut TraversalContext,
