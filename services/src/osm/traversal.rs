@@ -6,6 +6,7 @@ use anyhow::anyhow;
 use geo::{HaversineDistance, Line, Point};
 use geojson::ser::serialize_geometry;
 use serde::Serialize;
+use std::cell::RefCell;
 use std::collections::{HashMap, VecDeque};
 
 pub const START_NODE_ID: NodeId = -1;
@@ -13,7 +14,7 @@ pub const END_NODE_ID: NodeId = -2;
 
 pub type Depth = usize;
 
-#[derive(Clone, Debug, Serialize)]
+#[derive(Clone, Debug, PartialEq, Serialize)]
 pub struct TraversalSegment {
     #[serde(serialize_with = "serialize_node_simple")]
     pub from: Node,
@@ -118,16 +119,26 @@ pub fn get_traversal(map: &TraversalMap) -> Traversal {
 }
 
 pub struct TraversalContext {
-    pub queue: TraversalQueue,
-    pub came_from: TraversalMap,
+    // wrapping in a RefCell so that these structures can be borrowed mutably while the greater context remains immutable
+    // https://doc.rust-lang.org/book/ch15-05-interior-mutability.html#a-use-case-for-interior-mutability-mock-objects
+    pub queue: RefCell<TraversalQueue>,
+    pub came_from: RefCell<TraversalMap>,
 }
 
 impl TraversalContext {
     pub fn new() -> Self {
         Self {
-            queue: VecDeque::new(),
-            came_from: HashMap::new(),
+            queue: RefCell::new(VecDeque::new()),
+            came_from: RefCell::new(HashMap::new()),
         }
+    }
+
+    pub fn get_next_segment(&self) -> Option<TraversalSegment> {
+        self.queue.borrow_mut().pop_front()
+    }
+
+    pub fn queue_segment(&self, segment: &TraversalSegment) {
+        self.queue.borrow_mut().push_back(segment.clone())
     }
 }
 
@@ -141,13 +152,13 @@ pub trait Traversable {
     fn initialize_traversal(&self, start: &Point) -> Result<TraversalContext, anyhow::Error>;
     fn traverse<F, G>(
         &self,
-        context: &mut TraversalContext,
+        context: &TraversalContext,
         exit_condition: F,
         exit_action: G,
     ) -> Result<(), anyhow::Error>
     where
         F: Fn(&TraversalSegment) -> bool,
-        G: Fn(&TraversalSegment, &mut TraversalMap);
+        G: Fn(&TraversalSegment);
 }
 
 impl Traversable for Graph {
@@ -157,12 +168,15 @@ impl Traversable for Graph {
         let start_node = Node::new(START_NODE_ID, start);
         let starting_neighbors = self.guess_neighbors(*start)?;
 
-        let mut context = TraversalContext::new();
+        let context = TraversalContext::new();
 
         for neighbor in starting_neighbors {
             let segment = TraversalSegment::build_to_neighbor(&start_node, &neighbor).build();
-            context.came_from.insert(neighbor.node.id, segment.clone());
-            context.queue.push_back(segment);
+            context.queue_segment(&segment);
+            context
+                .came_from
+                .borrow_mut()
+                .insert(neighbor.node.id, segment);
         }
 
         Ok(context)
@@ -172,34 +186,32 @@ impl Traversable for Graph {
     /// will perform the specified action and exit when the specified condition is met
     fn traverse<F, G>(
         &self,
-        context: &mut TraversalContext,
+        context: &TraversalContext,
         exit_condition: F,
         exit_action: G,
     ) -> Result<(), anyhow::Error>
     where
         F: Fn(&TraversalSegment) -> bool,
-        G: Fn(&TraversalSegment, &mut TraversalMap),
+        G: Fn(&TraversalSegment),
     {
-        while let Some(current) = context.queue.pop_front() {
+        while let Some(current) = context.get_next_segment() {
             if exit_condition(&current) {
-                exit_action(&current, &mut context.came_from);
+                exit_action(&current);
                 return Ok(());
             }
 
             let adjacent_neighbors = self.get_neighbors(current.to.id)?;
 
+            let mut came_from = context.came_from.borrow_mut();
             for neighbor in adjacent_neighbors {
-                context
-                    .came_from
-                    .entry(neighbor.node.id)
-                    .or_insert_with(|| {
-                        let segment = TraversalSegment::build_to_neighbor(&current.to, &neighbor)
-                            .with_depth(current.depth + 1)
-                            .with_prev_distance(current.distance_so_far)
-                            .build();
-                        context.queue.push_back(segment.clone());
-                        segment
-                    });
+                came_from.entry(neighbor.node.id).or_insert_with(|| {
+                    let segment = TraversalSegment::build_to_neighbor(&current.to, &neighbor)
+                        .with_depth(current.depth + 1)
+                        .with_prev_distance(current.distance_so_far)
+                        .build();
+                    context.queue_segment(&segment);
+                    segment
+                });
             }
         }
 

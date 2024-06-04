@@ -55,21 +55,24 @@ impl Graph {
         let target_neighbor_node_ids: Vec<NodeId> =
             target_neighbors.iter().map(|n| n.node.id).collect();
 
-        let mut context = self.initialize_traversal(&start)?;
+        let context = self.initialize_traversal(&start)?;
 
         self.traverse(
-            &mut context,
+            &context,
             |current| target_neighbor_node_ids.contains(&current.to.id),
-            |current, came_from| {
+            |current| {
+                // on exit, append the final segment to the ending node
                 let segment = TraversalSegment::build_to_node(&current.to, &end_node, current.way)
                     .with_depth(current.depth + 1)
                     .with_prev_distance(current.distance_so_far)
                     .build();
-                came_from.insert(END_NODE_ID, segment);
+                context.came_from.borrow_mut().insert(END_NODE_ID, segment);
             },
         )?;
 
-        Ok(context.came_from)
+        let traversal = context.came_from.borrow().clone();
+
+        Ok(traversal)
     }
 
     /// Return a collection of TraversalSegments from traversing the Graph from the start point to
@@ -79,15 +82,17 @@ impl Graph {
         start: Point,
         max_depth: usize,
     ) -> Result<Vec<TraversalSegment>, anyhow::Error> {
-        let mut context = self.initialize_traversal(&start)?;
+        let context = self.initialize_traversal(&start)?;
 
         self.traverse(
-            &mut context,
+            &context,
             |current| current.depth == max_depth,
-            |_current, _came_from| {},
+            |_current| {},
         )?;
 
-        Ok(traversal::get_traversal(&context.came_from))
+        let traversal = traversal::get_traversal(&context.came_from.borrow());
+
+        Ok(traversal)
     }
 
     /// Returns Edges to the closest Node(s) to the location provided
