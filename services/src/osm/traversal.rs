@@ -6,7 +6,6 @@ use anyhow::anyhow;
 use geo::{HaversineDistance, Line, Point};
 use geojson::ser::serialize_geometry;
 use serde::Serialize;
-use std::cell::RefCell;
 use std::collections::{HashMap, VecDeque};
 
 pub const START_NODE_ID: NodeId = -1;
@@ -114,31 +113,17 @@ pub type TraversalMap = HashMap<NodeId, TraversalSegment>;
 pub type TraversalRoute = Vec<TraversalSegment>;
 pub type Traversal = Vec<TraversalSegment>;
 
-pub fn get_traversal(map: &TraversalMap) -> Traversal {
-    map.values().cloned().collect()
-}
-
 pub struct TraversalContext {
-    // wrapping in a RefCell so that these structures can be borrowed mutably while the greater context remains immutable
-    // https://doc.rust-lang.org/book/ch15-05-interior-mutability.html#a-use-case-for-interior-mutability-mock-objects
-    pub queue: RefCell<TraversalQueue>,
-    pub came_from: RefCell<TraversalMap>,
+    pub queue: TraversalQueue,
+    pub came_from: TraversalMap,
 }
 
 impl TraversalContext {
     pub fn new() -> Self {
         Self {
-            queue: RefCell::new(VecDeque::new()),
-            came_from: RefCell::new(HashMap::new()),
+            queue: VecDeque::new(),
+            came_from: HashMap::new(),
         }
-    }
-
-    pub fn get_next_segment(&self) -> Option<TraversalSegment> {
-        self.queue.borrow_mut().pop_front()
-    }
-
-    pub fn queue_segment(&self, segment: &TraversalSegment) {
-        self.queue.borrow_mut().push_back(segment.clone())
     }
 }
 
@@ -148,73 +133,89 @@ impl Default for TraversalContext {
     }
 }
 
-pub trait Traversable {
-    fn initialize_traversal(&self, start: &Point) -> Result<TraversalContext, anyhow::Error>;
-    fn traverse<F, G>(
-        &self,
-        context: &TraversalContext,
-        exit_condition: F,
-        exit_action: G,
-    ) -> Result<(), anyhow::Error>
-    where
-        F: Fn(&TraversalSegment) -> bool,
-        G: Fn(&TraversalSegment);
-}
+/// initializes the structures required to traverse this graph, leveraging the guess_neighbors
+/// function to snap the starting Point into the graph
+pub fn initialize_traversal(
+    graph: &Graph,
+    start: &Point,
+) -> Result<TraversalContext, anyhow::Error> {
+    let start_node = Node::new(START_NODE_ID, start);
+    let starting_neighbors = graph.guess_neighbors(*start)?;
 
-impl Traversable for Graph {
-    /// initializes the structures required to traverse this graph, leveraging the guess_neighbors
-    /// function to snap the starting Point into the graph
-    fn initialize_traversal(&self, start: &Point) -> Result<TraversalContext, anyhow::Error> {
-        let start_node = Node::new(START_NODE_ID, start);
-        let starting_neighbors = self.guess_neighbors(*start)?;
+    let mut context = TraversalContext::new();
 
-        let context = TraversalContext::new();
-
-        for neighbor in starting_neighbors {
-            let segment = TraversalSegment::build_to_neighbor(&start_node, &neighbor).build();
-            context.queue_segment(&segment);
-            context
-                .came_from
-                .borrow_mut()
-                .insert(neighbor.node.id, segment);
-        }
-
-        Ok(context)
+    for neighbor in starting_neighbors {
+        let segment = TraversalSegment::build_to_neighbor(&start_node, &neighbor).build();
+        context.queue.push_back(segment.clone());
+        context.came_from.insert(neighbor.node.id, segment);
     }
 
-    /// performs the traversal on the graph, given a starting context
-    /// will perform the specified action and exit when the specified condition is met
-    fn traverse<F, G>(
-        &self,
-        context: &TraversalContext,
-        exit_condition: F,
-        exit_action: G,
-    ) -> Result<(), anyhow::Error>
-    where
-        F: Fn(&TraversalSegment) -> bool,
-        G: Fn(&TraversalSegment),
-    {
-        while let Some(current) = context.get_next_segment() {
-            if exit_condition(&current) {
-                exit_action(&current);
-                return Ok(());
-            }
+    Ok(context)
+}
 
-            let adjacent_neighbors = self.get_neighbors(current.to.id)?;
+/// performs the traversal on the graph, given a starting context
+pub fn traverse_between(
+    graph: &Graph,
+    context: &mut TraversalContext,
+    target_neighbor_node_ids: &[NodeId],
+    end_node: &Node,
+) -> Result<(), anyhow::Error> {
+    while let Some(current) = context.queue.pop_front() {
+        if target_neighbor_node_ids.contains(&current.to.id) {
+            // on exit, append the final segment to the ending node
+            let segment = TraversalSegment::build_to_node(&current.to, end_node, current.way)
+                .with_depth(current.depth + 1)
+                .with_prev_distance(current.distance_so_far)
+                .build();
+            context.came_from.insert(END_NODE_ID, segment);
+            return Ok(());
+        }
 
-            let mut came_from = context.came_from.borrow_mut();
-            for neighbor in adjacent_neighbors {
-                came_from.entry(neighbor.node.id).or_insert_with(|| {
+        let adjacent_neighbors = graph.get_neighbors(current.to.id)?;
+
+        for neighbor in adjacent_neighbors {
+            context
+                .came_from
+                .entry(neighbor.node.id)
+                .or_insert_with(|| {
                     let segment = TraversalSegment::build_to_neighbor(&current.to, &neighbor)
                         .with_depth(current.depth + 1)
                         .with_prev_distance(current.distance_so_far)
                         .build();
-                    context.queue_segment(&segment);
+                    context.queue.push_back(segment.clone());
                     segment
                 });
-            }
+        }
+    }
+
+    Err(anyhow!("Traversal failed"))
+}
+
+pub fn traverse_from(
+    graph: &Graph,
+    context: &mut TraversalContext,
+    max_depth: usize,
+) -> Result<(), anyhow::Error> {
+    while let Some(current) = context.queue.pop_front() {
+        if current.depth == max_depth {
+            return Ok(());
         }
 
-        Err(anyhow!("Traversal failed"))
+        let adjacent_neighbors = graph.get_neighbors(current.to.id)?;
+
+        for neighbor in adjacent_neighbors {
+            context
+                .came_from
+                .entry(neighbor.node.id)
+                .or_insert_with(|| {
+                    let segment = TraversalSegment::build_to_neighbor(&current.to, &neighbor)
+                        .with_depth(current.depth + 1)
+                        .build();
+                    context.queue.push_back(segment.clone());
+                    segment
+                });
+        }
     }
+
+    Err(anyhow!("Traversal failed"))
 }

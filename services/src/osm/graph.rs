@@ -1,7 +1,7 @@
 /// Exposes DB interactions as a Graph interface
 use super::{db, Graph, Neighbor, Node, NodeId};
 use crate::osm::traversal::{
-    self, Traversable, Traversal, TraversalMap, TraversalRoute, TraversalSegment, END_NODE_ID,
+    self, Traversal, TraversalMap, TraversalRoute, TraversalSegment, END_NODE_ID,
     START_NODE_ID,
 };
 use anyhow::anyhow;
@@ -38,7 +38,7 @@ impl Graph {
 
         // include the traversal if requested
         let traversal = if with_traversal {
-            Some(traversal::get_traversal(&traversal_map))
+            Some(traversal_map.values().cloned().collect())
         } else {
             None
         };
@@ -55,22 +55,16 @@ impl Graph {
         let target_neighbor_node_ids: Vec<NodeId> =
             target_neighbors.iter().map(|n| n.node.id).collect();
 
-        let context = self.initialize_traversal(&start)?;
+        let mut context = traversal::initialize_traversal(self, &start)?;
 
-        self.traverse(
-            &context,
-            |current| target_neighbor_node_ids.contains(&current.to.id),
-            |current| {
-                // on exit, append the final segment to the ending node
-                let segment = TraversalSegment::build_to_node(&current.to, &end_node, current.way)
-                    .with_depth(current.depth + 1)
-                    .with_prev_distance(current.distance_so_far)
-                    .build();
-                context.came_from.borrow_mut().insert(END_NODE_ID, segment);
-            },
+        traversal::traverse_between(
+            self,
+            &mut context,
+            &target_neighbor_node_ids,
+            &end_node
         )?;
 
-        let traversal = context.came_from.borrow().clone();
+        let traversal = context.came_from.clone();
 
         Ok(traversal)
     }
@@ -82,17 +76,15 @@ impl Graph {
         start: Point,
         max_depth: usize,
     ) -> Result<Vec<TraversalSegment>, anyhow::Error> {
-        let context = self.initialize_traversal(&start)?;
+        let mut context = traversal::initialize_traversal(self, &start)?;
 
-        self.traverse(
-            &context,
-            |current| current.depth == max_depth,
-            |_current| {},
+        traversal::traverse_from(
+            self,
+            &mut context,
+            max_depth,
         )?;
 
-        let traversal = traversal::get_traversal(&context.came_from.borrow());
-
-        Ok(traversal)
+        Ok(context.came_from.values().cloned().collect())
     }
 
     /// Returns Edges to the closest Node(s) to the location provided
