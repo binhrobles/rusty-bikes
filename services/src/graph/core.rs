@@ -1,7 +1,5 @@
 /// Exposes OSM data interactions via a Graph interface
-use super::traversal::{
-    Traversal, TraversalMap, TraversalRoute, TraversalSegment, END_NODE_ID, START_NODE_ID,
-};
+use super::traversal::{Route, Traversal, TraversalSegment, END_NODE_ID, START_NODE_ID};
 use crate::db;
 use crate::osm::{Neighbor, Node, NodeId};
 use anyhow::anyhow;
@@ -21,40 +19,13 @@ impl Graph {
         })
     }
 
+    /// Calculates a Route between the start and end points, optionally attaching the raw underlying traversal map
     pub fn route_between(
         &self,
         start: Point,
         end: Point,
         with_traversal: bool,
-    ) -> Result<(TraversalRoute, Option<Traversal>), anyhow::Error> {
-        let traversal_map = self.traverse_between(start, end)?;
-
-        // construct route from traversal information
-        let mut current_segment = traversal_map.get(&END_NODE_ID).unwrap();
-        let mut result: VecDeque<TraversalSegment> = VecDeque::from([current_segment.clone()]);
-
-        loop {
-            if current_segment.from.id == START_NODE_ID {
-                break;
-            }
-            current_segment = traversal_map.get(&current_segment.from.id).unwrap();
-            result.push_front(current_segment.clone());
-        }
-
-        // include the traversal if requested
-        let traversal = if with_traversal {
-            Some(traversal_map.values().cloned().collect())
-        } else {
-            None
-        };
-
-        Ok((result.make_contiguous().to_vec(), traversal))
-    }
-
-    /// Return a collection of all TraversalSegments examined while routing between the start and
-    /// end Points. TraversalSegments will be decorated with both the depth of the traversal and
-    /// the cost assigned, given the designated cost model
-    fn traverse_between(&self, start: Point, end: Point) -> Result<TraversalMap, anyhow::Error> {
+    ) -> Result<(Route, Option<Traversal>), anyhow::Error> {
         let end_node = Node::new(END_NODE_ID, &end);
         let target_neighbors = self.guess_neighbors(end)?;
         let target_neighbor_node_ids: Vec<NodeId> =
@@ -64,9 +35,26 @@ impl Graph {
 
         super::traverse_between(self, &mut context, &target_neighbor_node_ids, &end_node)?;
 
-        let traversal = context.came_from.clone();
+        // construct route from traversal information, tracing backwards from the end node
+        let mut current_segment = context.came_from.get(&END_NODE_ID).unwrap();
+        let mut result: VecDeque<TraversalSegment> = VecDeque::from([current_segment.clone()]);
 
-        Ok(traversal)
+        loop {
+            if current_segment.from.id == START_NODE_ID {
+                break;
+            }
+            current_segment = context.came_from.get(&current_segment.from.id).unwrap();
+            result.push_front(current_segment.clone());
+        }
+
+        // include the traversal if requested
+        let traversal = if with_traversal {
+            Some(context.came_from.values().cloned().collect())
+        } else {
+            None
+        };
+
+        Ok((result.make_contiguous().to_vec(), traversal))
     }
 
     /// Return a collection of TraversalSegments from traversing the Graph from the start point to

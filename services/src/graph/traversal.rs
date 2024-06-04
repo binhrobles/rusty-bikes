@@ -12,6 +12,8 @@ pub const START_NODE_ID: NodeId = -1;
 pub const END_NODE_ID: NodeId = -2;
 
 pub type Depth = usize;
+pub type Route = Vec<TraversalSegment>;
+pub type Traversal = Vec<TraversalSegment>;
 
 #[derive(Clone, Debug, PartialEq, Serialize)]
 pub struct TraversalSegment {
@@ -108,14 +110,9 @@ impl TraversalSegment {
     }
 }
 
-pub type TraversalQueue = VecDeque<TraversalSegment>;
-pub type TraversalMap = HashMap<NodeId, TraversalSegment>;
-pub type TraversalRoute = Vec<TraversalSegment>;
-pub type Traversal = Vec<TraversalSegment>;
-
 pub struct TraversalContext {
-    pub queue: TraversalQueue,
-    pub came_from: TraversalMap,
+    pub queue: VecDeque<TraversalSegment>,
+    pub came_from: HashMap<NodeId, TraversalSegment>,
 }
 
 impl TraversalContext {
@@ -153,7 +150,9 @@ pub fn initialize_traversal(
     Ok(context)
 }
 
-/// performs the traversal on the graph, given a starting context
+/// Generates a collection of all TraversalSegments examined while routing between the start and
+/// end Points. TraversalSegments will be decorated with both the depth of the traversal and
+/// the cost assigned, given the designated cost model
 pub fn traverse_between(
     graph: &Graph,
     context: &mut TraversalContext,
