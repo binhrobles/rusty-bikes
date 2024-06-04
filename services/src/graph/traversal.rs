@@ -1,6 +1,6 @@
 /// Structs and logic specific to traversing a Graph
 use super::Graph;
-use crate::osm::{Distance, Neighbor, Node, NodeId, WayId};
+use crate::osm::{serialize_node_simple, Distance, Neighbor, Node, NodeId, WayId};
 use anyhow::anyhow;
 use geo::{HaversineDistance, Line, Point};
 use serde::Serialize;
@@ -16,8 +16,10 @@ pub type Traversal = Vec<TraversalSegment>;
 
 #[derive(Clone, Debug, Serialize)]
 pub struct TraversalSegment {
-    pub from: NodeId,
-    pub to: NodeId,
+    #[serde(serialize_with = "serialize_node_simple")]
+    pub from: Node,
+    #[serde(serialize_with = "serialize_node_simple")]
+    pub to: Node,
     pub way: WayId,
 
     #[serde(serialize_with = "geojson::ser::serialize_geometry")]
@@ -42,28 +44,25 @@ impl PartialEq for TraversalSegment {
 // implementation
 impl Eq for TraversalSegment {}
 
-/// TraversalSegment comparisons make use of distance_so_far from traversal start
-/// TODO: eventually cost
 impl PartialOrd for TraversalSegment {
     #[inline]
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        self.distance_so_far.partial_cmp(&other.distance_so_far)
+        Some(self.cmp(other))
     }
 }
 
+/// TraversalSegment comparisons make use of distance_so_far from traversal start
+/// TODO: eventually use cost for sorting
 impl Ord for TraversalSegment {
     #[inline]
     fn cmp(&self, other: &Self) -> Ordering {
-        // Notice that the we flip the ordering on costs.
-        // In case of a tie we compare positions - this step is necessary
-        // to make implementations of `PartialEq` and `Ord` consistent.
-        other.distance_so_far.cmp(&self.distance_so_far)
+        other.distance_so_far.total_cmp(&self.distance_so_far)
     }
 }
 
 pub struct TraversalSegmentBuilder {
-    from: NodeId,
-    to: NodeId,
+    from: Node,
+    to: Node,
     way: WayId,
 
     geometry: Line,
@@ -76,8 +75,8 @@ pub struct TraversalSegmentBuilder {
 impl TraversalSegmentBuilder {
     pub fn new_from_neighbor(from: &Node, to: &Neighbor) -> Self {
         Self {
-            from: from.id,
-            to: to.node.id,
+            from: *from,
+            to: to.node,
             way: to.way,
 
             geometry: Line::new(from.geometry, to.node.geometry),
@@ -91,8 +90,8 @@ impl TraversalSegmentBuilder {
     pub fn new_from_node(from: &Node, to: &Node, way: WayId) -> Self {
         let length = from.geometry.haversine_distance(&to.geometry) as Distance;
         Self {
-            from: from.id,
-            to: to.id,
+            from: *from,
+            to: *to,
             way,
 
             geometry: Line::new(from.geometry, to.geometry),
@@ -172,7 +171,7 @@ pub fn initialize_traversal(
 
     for neighbor in starting_neighbors {
         let segment = TraversalSegment::build_to_neighbor(&start_node, &neighbor).build();
-        context.queue.push_back(segment.clone());
+        context.queue.push(segment.clone());
         context.came_from.insert(neighbor.node.id, segment);
     }
 
@@ -188,7 +187,7 @@ pub fn traverse_between(
     target_neighbor_node_ids: &[NodeId],
     end_node: &Node,
 ) -> Result<(), anyhow::Error> {
-    while let Some(current) = context.queue.pop_front() {
+    while let Some(current) = context.queue.pop() {
         if target_neighbor_node_ids.contains(&current.to.id) {
             // on exit, append the final segment to the ending node
             let segment = TraversalSegment::build_to_node(&current.to, end_node, current.way)
@@ -210,7 +209,7 @@ pub fn traverse_between(
                         .with_depth(current.depth + 1)
                         .with_prev_distance(current.distance_so_far)
                         .build();
-                    context.queue.push_back(segment.clone());
+                    context.queue.push(segment.clone());
                     segment
                 });
         }
@@ -226,7 +225,7 @@ pub fn traverse_from(
     context: &mut TraversalContext,
     max_depth: usize,
 ) -> Result<(), anyhow::Error> {
-    while let Some(current) = context.queue.pop_front() {
+    while let Some(current) = context.queue.pop() {
         if current.depth == max_depth {
             return Ok(());
         }
@@ -242,7 +241,7 @@ pub fn traverse_from(
                         .with_depth(current.depth + 1)
                         .with_prev_distance(current.distance_so_far)
                         .build();
-                    context.queue.push_back(segment.clone());
+                    context.queue.push(segment.clone());
                     segment
                 });
         }

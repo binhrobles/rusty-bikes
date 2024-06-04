@@ -1,11 +1,11 @@
 /// holds types and structs related to Open Street Map data
 use geo::Point;
 use geojson::ser::serialize_geometry;
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Serialize, Serializer};
 
 pub type NodeId = i64;
 pub type WayId = i64;
-pub type Distance = usize;
+pub type Distance = f64;
 
 // TODO: this needs context about who it's a neighbor TO!
 // at which point...is this just an Edge / Segment?
@@ -33,6 +33,15 @@ impl Node {
         }
     }
 }
+
+/// simple serialization of a Node to just its ID
+pub fn serialize_node_simple<S>(node: &Node, serializer: S) -> Result<S::Ok, S::Error>
+where
+    S: Serializer,
+{
+    serializer.serialize_i64(node.id)
+}
+
 
 #[derive(Debug, Deserialize)]
 pub struct Way {

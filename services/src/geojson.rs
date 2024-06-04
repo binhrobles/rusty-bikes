@@ -73,8 +73,8 @@ impl RouteStep {
             geometry: vec![segment.geometry.start, segment.geometry.end],
 
             distance: segment.length,
-            from: segment.from,
-            to: segment.to,
+            from: segment.from.id,
+            to: segment.to.id,
             way: segment.way,
             depth: segment.depth,
             idx,
@@ -84,7 +84,7 @@ impl RouteStep {
     pub fn extend_with(&mut self, segment: &TraversalSegment) {
         self.geometry.push(segment.geometry.end);
         self.distance += segment.length;
-        self.to = segment.to;
+        self.to = segment.to.id;
         self.depth = segment.depth; // takes the depth of the last segment appended
     }
 }

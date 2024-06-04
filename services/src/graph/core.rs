@@ -40,10 +40,10 @@ impl Graph {
         let mut result: VecDeque<TraversalSegment> = VecDeque::from([current_segment.clone()]);
 
         loop {
-            if current_segment.from == START_NODE_ID {
+            if current_segment.from.id == START_NODE_ID {
                 break;
             }
-            current_segment = context.came_from.get(&current_segment.from).unwrap();
+            current_segment = context.came_from.get(&current_segment.from.id).unwrap();
             result.push_front(current_segment.clone());
         }
 
