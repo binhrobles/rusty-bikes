@@ -211,6 +211,7 @@ pub fn traverse_from(
                 .or_insert_with(|| {
                     let segment = TraversalSegment::build_to_neighbor(&current.to, &neighbor)
                         .with_depth(current.depth + 1)
+                        .with_prev_distance(current.distance_so_far)
                         .build();
                     context.queue.push_back(segment.clone());
                     segment
