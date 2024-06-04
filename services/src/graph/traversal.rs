@@ -1,7 +1,7 @@
 /// Structs and logic specific to traversing a Graph
-use super::{
-    serialize_float_as_int, serialize_node_simple, Distance, Graph, Neighbor, Node, NodeId, WayId,
-};
+use super::Graph;
+use crate::geojson::{serialize_float_as_int, serialize_node_simple};
+use crate::osm::{Distance, Neighbor, Node, NodeId, WayId};
 use anyhow::anyhow;
 use geo::{HaversineDistance, Line, Point};
 use geojson::ser::serialize_geometry;

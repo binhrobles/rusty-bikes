@@ -1,13 +1,18 @@
-/// Exposes DB interactions as a Graph interface
-use super::{db, Graph, Neighbor, Node, NodeId};
-use crate::osm::traversal::{
-    self, Traversal, TraversalMap, TraversalRoute, TraversalSegment, END_NODE_ID,
-    START_NODE_ID,
+/// Exposes OSM data interactions via a Graph interface
+use super::traversal::{
+    Traversal, TraversalMap, TraversalRoute, TraversalSegment, END_NODE_ID, START_NODE_ID,
 };
+use crate::db;
+use crate::osm::{Neighbor, Node, NodeId};
 use anyhow::anyhow;
 use geo::prelude::*;
 use geo::{HaversineBearing, Point};
 use std::collections::VecDeque;
+
+#[derive(Debug)]
+pub struct Graph {
+    conn: db::DBConnection,
+}
 
 impl Graph {
     pub fn new() -> Result<Self, anyhow::Error> {
@@ -55,14 +60,9 @@ impl Graph {
         let target_neighbor_node_ids: Vec<NodeId> =
             target_neighbors.iter().map(|n| n.node.id).collect();
 
-        let mut context = traversal::initialize_traversal(self, &start)?;
+        let mut context = super::initialize_traversal(self, &start)?;
 
-        traversal::traverse_between(
-            self,
-            &mut context,
-            &target_neighbor_node_ids,
-            &end_node
-        )?;
+        super::traverse_between(self, &mut context, &target_neighbor_node_ids, &end_node)?;
 
         let traversal = context.came_from.clone();
 
@@ -76,13 +76,9 @@ impl Graph {
         start: Point,
         max_depth: usize,
     ) -> Result<Vec<TraversalSegment>, anyhow::Error> {
-        let mut context = traversal::initialize_traversal(self, &start)?;
+        let mut context = super::initialize_traversal(self, &start)?;
 
-        traversal::traverse_from(
-            self,
-            &mut context,
-            max_depth,
-        )?;
+        super::traverse_from(self, &mut context, max_depth)?;
 
         Ok(context.came_from.values().cloned().collect())
     }

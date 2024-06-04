@@ -1,4 +1,4 @@
-use rusty_router::osm::db;
+use rusty_router::db;
 
 fn main() {
     let conn = db::get_conn().unwrap();

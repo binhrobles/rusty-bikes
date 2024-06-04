@@ -4,11 +4,14 @@ use rusqlite::{Connection, Transaction};
 use geo::prelude::*;
 use geo::{point, Point};
 
-use crate::osm::{etl::Element, Way};
+use crate::osm::Way;
+use super::Element;
 use std::env;
 
+pub type DBConnection = Connection;
+
 /// get a SQLite Connection for queries and stuff
-pub fn get_conn() -> anyhow::Result<Connection> {
+pub fn get_conn() -> anyhow::Result<DBConnection> {
     let db_path = env::var("DB_PATH")?;
     let conn = Connection::open(db_path)?;
     conn.pragma_update(None, "foreign_keys", "ON")?;

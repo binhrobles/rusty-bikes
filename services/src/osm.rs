@@ -1,17 +1,7 @@
+/// holds types and structs related to Open Street Map data
 use geo::Point;
 use geojson::ser::serialize_geometry;
-use rusqlite::Connection;
-use serde::{Deserialize, Serialize, Serializer};
-
-pub mod db;
-pub mod etl;
-pub mod graph;
-pub mod traversal;
-
-#[derive(Debug)]
-pub struct Graph {
-    conn: Connection,
-}
+use serde::{Deserialize, Serialize};
 
 pub type NodeId = i64;
 pub type WayId = i64;
@@ -42,22 +32,6 @@ impl Node {
             geometry: *point,
         }
     }
-}
-
-/// simple serialization of a Node to just its ID
-pub fn serialize_node_simple<S>(node: &Node, serializer: S) -> Result<S::Ok, S::Error>
-where
-    S: Serializer,
-{
-    serializer.serialize_i64(node.id)
-}
-
-/// serialization of a float to an int
-pub fn serialize_float_as_int<S>(float: &f64, serializer: S) -> Result<S::Ok, S::Error>
-where
-    S: Serializer,
-{
-    serializer.serialize_i64(*float as i64)
 }
 
 #[derive(Debug, Deserialize)]

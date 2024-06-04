@@ -1,14 +1,12 @@
 use anyhow::anyhow;
 use geo::Point;
-use lambda_http::{
-    run, Body, service_fn, Error as LambdaError, Request, RequestExt, Response,
-};
+use lambda_http::{run, service_fn, Body, Error as LambdaError, Request, RequestExt, Response};
 use query_map::QueryMap;
 use serde::Deserialize;
 use tracing::error;
 
 use rusty_router::geojson;
-use rusty_router::osm::Graph;
+use rusty_router::graph::Graph;
 
 // create a singleton of the Graph struct on lambda boot
 thread_local! {
@@ -28,12 +26,10 @@ async fn main() {
 }
 
 async fn handler(event: Request) -> Result<Response<Body>, LambdaError> {
-    let body = GRAPH.with(|graph| {
-        match event.raw_http_path() {
-            "/traverse" => traverse_handler(graph, event),
-            "/route" => route_handler(graph, event),
-            _ => Err(anyhow!("invalid path").into()),
-        }
+    let body = GRAPH.with(|graph| match event.raw_http_path() {
+        "/traverse" => traverse_handler(graph, event),
+        "/route" => route_handler(graph, event),
+        _ => Err(anyhow!("invalid path").into()),
     })?;
 
     let response = Response::builder()

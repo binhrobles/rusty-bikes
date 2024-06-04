@@ -3,7 +3,7 @@ use std::fs::File;
 use std::io::BufReader;
 use std::process;
 
-use rusty_router::osm::etl::Output;
+use rusty_router::db::etl::Output;
 
 fn main() {
     let args: Vec<String> = env::args().collect();

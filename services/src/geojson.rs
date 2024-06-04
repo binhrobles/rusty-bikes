@@ -1,8 +1,26 @@
-/// Middleware when formatting Graph structures into Geojson
-use crate::osm::{traversal::Depth, traversal::TraversalSegment, Distance, NodeId, WayId};
+/// Middleware for formatting Graph structures into Geojson
+use crate::graph::{Depth, TraversalSegment};
+use crate::osm::{Distance, Node, NodeId, WayId};
 use geo::{Coord, LineString};
 use geojson::ser::serialize_geometry;
 use serde::{Serialize, Serializer};
+
+/// simple serialization of a Node to just its ID
+pub fn serialize_node_simple<S>(node: &Node, serializer: S) -> Result<S::Ok, S::Error>
+where
+    S: Serializer,
+{
+    serializer.serialize_i64(node.id)
+}
+
+/// serialization of a float to an int
+pub fn serialize_float_as_int<S>(float: &f64, serializer: S) -> Result<S::Ok, S::Error>
+where
+    S: Serializer,
+{
+    serializer.serialize_i64(*float as i64)
+}
+
 
 #[derive(Serialize, Clone, Debug)]
 pub struct Route {

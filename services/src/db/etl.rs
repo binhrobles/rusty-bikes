@@ -1,5 +1,5 @@
-use geo::Point;
 /// Governs the initial ETL process from the OSM export JSON to SQLite
+use geo::Point;
 use serde::de::{SeqAccess, Visitor};
 use serde::{Deserialize, Deserializer};
 use std::collections::HashMap;
@@ -7,7 +7,7 @@ use std::collections::HashMap;
 use std::fmt;
 use std::marker::PhantomData;
 
-use crate::osm::{db, Location, Node, Way};
+use crate::osm::{Location, Node, Way};
 
 #[derive(std::fmt::Debug, Deserialize)]
 pub struct Bounds {
@@ -95,7 +95,7 @@ where
             S: SeqAccess<'de>,
         {
             let mut count = 0;
-            let mut conn = db::get_conn().unwrap();
+            let mut conn = super::get_conn().unwrap();
             let tx = conn.transaction().unwrap();
 
             while let Some(el) = seq.next_element::<Element>()? {
@@ -105,11 +105,11 @@ where
                     "node" => {
                         // insert to Node table
                         // can we assume all Nodes will appear before Ways?
-                        db::insert_node_element(&tx, el).unwrap();
+                        super::insert_node_element(&tx, el).unwrap();
                     }
                     "way" => {
                         // insert to Way table
-                        db::insert_way_element(&tx, el).unwrap();
+                        super::insert_way_element(&tx, el).unwrap();
                     }
                     other => panic!("unsupported type {}\nelement: {:?}", other, el),
                 }
