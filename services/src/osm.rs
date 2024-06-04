@@ -42,7 +42,6 @@ where
     serializer.serialize_i64(node.id)
 }
 
-
 #[derive(Debug, Deserialize)]
 pub struct Way {
     pub id: WayId,

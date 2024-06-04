@@ -1,5 +1,5 @@
 /// Structs and logic specific to traversing a Graph
-use super::Graph;
+use super::{Cost, CostModel, Graph};
 use crate::osm::{serialize_node_simple, Distance, Neighbor, Node, NodeId, WayId};
 use anyhow::anyhow;
 use geo::{HaversineDistance, Line, Point};
@@ -29,10 +29,11 @@ pub struct TraversalSegment {
     pub depth: Depth,
     pub length: Distance,
     pub distance_so_far: Distance,
-    // cost
+
+    pub cost: Cost,
 }
 
-/// TraversalSegments are roughly equivalent when they connect the same points along the same way
+/// TraversalSegments are equivalent when they connect the same points along the same way
 impl PartialEq for TraversalSegment {
     #[inline]
     fn eq(&self, other: &Self) -> bool {
@@ -40,8 +41,8 @@ impl PartialEq for TraversalSegment {
     }
 }
 
-// manually implementing Eq so that the `geometry` field isn't implicitly added to the derived
-// implementation
+// manually implementing Eq so that the `geometry`, `from`, and `to` fields aren't
+// implicitly added to the derived implementation
 impl Eq for TraversalSegment {}
 
 impl PartialOrd for TraversalSegment {
@@ -70,6 +71,7 @@ pub struct TraversalSegmentBuilder {
     depth: Depth,
     length: Distance,
     distance_so_far: Distance,
+    cost: Cost,
 }
 
 impl TraversalSegmentBuilder {
@@ -84,6 +86,7 @@ impl TraversalSegmentBuilder {
             depth: 0,
             length: to.distance,
             distance_so_far: to.distance,
+            cost: 0.0,
         }
     }
 
@@ -99,6 +102,7 @@ impl TraversalSegmentBuilder {
             depth: 0,
             length,
             distance_so_far: length,
+            cost: 0.0,
         }
     }
 
@@ -113,6 +117,15 @@ impl TraversalSegmentBuilder {
         self
     }
 
+    pub fn calculate_cost(
+        mut self,
+        cost_model: &CostModel,
+        graph: &Graph,
+    ) -> Result<Self, anyhow::Error> {
+        self.cost = cost_model.calculate_cost(graph, self.way)?;
+        Ok(self)
+    }
+
     pub fn build(self) -> TraversalSegment {
         TraversalSegment {
             from: self.from,
@@ -124,6 +137,7 @@ impl TraversalSegmentBuilder {
             length: self.length,
             depth: self.depth,
             distance_so_far: self.distance_so_far,
+            cost: self.cost,
         }
     }
 }
@@ -141,6 +155,7 @@ impl TraversalSegment {
 pub struct TraversalContext {
     pub queue: BinaryHeap<TraversalSegment>,
     pub came_from: HashMap<NodeId, TraversalSegment>,
+    pub cost_model: CostModel,
 }
 
 impl TraversalContext {
@@ -148,6 +163,7 @@ impl TraversalContext {
         Self {
             queue: BinaryHeap::new(),
             came_from: HashMap::new(),
+            cost_model: CostModel::default(),
         }
     }
 }
@@ -193,6 +209,7 @@ pub fn traverse_between(
             let segment = TraversalSegment::build_to_node(&current.to, end_node, current.way)
                 .with_depth(current.depth + 1)
                 .with_prev_distance(current.distance_so_far)
+                .calculate_cost(&context.cost_model, graph)?
                 .build();
             context.came_from.insert(END_NODE_ID, segment);
             return Ok(());
@@ -208,6 +225,8 @@ pub fn traverse_between(
                     let segment = TraversalSegment::build_to_neighbor(&current.to, &neighbor)
                         .with_depth(current.depth + 1)
                         .with_prev_distance(current.distance_so_far)
+                        .calculate_cost(&context.cost_model, graph)
+                        .unwrap() // TODO: not this
                         .build();
                     context.queue.push(segment.clone());
                     segment
@@ -240,6 +259,8 @@ pub fn traverse_from(
                     let segment = TraversalSegment::build_to_neighbor(&current.to, &neighbor)
                         .with_depth(current.depth + 1)
                         .with_prev_distance(current.distance_so_far)
+                        .calculate_cost(&context.cost_model, graph)
+                        .unwrap() // TODO: not this
                         .build();
                     context.queue.push(segment.clone());
                     segment
