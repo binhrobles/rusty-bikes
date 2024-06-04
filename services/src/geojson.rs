@@ -1,25 +1,9 @@
 /// Middleware for formatting Graph structures into Geojson
 use crate::graph::{Depth, TraversalSegment};
-use crate::osm::{Distance, Node, NodeId, WayId};
+use crate::osm::{Distance, NodeId, WayId};
 use geo::{Coord, LineString};
 use geojson::ser::serialize_geometry;
 use serde::{Serialize, Serializer};
-
-/// simple serialization of a Node to just its ID
-pub fn serialize_node_simple<S>(node: &Node, serializer: S) -> Result<S::Ok, S::Error>
-where
-    S: Serializer,
-{
-    serializer.serialize_i64(node.id)
-}
-
-/// serialization of a float to an int
-pub fn serialize_float_as_int<S>(float: &f64, serializer: S) -> Result<S::Ok, S::Error>
-where
-    S: Serializer,
-{
-    serializer.serialize_i64(*float as i64)
-}
 
 #[derive(Serialize, Clone, Debug)]
 pub struct Route {
@@ -89,8 +73,8 @@ impl RouteStep {
             geometry: vec![segment.geometry.start, segment.geometry.end],
 
             distance: segment.length,
-            from: segment.from.id,
-            to: segment.to.id,
+            from: segment.from,
+            to: segment.to,
             way: segment.way,
             depth: segment.depth,
             idx,
@@ -100,7 +84,7 @@ impl RouteStep {
     pub fn extend_with(&mut self, segment: &TraversalSegment) {
         self.geometry.push(segment.geometry.end);
         self.distance += segment.length;
-        self.to = segment.to.id;
+        self.to = segment.to;
         self.depth = segment.depth; // takes the depth of the last segment appended
     }
 }

@@ -1,12 +1,11 @@
 /// Structs and logic specific to traversing a Graph
 use super::Graph;
-use crate::geojson::{serialize_float_as_int, serialize_node_simple};
 use crate::osm::{Distance, Neighbor, Node, NodeId, WayId};
 use anyhow::anyhow;
 use geo::{HaversineDistance, Line, Point};
-use geojson::ser::serialize_geometry;
 use serde::Serialize;
-use std::collections::{HashMap, VecDeque};
+use std::cmp::Ordering;
+use std::collections::{BinaryHeap, HashMap};
 
 pub const START_NODE_ID: NodeId = -1;
 pub const END_NODE_ID: NodeId = -2;
@@ -15,62 +14,91 @@ pub type Depth = usize;
 pub type Route = Vec<TraversalSegment>;
 pub type Traversal = Vec<TraversalSegment>;
 
-#[derive(Clone, Debug, PartialEq, Serialize)]
+#[derive(Clone, Debug, Serialize)]
 pub struct TraversalSegment {
-    #[serde(serialize_with = "serialize_node_simple")]
-    pub from: Node,
-    #[serde(serialize_with = "serialize_node_simple")]
-    pub to: Node,
+    pub from: NodeId,
+    pub to: NodeId,
+    pub way: WayId,
 
-    #[serde(serialize_with = "serialize_geometry")]
+    #[serde(serialize_with = "geojson::ser::serialize_geometry")]
     pub geometry: Line,
 
     // segment metadata for weighing / constructing the route
-    pub way: WayId,
     pub depth: Depth,
-
-    #[serde(serialize_with = "serialize_float_as_int")]
     pub length: Distance,
-    #[serde(serialize_with = "serialize_float_as_int")]
     pub distance_so_far: Distance,
     // cost
 }
 
+/// TraversalSegments are roughly equivalent when they connect the same points along the same way
+impl PartialEq for TraversalSegment {
+    #[inline]
+    fn eq(&self, other: &Self) -> bool {
+        self.from == other.from && self.to == other.to && self.way == other.way
+    }
+}
+
+// manually implementing Eq so that the `geometry` field isn't implicitly added to the derived
+// implementation
+impl Eq for TraversalSegment {}
+
+/// TraversalSegment comparisons make use of distance_so_far from traversal start
+/// TODO: eventually cost
+impl PartialOrd for TraversalSegment {
+    #[inline]
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        self.distance_so_far.partial_cmp(&other.distance_so_far)
+    }
+}
+
+impl Ord for TraversalSegment {
+    #[inline]
+    fn cmp(&self, other: &Self) -> Ordering {
+        // Notice that the we flip the ordering on costs.
+        // In case of a tie we compare positions - this step is necessary
+        // to make implementations of `PartialEq` and `Ord` consistent.
+        other.distance_so_far.cmp(&self.distance_so_far)
+    }
+}
+
 pub struct TraversalSegmentBuilder {
-    from: Node,
-    to: Node,
+    from: NodeId,
+    to: NodeId,
     way: WayId,
-    length: Distance,
+
     geometry: Line,
 
     depth: Depth,
+    length: Distance,
     distance_so_far: Distance,
 }
 
 impl TraversalSegmentBuilder {
     pub fn new_from_neighbor(from: &Node, to: &Neighbor) -> Self {
         Self {
-            from: *from,
-            to: to.node,
+            from: from.id,
+            to: to.node.id,
             way: to.way,
-            length: to.distance,
+
             geometry: Line::new(from.geometry, to.node.geometry),
 
             depth: 0,
+            length: to.distance,
             distance_so_far: to.distance,
         }
     }
 
     pub fn new_from_node(from: &Node, to: &Node, way: WayId) -> Self {
-        let length = from.geometry.haversine_distance(&to.geometry);
+        let length = from.geometry.haversine_distance(&to.geometry) as Distance;
         Self {
-            from: *from,
-            to: *to,
+            from: from.id,
+            to: to.id,
             way,
-            length,
+
             geometry: Line::new(from.geometry, to.geometry),
 
             depth: 0,
+            length,
             distance_so_far: length,
         }
     }
@@ -91,9 +119,10 @@ impl TraversalSegmentBuilder {
             from: self.from,
             to: self.to,
             way: self.way,
-            length: self.length,
+
             geometry: self.geometry,
 
+            length: self.length,
             depth: self.depth,
             distance_so_far: self.distance_so_far,
         }
@@ -111,14 +140,14 @@ impl TraversalSegment {
 }
 
 pub struct TraversalContext {
-    pub queue: VecDeque<TraversalSegment>,
+    pub queue: BinaryHeap<TraversalSegment>,
     pub came_from: HashMap<NodeId, TraversalSegment>,
 }
 
 impl TraversalContext {
     pub fn new() -> Self {
         Self {
-            queue: VecDeque::new(),
+            queue: BinaryHeap::new(),
             came_from: HashMap::new(),
         }
     }

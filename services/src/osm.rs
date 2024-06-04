@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 
 pub type NodeId = i64;
 pub type WayId = i64;
-pub type Distance = f64;
+pub type Distance = usize;
 
 // TODO: this needs context about who it's a neighbor TO!
 // at which point...is this just an Edge / Segment?

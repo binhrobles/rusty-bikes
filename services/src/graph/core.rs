@@ -1,7 +1,7 @@
 /// Exposes OSM data interactions via a Graph interface
 use super::traversal::{Route, Traversal, TraversalSegment, END_NODE_ID, START_NODE_ID};
 use crate::db;
-use crate::osm::{Neighbor, Node, NodeId};
+use crate::osm::{Distance, Neighbor, Node, NodeId};
 use anyhow::anyhow;
 use geo::prelude::*;
 use geo::{HaversineBearing, Point};
@@ -40,10 +40,10 @@ impl Graph {
         let mut result: VecDeque<TraversalSegment> = VecDeque::from([current_segment.clone()]);
 
         loop {
-            if current_segment.from.id == START_NODE_ID {
+            if current_segment.from == START_NODE_ID {
                 break;
             }
-            current_segment = context.came_from.get(&current_segment.from.id).unwrap();
+            current_segment = context.came_from.get(&current_segment.from).unwrap();
             result.push_front(current_segment.clone());
         }
 
@@ -57,7 +57,7 @@ impl Graph {
         Ok((result.make_contiguous().to_vec(), traversal))
     }
 
-    /// returns a traversal map from the start point to the depth specified
+    /// returns a traversal map and the relevant geometries from the start point to the depth specified
     pub fn traverse_from(
         &self,
         start: Point,
@@ -106,7 +106,7 @@ impl Graph {
                 Neighbor {
                     node: Node::new(row.get(0)?, &loc),
                     way: row.get(3)?,
-                    distance: start.haversine_distance(&loc),
+                    distance: start.haversine_distance(&loc) as Distance,
                 },
                 start.haversine_bearing(loc),
             ))
