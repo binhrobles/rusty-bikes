@@ -5,6 +5,20 @@ export enum Mode {
   RouteViz = 'route-viz',
 }
 
+// Mappings for the property keys being returned from the backend
+// moved to using single letter prop keys to save some space
+// see TraversalSegment's serialization
+export enum PropKey {
+  From = 'f',
+  To = 't',
+  Way = 'w',
+  Depth = 'd',
+  DistanceSoFar = 'di',
+  Length = 'l',
+  Cost = 'c',
+  Index = 'i',
+}
+
 // typo mitigation
 export enum HtmlElementId {
   DepthRange = 'depth-range',
@@ -35,11 +49,12 @@ export const ModeMeta = {
   },
 };
 
-// available paint options, tied to their GeoJSON property key
+// available paint options, tied to their PropKey
 export enum PaintOptions {
-  Depth = 'depth',
-  Length = 'length',
-  DistanceSoFar = 'distance_so_far',
+  Depth = 'Depth',
+  DistanceSoFar = 'DistanceSoFar',
+  Length = 'Length',
+  Cost = 'Cost',
 }
 
 export const TraversalDefaults = {

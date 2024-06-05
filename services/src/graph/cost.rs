@@ -69,7 +69,6 @@ impl CostModel {
         if let Some(weight) = self.bike_lane.get(&bike_lane) {
             cost *= weight;
         }
-        println!("{way} -> {cost}");
 
         Ok(cost)
     }

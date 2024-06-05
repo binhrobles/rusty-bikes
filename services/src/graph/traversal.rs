@@ -16,20 +16,25 @@ pub type Traversal = Vec<TraversalSegment>;
 
 #[derive(Clone, Debug, Serialize)]
 pub struct TraversalSegment {
-    #[serde(serialize_with = "serialize_node_simple")]
+    #[serde(serialize_with = "serialize_node_simple", rename(serialize = "f"))]
     pub from: Node,
-    #[serde(serialize_with = "serialize_node_simple")]
+    #[serde(serialize_with = "serialize_node_simple", rename(serialize = "t"))]
     pub to: Node,
+    #[serde(rename(serialize = "w"))]
     pub way: WayId,
 
     #[serde(serialize_with = "geojson::ser::serialize_geometry")]
     pub geometry: Line,
 
     // segment metadata for weighing / constructing the route
+    #[serde(rename(serialize = "d"))]
     pub depth: Depth,
+    #[serde(rename(serialize = "l"))]
     pub length: Distance,
+    #[serde(rename(serialize = "di"))]
     pub distance_so_far: Distance,
 
+    #[serde(rename(serialize = "c"))]
     pub cost: Cost,
 }
 

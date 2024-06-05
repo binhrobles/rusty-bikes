@@ -5,11 +5,10 @@ import { computed } from 'nanostores';
 import L from 'leaflet';
 import Handlebars from 'handlebars';
 import { Feature } from 'geojson';
-import { Mode, TraversalDefaults } from '../consts.ts';
+import { Mode, PaintOptions, PropKey, TraversalDefaults } from '../consts.ts';
 const { stepDelayMs } = TraversalDefaults;
 
 import Rainbow from 'rainbowvis.js';
-const rainbow = new Rainbow();
 
 import { $clickTime } from './map.ts';
 import { $mode } from './mode.ts';
@@ -37,13 +36,17 @@ export const addDebugClick = (feature: Feature, layer: L.Layer) => {
   }
 };
 
-//get the depth and step count from the last step in the route response
+// get the depth and step count from the last step in the route response
+// TODO: this assumes the last feature is the deepest
 const getRouteDepthAndSteps = () => {
   const features = $raw.get()?.route?.features;
   if (!features) return {};
 
-  const depth: number = features[features.length - 1].properties?.depth;
-  const steps: number = features[features.length - 1].properties?.idx;
+  const properties = features[features.length - 1].properties;
+
+  if (!properties) return {};
+  const depth: number = properties[PropKey.Depth];
+  const steps: number = properties[PropKey.Index];
 
   return { depth, steps };
 };
@@ -55,7 +58,7 @@ const $routeStyle = computed($mode, (mode) => {
       return {};
     }
 
-    let className = `route-depth-${feature.properties.depth} step-${feature.properties.idx}`;
+    let className = `route-depth-${feature.properties[PropKey.Depth]} step-${feature.properties[PropKey.Index]}`;
     if (mode === Mode.RouteViz) className += ' svg-path';
 
     return {
@@ -89,23 +92,32 @@ const ensureDepthAnimationClassesExist = (depth: number) => {
 const $traversalStyle = computed(
   [$mode, $paint, $depth],
   (mode, paint, depth) => {
+    const rainbow = new Rainbow();
+
     let color = (_properties: Record<string, number>): string => '#F26F75';
+
+    if (mode === Mode.RouteViz) {
+      rainbow.setNumberRange(0, 100);
+      rainbow.setSpectrum('#40EB1A', '#A9A9A9');
+      color = (properties) => `#${rainbow.colourAt(properties[PropKey.Cost])}`;
+    }
 
     if (mode === Mode.Traverse) {
       switch (paint) {
-        case 'depth':
+        case PaintOptions.Depth:
           rainbow.setNumberRange(1, depth);
           break;
-        case 'length':
-          rainbow.setNumberRange(1, 300);
-          break;
-        case 'distance_so_far':
+        case PaintOptions.DistanceSoFar:
           rainbow.setNumberRange(1, depth * 50);
+          break;
+        case PaintOptions.Cost:
+          rainbow.setNumberRange(0, 100);
+          rainbow.setSpectrum('green', 'yellow', 'orange', 'red');
           break;
         default:
       }
 
-      color = (properties) => `#${rainbow.colourAt(properties[paint])}`;
+      color = (properties) => `#${rainbow.colourAt(properties[PropKey[paint]])}`;
     }
 
     ensureDepthAnimationClassesExist(depth);
@@ -119,7 +131,7 @@ const $traversalStyle = computed(
       return {
         color: color(feature.properties),
         opacity: 0, // start off invisible
-        className: `svg-path depth-${feature.properties.depth}`,
+        className: `svg-path depth-${feature.properties[PropKey.Depth]}`,
       };
     };
   }
