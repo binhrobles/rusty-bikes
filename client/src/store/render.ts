@@ -125,42 +125,45 @@ const $traversalStyle = computed(
   }
 );
 
-export const $featureGroup = computed([$clickTime, $raw], (clickTime, json) => {
-  const featureGroup = new L.FeatureGroup([]);
+export const $featureGroup = computed(
+  [$clickTime, $raw, $paint],
+  (clickTime, json, _paint) => {
+    const featureGroup = new L.FeatureGroup([]);
 
-  // if no geojson or if the new map click happened recently,
-  // return an empty feature group / clear the map
-  if (!json || Date.now() - clickTime < 10) return featureGroup;
+    // if no geojson or if the new map click happened recently,
+    // return an empty feature group / clear the map
+    if (!json || Date.now() - clickTime < 10) return featureGroup;
 
-  // if we're doing the fancy route viz thingy, just quickly ensure that classes to this depth exist
-  // we need to do this _before_ traversal gets created / added to the DOM
-  if ($mode.get() === Mode.RouteViz) {
-    const { depth } = getRouteDepthAndSteps();
-    console.log(`got depth ${depth} from getRouteDepthAndSteps`);
-    // there's probably a catastrophic failure mode here but hey
-    if (depth) ensureDepthAnimationClassesExist(depth);
+    // if we're doing the fancy route viz thingy, just quickly ensure that classes to this depth exist
+    // we need to do this _before_ traversal gets created / added to the DOM
+    if ($mode.get() === Mode.RouteViz) {
+      const { depth } = getRouteDepthAndSteps();
+      console.log(`got depth ${depth} from getRouteDepthAndSteps`);
+      // there's probably a catastrophic failure mode here but hey
+      if (depth) ensureDepthAnimationClassesExist(depth);
+    }
+
+    // if traversal exists, paint it
+    if (json.traversal) {
+      L.geoJSON(json.traversal, {
+        style: $traversalStyle.get(),
+        onEachFeature: addDebugClick,
+        bubblingMouseEvents: false,
+      }).addTo(featureGroup);
+    }
+
+    // if route exists, paint it
+    if (json.route) {
+      L.geoJSON(json.route, {
+        style: $routeStyle.get(),
+        onEachFeature: addDebugClick,
+        bubblingMouseEvents: false,
+      }).addTo(featureGroup);
+    }
+
+    return featureGroup;
   }
-
-  // if traversal exists, paint it
-  if (json.traversal) {
-    L.geoJSON(json.traversal, {
-      style: $traversalStyle.get(),
-      onEachFeature: addDebugClick,
-      bubblingMouseEvents: false,
-    }).addTo(featureGroup);
-  }
-
-  // if route exists, paint it
-  if (json.route) {
-    L.geoJSON(json.route, {
-      style: $routeStyle.get(),
-      onEachFeature: addDebugClick,
-      bubblingMouseEvents: false,
-    }).addTo(featureGroup);
-  }
-
-  return featureGroup;
-});
+);
 
 // callback invoked after the feature group has been added to the Dom
 // animates traversals
