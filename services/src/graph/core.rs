@@ -1,11 +1,11 @@
 /// Exposes OSM data interactions via a Graph interface
 use super::traversal::{Route, Traversal, TraversalSegment, END_NODE_ID, START_NODE_ID};
 use crate::db;
-use crate::osm::{Distance, Neighbor, Node, NodeId, WayId};
+use crate::osm::{Distance, Neighbor, Node, NodeId, WayId, WayLabels};
 use anyhow::anyhow;
 use geo::prelude::*;
 use geo::{HaversineBearing, Point};
-use std::collections::{HashMap, VecDeque};
+use std::collections::VecDeque;
 
 #[derive(Debug)]
 pub struct Graph {
@@ -171,22 +171,17 @@ impl Graph {
         Ok(result.map(|r| r.unwrap()).collect())
     }
 
-    pub fn get_way_tags(&self, way: WayId) -> Result<HashMap<String, String>, anyhow::Error> {
+    pub fn get_way_labels(&self, way: WayId) -> Result<WayLabels, anyhow::Error> {
         let mut stmt = self.conn.prepare_cached(
             "
-            SELECT key, value
-            FROM WayTags
+            SELECT cycleway, road, salmon
+            FROM WayLabels
             WHERE id = ?1
         ",
         )?;
 
-        let results = stmt.query_map([way], |row| Ok((row.get(0)?, row.get(1)?)))?;
-        let mut map = HashMap::new();
-        for r in results {
-            let (key, value) = r.unwrap();
-            map.insert(key, value);
-        }
+        let results = stmt.query_row([way], |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)))?;
 
-        Ok(map)
+        Ok(results)
     }
 }

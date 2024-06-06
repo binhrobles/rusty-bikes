@@ -1,36 +1,36 @@
 use std::collections::HashMap;
 
-use crate::osm::WayId;
+use crate::osm::{Cycleway, Road, WayId};
 
 use super::Graph;
 
 pub type Cost = f32;
 pub type Weight = f32;
 
-#[derive(Hash, Eq, PartialEq)]
-pub enum BikeLane {
-    Protected,
-    // Buffered,
-    Designated,
-    Shared,
-}
-
 pub struct CostModelFactors {
-    pub bike_lane: BikeLane,
+    pub cycleway: Cycleway,
 }
 
 pub struct CostModel {
     // Weights
-    bike_lane: HashMap<BikeLane, Weight>,
+    cycleway: HashMap<Cycleway, Weight>,
+    road: HashMap<Road, Weight>,
 }
 
 impl Default for CostModel {
     fn default() -> Self {
         Self {
-            bike_lane: HashMap::from([
-                (BikeLane::Protected, 0.5),
-                (BikeLane::Designated, 1.0),
-                (BikeLane::Shared, 2.0),
+            cycleway: HashMap::from([
+                (Cycleway::Track, 0.5),
+                (Cycleway::Lane, 1.0),
+                (Cycleway::Shared, 2.0),
+            ]),
+            road: HashMap::from([
+                (Road::Bike, 0.5),
+                (Road::Pedestrian, 1.2),
+                (Road::Local, 1.2),
+                (Road::Collector, 1.4),
+                (Road::Arterial, 2.0),
             ]),
         }
     }
@@ -39,37 +39,20 @@ impl Default for CostModel {
 impl CostModel {
     // TODO: should have its own reference to the DB Connection,
     // not leverage Graph helper functions
-    // TODO: should be 3 phases / functions:
-    //       1. collate CostModelFactors struct from DB info (or use memo)
-    //       2. apply factors against this CostModel's weights
-    //       3. sum and return cost
+    #[inline]
     pub fn calculate_cost(&self, graph: &Graph, way: WayId) -> Result<Cost, anyhow::Error> {
-        let way_tags = graph.get_way_tags(way)?;
+        let (_cycleway, road, _salmon) = graph.get_way_labels(way)?;
 
-        // see https://wiki.openstreetmap.org/wiki/Bicycle
-        // for now, checking both sides for tracks / lanes
-        let bike_lane = match way_tags.get("cycleway:left").map_or("none", |v| v.as_str()) {
-            "track" => BikeLane::Protected,
-            "lane" => BikeLane::Designated,
-            _ => match way_tags
-                .get("cycleway:right")
-                .map_or("none", |v| v.as_str())
-            {
-                "track" => BikeLane::Protected,
-                "lane" => BikeLane::Designated,
-                _ => BikeLane::Shared,
-            },
-        };
+        // let mut cycleway_cost = 25.0;
+        // if let Some(weight) = self.cycleway.get(&cycleway) {
+        //     cycleway_cost *= weight;
+        // }
 
-        // TODO: starting bike lane factor?
-        // right now just a single cost...but different factors should have different starting
-        // costs, and different values for each factor will have different weights
-        let mut cost = 50.0;
-
-        if let Some(weight) = self.bike_lane.get(&bike_lane) {
-            cost *= weight;
+        let mut road_cost = 50.0;
+        if let Some(weight) = self.road.get(&road) {
+            road_cost *= weight;
         }
 
-        Ok(cost)
+        Ok(road_cost)
     }
 }

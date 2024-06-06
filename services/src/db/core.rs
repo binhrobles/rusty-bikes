@@ -5,7 +5,7 @@ use geo::prelude::*;
 use geo::{point, Point};
 
 use super::Element;
-use crate::osm::Way;
+use crate::osm::{Road, Way};
 use std::env;
 
 pub type DBConnection = Connection;
@@ -108,16 +108,36 @@ pub fn insert_way_element(tx: &Transaction, element: Element) -> anyhow::Result<
             panic!("{e}");
         });
 
-    let mut stmt = tx.prepare_cached("INSERT INTO WayLabels (id, cycleway, road, salmon) VALUES (?1, ?2, ?3, ?4)")?;
-    let params = (&way.id, 0, 1, false);
+    let mut stmt = tx.prepare_cached(
+        "INSERT INTO WayLabels (id, cycleway, road, salmon) VALUES (?1, ?2, ?3, ?4)",
+    )?;
+
+    let mut road = Road::Collector;
+    if let Some(highway) = element.tags.get("highway") {
+        road = match highway.as_str() {
+            "pedestrian" | "crossing" | "corridor" | "footway" | "path" => Road::Pedestrian,
+            "cycleway" => Road::Bike,
+            "residential" | "living_street" | "unclassified" | "track" => Road::Local,
+            "secondary" | "secondary_link" | "tertiary" | "tertiary_link" => Road::Collector,
+            "primary" | "primary_link" => Road::Arterial,
+            _ => Road::Collector,
+        }
+    }
+
+    // make this enum ToSql-izable
+    let road = road as isize;
+
+    // TODO: cycleway + salmoning
+
+    let params = (&way.id, 0, road, false);
     stmt.execute(params).unwrap_or_else(|e| {
-        eprintln!("Failed WayTag:\n{:#?}", params);
+        eprintln!("Failed WayLabel:\n{:#?}", params);
         panic!("{e}");
     });
 
-    let params = (-&way.id, 0, 1, true);
+    let params = (-&way.id, 0, road, true);
     stmt.execute(params).unwrap_or_else(|e| {
-        eprintln!("Failed WayTag:\n{:#?}", params);
+        eprintln!("Failed WayLabel:\n{:#?}", params);
         panic!("{e}");
     });
 
