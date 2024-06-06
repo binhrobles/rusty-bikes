@@ -1,9 +1,10 @@
 use std::collections::HashMap;
 
-use crate::osm::{Cycleway, Road, WayId};
+use crate::osm::{Cycleway, Road, WayId, WayLabels};
 
 use super::Graph;
 
+// TODO: int?
 pub type Cost = f32;
 pub type Weight = f32;
 
@@ -40,8 +41,9 @@ impl CostModel {
     // TODO: should have its own reference to the DB Connection,
     // not leverage Graph helper functions
     #[inline]
-    pub fn calculate_cost(&self, graph: &Graph, way: WayId) -> Result<Cost, anyhow::Error> {
-        let (_cycleway, road, _salmon) = graph.get_way_labels(way)?;
+    pub fn calculate_cost(&self, graph: &Graph, way: WayId) -> Result<(Cost, WayLabels), anyhow::Error> {
+        let labels = graph.get_way_labels(way)?;
+        let (ref _cycleway, ref road, ref _salmon) = labels;
 
         // let mut cycleway_cost = 25.0;
         // if let Some(weight) = self.cycleway.get(&cycleway) {
@@ -49,10 +51,10 @@ impl CostModel {
         // }
 
         let mut road_cost = 50.0;
-        if let Some(weight) = self.road.get(&road) {
+        if let Some(weight) = self.road.get(road) {
             road_cost *= weight;
         }
 
-        Ok(road_cost)
+        Ok((road_cost, labels))
     }
 }

@@ -1,6 +1,6 @@
 /// Structs and logic specific to traversing a Graph
 use super::{Cost, CostModel, Graph};
-use crate::osm::{serialize_node_simple, Distance, Neighbor, Node, NodeId, WayId};
+use crate::osm::{serialize_node_simple, Cycleway, Distance, Neighbor, Node, NodeId, Road, WayId, WayLabels};
 use anyhow::anyhow;
 use geo::{HaversineDistance, Line, Point};
 use serde::Serialize;
@@ -33,6 +33,8 @@ pub struct TraversalSegment {
     pub length: Distance,
     #[serde(rename(serialize = "di"))]
     pub distance_so_far: Distance,
+    #[serde(rename(serialize = "wl"))]
+    labels: WayLabels,
 
     #[serde(rename(serialize = "c"))]
     pub cost: Cost,
@@ -76,6 +78,7 @@ pub struct TraversalSegmentBuilder {
     depth: Depth,
     length: Distance,
     distance_so_far: Distance,
+    labels: WayLabels,
     cost: Cost,
 }
 
@@ -91,6 +94,7 @@ impl TraversalSegmentBuilder {
             depth: 0,
             length: to.distance,
             distance_so_far: to.distance,
+            labels: (Cycleway::Shared, Road::Collector, false),
             cost: 0.0,
         }
     }
@@ -107,6 +111,7 @@ impl TraversalSegmentBuilder {
             depth: 0,
             length,
             distance_so_far: length,
+            labels: (Cycleway::Shared, Road::Collector, false),
             cost: 0.0,
         }
     }
@@ -127,7 +132,9 @@ impl TraversalSegmentBuilder {
         cost_model: &CostModel,
         graph: &Graph,
     ) -> Result<Self, anyhow::Error> {
-        self.cost = cost_model.calculate_cost(graph, self.way)?;
+        let (cost, labels) = cost_model.calculate_cost(graph, self.way)?;
+        self.cost = cost;
+        self.labels = labels;
         Ok(self)
     }
 
@@ -142,6 +149,7 @@ impl TraversalSegmentBuilder {
             length: self.length,
             depth: self.depth,
             distance_so_far: self.distance_so_far,
+            labels: self.labels,
             cost: self.cost,
         }
     }
