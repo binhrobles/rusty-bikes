@@ -108,14 +108,18 @@ pub fn insert_way_element(tx: &Transaction, element: Element) -> anyhow::Result<
             panic!("{e}");
         });
 
-    // let mut stmt = tx.prepare_cached("INSERT INTO WayTags (id, key, value) VALUES (?1, ?2, ?3)")?;
-    // for (key, value) in &element.tags {
-    //     let params = (&way.id, &key, &value);
-    //     stmt.execute(params).unwrap_or_else(|e| {
-    //         eprintln!("Failed WayTag:\n{:#?}", params);
-    //         panic!("{e}");
-    //     });
-    // }
+    let mut stmt = tx.prepare_cached("INSERT INTO WayLabels (id, cycleway, road, salmon) VALUES (?1, ?2, ?3, ?4)")?;
+    let params = (&way.id, 0, 1, false);
+    stmt.execute(params).unwrap_or_else(|e| {
+        eprintln!("Failed WayTag:\n{:#?}", params);
+        panic!("{e}");
+    });
+
+    let params = (-&way.id, 0, 1, true);
+    stmt.execute(params).unwrap_or_else(|e| {
+        eprintln!("Failed WayTag:\n{:#?}", params);
+        panic!("{e}");
+    });
 
     let mut node_insert_stmt =
         tx.prepare_cached("INSERT OR IGNORE INTO Nodes (id, lon, lat) VALUES (?1, ?2, ?3)")?;
