@@ -108,14 +108,14 @@ pub fn insert_way_element(tx: &Transaction, element: Element) -> anyhow::Result<
             panic!("{e}");
         });
 
-    let mut stmt = tx.prepare_cached("INSERT INTO WayTags (id, key, value) VALUES (?1, ?2, ?3)")?;
-    for (key, value) in &element.tags {
-        let params = (&way.id, &key, &value);
-        stmt.execute(params).unwrap_or_else(|e| {
-            eprintln!("Failed WayTag:\n{:#?}", params);
-            panic!("{e}");
-        });
-    }
+    // let mut stmt = tx.prepare_cached("INSERT INTO WayTags (id, key, value) VALUES (?1, ?2, ?3)")?;
+    // for (key, value) in &element.tags {
+    //     let params = (&way.id, &key, &value);
+    //     stmt.execute(params).unwrap_or_else(|e| {
+    //         eprintln!("Failed WayTag:\n{:#?}", params);
+    //         panic!("{e}");
+    //     });
+    // }
 
     let mut node_insert_stmt =
         tx.prepare_cached("INSERT OR IGNORE INTO Nodes (id, lon, lat) VALUES (?1, ?2, ?3)")?;
@@ -139,6 +139,7 @@ pub fn insert_way_element(tx: &Transaction, element: Element) -> anyhow::Result<
             x: node_coords.get(pos).unwrap().lon,
             y: node_coords.get(pos).unwrap().lat,
         );
+
         // ensure each Node exists in Nodes
         let node_params = (n_id, p.x(), p.y());
         node_insert_stmt.execute(node_params).unwrap_or_else(|e| {
@@ -166,11 +167,9 @@ pub fn insert_way_element(tx: &Transaction, element: Element) -> anyhow::Result<
                     panic!("{e}");
                 });
 
-            // also insert the inverse segment
-            // so that we only have to query on n1
-            // also because n1/n2 have no signifance wrt
-            // cardinal directions or anything
-            let segment_params = (n_id, prev_node.0, &way.id, distance);
+            // also insert the inverse segment, flipping the WayId sign
+            // to indicate that the segment will refer to the reverse OSM direction
+            let segment_params = (n_id, prev_node.0, -&way.id, distance);
             segment_insert_stmt
                 .execute(segment_params)
                 .unwrap_or_else(|e| {
