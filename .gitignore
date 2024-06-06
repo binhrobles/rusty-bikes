@@ -4,3 +4,6 @@ osm-data/
 .aws-sam
 build
 samconfig.toml
+
+*.geom.json
+*.db3

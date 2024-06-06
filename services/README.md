@@ -10,12 +10,8 @@
 Do it:
 
 ```bash
-# init the db
-cargo run --bin init-db
-cargo run --bin populate-db ./path/to/your/osm/json
-
-# host it at localhost:9000 using Cargo Lambda
-cargo lambda watch
+# (at project root) Use Makefile to fetch OSM data, create the db, and start the project
+make service-watch
 
 # hit it
 curl http://localhost:9000/lambda-url/lambda-handler/traverse?lat=40.68376227690408&lon=-73.96167755126955&depth=20
