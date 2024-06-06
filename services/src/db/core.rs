@@ -25,7 +25,7 @@ pub fn init_tables(conn: &Connection) -> Result<(), anyhow::Error> {
         "
         DROP TABLE IF EXISTS Segments;
         DROP TABLE IF EXISTS WayNodes;
-        DROP TABLE IF EXISTS WayTags;
+        DROP TABLE IF EXISTS WayLabels;
         DROP TABLE IF EXISTS Nodes;
         DROP TABLE IF EXISTS Ways;
 
@@ -63,13 +63,12 @@ pub fn init_tables(conn: &Connection) -> Result<(), anyhow::Error> {
         );
         CREATE INDEX n1_index ON Segments(n1);
 
-        CREATE TABLE WayTags (
-            id  INTEGER NOT NULL,
-            key TEXT NOT NULL,
-            value TEXT NOT NULL,
-            PRIMARY KEY (id, key)
+        CREATE TABLE WayLabels (
+            id       INTEGER PRIMARY KEY,
+            cycleway INTEGER NOT NULL,
+            road     INTEGER NOT NULL,
+            salmon   INTEGER NOT NULL
         );
-        CREATE INDEX way_tag_index ON WayTags(id);
     ",
     )?;
     println!("Tables created");

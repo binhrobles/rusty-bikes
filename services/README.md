@@ -242,12 +242,14 @@ erDiagram
         ID n2 FK
         ID way FK
     }
-    WAYTAG {
-        string key
-        string value
+    WAYLABEL {
+        ID  way FK
+        int cycleway
+        int road
+        bool salmon
     }
 
-    WAYTAG }|--|| WAY : describes
+    WAYLABEL }|--|| WAY : describes
 
     WAY ||--|{ WAYNODE : "is a series of"
     NODE }|..o{ WAYNODE : composes
