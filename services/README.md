@@ -74,13 +74,13 @@ Types:
     [~"^cycleway"~"no"]
     ```
 
-#### Directionality
+#### Salmon? (Directionality)
 
-You're either going _with_ traffic (**None**, default) or _against_ traffic (**salmoning** 🐟). We'll default to the assumption that every path is bidirectional unless there are _explicit_ indicators that the road is a one-way. Then, we will need _explicit_ indicators that bikes can ride bidirectionally.
+You're either going _with_ traffic (**salmon=false**, default) or _against_ traffic (**salmon=true** 🐟). We'll default to the assumption that every path is bidirectional unless there are _explicit_ indicators that the road is a one-way. Then, we will need _explicit_ indicators that bikes can ride bidirectionally.
 
 Types:
 
-- **None** (default)
+- **salmon=false** (default)
 
   - No explicit indication that the road is a one-way.
   - OR, it is a one-way road, but the bike path is NOT.
@@ -90,7 +90,7 @@ Types:
     ["oneway"="no"]
     ```
 
-- **Salmon**
+- **salmon=true**
   - Explicit indication that the road is a one-way.
   - No explicit indication that the bike path is exempt from that.
     ```
