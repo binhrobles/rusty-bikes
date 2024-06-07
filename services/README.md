@@ -40,10 +40,12 @@ See:
 
 - https://wiki.openstreetmap.org/wiki/Bicycle
 - https://taginfo.openstreetmap.org/keys/cycleway#values
-- https://taginfo.openstreetmap.org/keys/bicycle#values
+- https://wiki.openstreetmap.org/wiki/Key:cycleway:right:oneway
 - [https://wiki.openstreetmap.org/wiki/Forward*%26_backward,\_left*%26_right](https://wiki.openstreetmap.org/wiki/Forward_%26_backward,_left_%26_right)
 
 #### Cycleway Type
+
+Note: `^cycleway` is referring to the collection of `cycleway:right`, `cycleway:left`, and `cycleway:both`, which all refer to bike infra on the Way.
 
 Types:
 
@@ -60,14 +62,13 @@ Types:
 
   - Indicates a designated bike path _along_ the road
     ```
-    ["bicycle"="yes"]
     [~"^cycleway"~"lane"]
     ```
 
 - **Shared** (default)
 
   - Explicit indications that bikes are welcome to _share_ the road
-  - Given no other indications, this will be the default assumption, since bikes can kinda go anywhere
+  - Given no other indications, this will be the default assumption, since bikes could theoretically salmon up roads / bike lanes
   - Cost will then depend on how this combines with the Road type and the Directionality
     ```
     [~"^cycleway"~"shared_lane"]
@@ -78,25 +79,25 @@ Types:
 
 You're either going _with_ traffic (**salmon=false**, default) or _against_ traffic (**salmon=true** 🐟). We'll default to the assumption that every path is bidirectional unless there are _explicit_ indicators that the road is a one-way. Then, we will need _explicit_ indicators that bikes can ride bidirectionally.
 
-Types:
-
+For OSM-normal direction:
 - **salmon=false** (default)
+  - Since the Way is tagged in this direction, I can't really think of any reason why there would be salmoning here.
 
-  - No explicit indication that the road is a one-way.
-  - OR, it is a one-way road, but the bike path is NOT.
-
-    ```
-    [~"^cycleway.*:oneway$"="no"]
-    ["oneway"="no"]
-    ```
+For OSM-reverse direction:
+- **salmon=false** (default)
+  ```
+  [~"^cycleway.*:oneway$"="no"] // indicates that the cycleway, despite other indicators, is bidirectional
+  ["oneway:bicycle"="no"]       // lesser used in NYC
+  ```
 
 - **salmon=true**
-  - Explicit indication that the road is a one-way.
-  - No explicit indication that the bike path is exempt from that.
-    ```
-    [~"^cycleway.*:oneway$"="yes"]
-    ["oneway"="yes"]
-    ```
+  ```
+  ["oneway"="yes"]               // indicates that the road is one-way, so, absent other indicators, any bike infra is also oneway
+  [~"^cycleway.*:oneway$"="yes"] // explicitly indicates that the bike infra on this side is oneway
+  ["oneway:bicycle"="yes"]       // lesser used in NYC
+  ```
+
+
 
 #### Road Type
 
@@ -155,9 +156,13 @@ Types:
 
 ### Labeling Examples
 
-Because of directionality, we'll save labeling metadata for each **Way** twice, once for the "standard" direction, and once for the "reverse" direction. We'll indicate this by creating 2 Way entries, one with the regular, positive ID, and one with a _negative_ id. We can be certain that [no OSM IDs will be negative](https://wiki.openstreetmap.org/wiki/Elements#Common_attributes).
+Because of directionality, we'll save labeling metadata for each **Way** twice, once for the "standard" direction, and once for the "reverse" direction. We'll indicate this by creating 2 Way entries, one with the regular, positive ID, and one with a _negative_ id. We can be certain that [no OSM IDs will be negative](https://wiki.openstreetmap.org/wiki/Elements#Common_attributes). The `Road` type will always be the same, but the `Cycleway` and `Salmon` tags may differ.
 
-#### Ex 1: Bidirectional Road w/ Asymmetric Bike Lanes
+Bikers going the opposite direction will check first for dedicated infrastructure in their direction, or use the contraflow bike infra.
+
+TODO: Make this a test suite
+
+#### Ex 1: Bidirectional Road w/ One Bike Lane
 
 [Clermont Ave](https://www.openstreetmap.org/way/654744285#map=16/40.6911/-73.9704&layers=Y) is mapped from North to South, so `right` designations apply to the southbound direction, and `left` designations apply to the northbound direction.
 
@@ -168,30 +173,75 @@ cycleway:right = lane
 highway = residential
 ```
 
-indicate that it is a residential road with a designated bike lane on the road going south, but nothing on the road going north.
+indicate that it is a local road with a designated bike lane on the road going south, but nothing on the road going north. The lack of the `oneway` tag means it is an implicitly bidirectional road.
 
-In this case, we'll label standard direction Way (654744285) to be `Road.Local`, `Cycleway.Lane`, and the reverse direction Way (-654744285) to be `Road.Local`, `Cycleway.Shared`, `Salmon=false`.
+In this case, we'll label standard direction Way (654744285) to be `Road.Local`, `Cycleway.Lane`, and the reverse direction Way (-654744285) to be `Cycleway.Lane`, `Salmon=true`.
 
-#### Ex 2: One Way Road with Bike Lane
-
-[Dekalb Ave](https://www.openstreetmap.org/way/903142088#map=17/40.68972/-73.97563&layers=Y) is mapped East to West, so `right` designations apply to the eastbound direction and `left` designations apply to the westbound direction.
+#### Ex 2: Bidirectional Road w/ Bike Lanes going both ways
+[7th Ave in Park Slope](https://www.openstreetmap.org/way/494221659) is a bidirectional road with bike lanes on both sides, going both ways. 
 
 The tags:
-
 ```
-bicycle = yes
 cycleway:left = lane
-cycleway:left:lane = exclusive
+cycleway:right = shared_lane
+highway = tertiary
+oneway = no
+```
+indicate to us that road going the OSM-normal direction has a `Cycleway.Shared`, while the OSM-reverse direction has a `Cycleway.Lane`. The explicit `oneway=no` tells us that no salmon will be prepared.
+
+#### Ex 3: One Way Road with Bike Lane (on either side)
+
+[Hoyt St](https://www.openstreetmap.org/way/844446016#map=20/40.68871/-73.98636&layers=Y) and [Smith St](https://www.openstreetmap.org/way/420572575#map=20/40.68955/-73.98850&layers=Y) are southbound and northbound streets (respectively) with bike lanes on the left and right sides (also respectively). This case shows that the right side is not necessarily the "forward" direction, just as the left side is not necessarily the "backward" direction.
+
+The tags:
+```
+cycleway:left = no
+cycleway:right = track
+cycleway:right:oneway = yes
+highway = secondary
+oneway = yes
+```
+and
+```
+cycleway:left = lane
 cycleway:left:oneway = yes
 cycleway:right = no
+highway = residential
 oneway = yes
-oneway:bicycle = yes
-highway = secondary
 ```
+indicate that they are each one-way roads with bike lanes that are one-way themselves, going along with traffic.
 
-indicate that it is a one way, major road with a designated bike lane going west, but with no bike infrastructure going against traffic.
+In this case, we'll label the standard direction Ways (844446016, 420572575) appropriately, and the reverse direction Ways with `Salmon=true`.
 
-In this case, we'll label the standard direction Way (903142088) to be `Road.Collector`, `Cycleway.Lane`, and the reverse direction Way (-903142088) with `Road.Collector`, `Cycleway.Shared`, `Salmon=true`.
+#### Ex 4: Bidirectional Bike Lane
+[Chrystie St](https://www.openstreetmap.org/way/464964299) is mapped South to North, so `right` designations apply to the northbound direction.
+
+The tags:
+```
+cycleway:left = no
+cycleway:right = track
+cycleway:right:oneway = no
+highway = secondary
+oneway = no
+```
+indicate that it is a bidirectional collector road with designated, bidirectional bike infra on the right side of the road.
+
+We'll label the standard direction Way (464964299) to be `Road.Collector`, `Cycleway.Track`. Since there is no left-side bike infra and the right side is one-way, the salmoning biker would use the right-side Track, or: (-464964299) => `Cycleway.Track`, `Salmon=false`.
+
+#### Ex 5: Edge Case! One Way Road and a Contraflow Bike Lane
+[Bond St bw Schermerhorn and Livingston](https://www.openstreetmap.org/way/455014439) is mapped South to North, so `right` designations apply to the northbound direction.
+
+The tags:
+```
+cycleway:right = track
+cycleway:right:oneway = -1
+highway = residential
+oneway = yes
+oneway:bicycle = no
+```
+indicate that it is a one-way local road going northbound, but with a designated bike lane going south, on the right side. 
+
+We'll label the standard direction Way (455014439) to be `Road.Local`, `Cycleway.Shared` (due to lack of bike infra in their direction, a biker would use the road), `Salmon=false`. The reverse (-455014439) will be labeled `Cycleway.Track`, `Salmon=false`.
 
 ### Routing Cost Model
 
