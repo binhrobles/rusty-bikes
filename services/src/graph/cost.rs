@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use crate::osm::{Cycleway, Road, WayId, WayLabels};
+use crate::osm::{Cycleway, Distance, Road, WayId, WayLabels};
 
 use super::Graph;
 
@@ -41,7 +41,7 @@ impl CostModel {
     // TODO: should have its own reference to the DB Connection,
     // not leverage Graph helper functions
     #[inline]
-    pub fn calculate_cost(&self, graph: &Graph, way: WayId) -> Result<(Cost, WayLabels), anyhow::Error> {
+    pub fn calculate_cost(&self, graph: &Graph, way: WayId, length: Distance) -> Result<(Cost, WayLabels), anyhow::Error> {
         let labels = graph.get_way_labels(way)?;
         let (ref _cycleway, ref road, ref _salmon) = labels;
 
@@ -50,11 +50,13 @@ impl CostModel {
         //     cycleway_cost *= weight;
         // }
 
-        let mut road_cost = 50.0;
+        let mut road_cost = 0.5;
         if let Some(weight) = self.road.get(road) {
             road_cost *= weight;
         }
 
-        Ok((road_cost, labels))
+        let cost = road_cost * length;
+
+        Ok((cost, labels))
     }
 }

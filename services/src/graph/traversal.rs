@@ -1,6 +1,8 @@
 /// Structs and logic specific to traversing a Graph
 use super::{Cost, CostModel, Graph};
-use crate::osm::{serialize_node_simple, Cycleway, Distance, Neighbor, Node, NodeId, Road, WayId, WayLabels};
+use crate::osm::{
+    serialize_node_simple, Cycleway, Distance, Neighbor, Node, NodeId, Road, WayId, WayLabels,
+};
 use anyhow::anyhow;
 use geo::{HaversineDistance, Line, Point};
 use serde::Serialize;
@@ -31,13 +33,15 @@ pub struct TraversalSegment {
     pub depth: Depth,
     #[serde(rename(serialize = "l"))]
     pub length: Distance,
-    #[serde(rename(serialize = "di"))]
+    #[serde(rename(serialize = "da"))]
     pub distance_so_far: Distance,
     #[serde(rename(serialize = "wl"))]
     labels: WayLabels,
 
     #[serde(rename(serialize = "c"))]
     pub cost: Cost,
+    #[serde(rename(serialize = "ca"))]
+    pub cost_so_far: Cost,
 }
 
 /// TraversalSegments are equivalent when they connect the same points along the same way
@@ -80,6 +84,7 @@ pub struct TraversalSegmentBuilder {
     distance_so_far: Distance,
     labels: WayLabels,
     cost: Cost,
+    cost_so_far: Cost,
 }
 
 impl TraversalSegmentBuilder {
@@ -96,6 +101,7 @@ impl TraversalSegmentBuilder {
             distance_so_far: to.distance,
             labels: (Cycleway::Shared, Road::Collector, false),
             cost: 0.0,
+            cost_so_far: 0.0,
         }
     }
 
@@ -113,6 +119,7 @@ impl TraversalSegmentBuilder {
             distance_so_far: length,
             labels: (Cycleway::Shared, Road::Collector, false),
             cost: 0.0,
+            cost_so_far: 0.0,
         }
     }
 
@@ -131,9 +138,11 @@ impl TraversalSegmentBuilder {
         mut self,
         cost_model: &CostModel,
         graph: &Graph,
+        cost_so_far: Cost,
     ) -> Result<Self, anyhow::Error> {
-        let (cost, labels) = cost_model.calculate_cost(graph, self.way)?;
+        let (cost, labels) = cost_model.calculate_cost(graph, self.way, self.length)?;
         self.cost = cost;
+        self.cost_so_far = cost_so_far + self.cost;
         self.labels = labels;
         Ok(self)
     }
@@ -151,6 +160,7 @@ impl TraversalSegmentBuilder {
             distance_so_far: self.distance_so_far,
             labels: self.labels,
             cost: self.cost,
+            cost_so_far: self.cost_so_far,
         }
     }
 }
@@ -222,7 +232,7 @@ pub fn traverse_between(
             let segment = TraversalSegment::build_to_node(&current.to, end_node, current.way)
                 .with_depth(current.depth + 1)
                 .with_prev_distance(current.distance_so_far)
-                .calculate_cost(&context.cost_model, graph)?
+                .calculate_cost(&context.cost_model, graph, current.cost_so_far)?
                 .build();
             context.came_from.insert(END_NODE_ID, segment);
             return Ok(());
@@ -238,7 +248,7 @@ pub fn traverse_between(
                     let segment = TraversalSegment::build_to_neighbor(&current.to, &neighbor)
                         .with_depth(current.depth + 1)
                         .with_prev_distance(current.distance_so_far)
-                        .calculate_cost(&context.cost_model, graph)
+                        .calculate_cost(&context.cost_model, graph, current.cost_so_far)
                         .unwrap() // TODO: not this
                         .build();
                     context.queue.push(segment.clone());
@@ -272,7 +282,7 @@ pub fn traverse_from(
                     let segment = TraversalSegment::build_to_neighbor(&current.to, &neighbor)
                         .with_depth(current.depth + 1)
                         .with_prev_distance(current.distance_so_far)
-                        .calculate_cost(&context.cost_model, graph)
+                        .calculate_cost(&context.cost_model, graph, current.cost_so_far)
                         .unwrap() // TODO: not this
                         .build();
                     context.queue.push(segment.clone());
