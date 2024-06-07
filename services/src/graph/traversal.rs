@@ -68,7 +68,7 @@ impl PartialOrd for TraversalSegment {
 impl Ord for TraversalSegment {
     #[inline]
     fn cmp(&self, other: &Self) -> Ordering {
-        other.distance_so_far.total_cmp(&self.distance_so_far)
+        other.cost_so_far.total_cmp(&self.cost_so_far)
     }
 }
 
