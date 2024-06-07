@@ -17,11 +17,13 @@ pub struct Bounds {
     pub maxlon: f64,
 }
 
+pub type Tags = HashMap<String, String>;
+
 #[derive(std::fmt::Debug, Deserialize)]
 pub struct Element {
     pub id: i64,
     pub r#type: String,
-    pub tags: HashMap<String, String>,
+    pub tags: Tags,
 
     // Node
     pub lat: Option<f64>,
