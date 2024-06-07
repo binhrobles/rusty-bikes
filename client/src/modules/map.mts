@@ -1,7 +1,7 @@
 import L from 'leaflet';
 
 import { $click } from '../store/map.ts';
-import { $marker as $traversalMarker } from '../store/traversal.ts';
+import { $marker as $traversalMarker } from '../store/traverse.ts';
 import { $startMarker, $endMarker } from '../store/route.ts';
 import { $featureGroup, onFeatureGroupAdded } from '../store/render.ts';
 

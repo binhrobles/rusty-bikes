@@ -10,7 +10,7 @@ import { Mode } from '../consts.ts';
 import {
   $markerLatLng as $traversalMarkerLatLng,
   $depth,
-} from './traversal.ts';
+} from './traverse.ts';
 import { $startMarkerLatLng, $endMarkerLatLng } from './route.ts';
 import { $clickTime } from './map.ts';
 import { $mode } from './mode.ts';
