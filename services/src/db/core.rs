@@ -112,9 +112,9 @@ pub fn insert_way_element(tx: &Transaction, element: Element) -> anyhow::Result<
         "INSERT INTO WayLabels (id, cycleway, road, salmon) VALUES (?1, ?2, ?3, ?4)",
     )?;
 
-    let mut road = Road::Collector;
-    if let Some(highway) = element.tags.get("highway") {
-        road = match highway.as_str() {
+    // OSM tags -> internal labeling
+    let road = element.tags.get("highway").map_or(Road::Collector, |highway| {
+        match highway.as_str() {
             "pedestrian" | "crossing" | "corridor" | "footway" | "path" => Road::Pedestrian,
             "cycleway" => Road::Bike,
             "residential" | "living_street" | "unclassified" | "track" => Road::Local,
@@ -122,10 +122,7 @@ pub fn insert_way_element(tx: &Transaction, element: Element) -> anyhow::Result<
             "primary" | "primary_link" => Road::Arterial,
             _ => Road::Collector,
         }
-    }
-
-    // make this enum ToSql-izable
-    let road = road as isize;
+    }) as isize;
 
     // TODO: cycleway + salmoning
 
