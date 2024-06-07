@@ -28,10 +28,10 @@ Handlebars.registerPartial('traversalPanel', traversalPanelPartial);
 // and generate HTML with static configs on load
 const compiledControlTemplate = Handlebars.compile(controlTemplate);
 const controlHtml = compiledControlTemplate({
+  HtmlElementId,
   ModeMeta,
   PaintOptions,
   TraversalDefaults,
-  HtmlElementId,
 });
 
 // just for first paint

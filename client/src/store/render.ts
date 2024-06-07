@@ -15,10 +15,12 @@ import { $mode } from './mode.ts';
 import { $paint, $depth } from './traversal.ts';
 import { $raw } from './geojson.ts';
 
-const OSMKeys = ['from', 'to', 'way'];
+const OSMKeys = [PropKey.From, PropKey.To, PropKey.Way];
 Handlebars.registerHelper('isNotOSMKey', (key) => !OSMKeys.includes(key));
+Handlebars.registerHelper('getProp', (properties, key) => properties[key]);
 Handlebars.registerHelper('isStartNode', (id) => id === -1);
 Handlebars.registerHelper('isEndNode', (id) => id === -2);
+Handlebars.registerHelper('abs', (id) => Math.abs(Number(id)));
 
 import debugPopupTemplate from '../templates/debugPopup.hbs?raw';
 const compiledDebugPopupTemplate = Handlebars.compile(debugPopupTemplate);
@@ -31,7 +33,10 @@ export const addDebugClick = (feature: Feature, layer: L.Layer) => {
   );
 
   if (feature.properties) {
-    featurePopupDiv.innerHTML = compiledDebugPopupTemplate(feature);
+    featurePopupDiv.innerHTML = compiledDebugPopupTemplate({
+      PropKey,
+      properties: feature.properties,
+    });
     layer.bindPopup(featurePopupDiv);
   }
 };
@@ -113,6 +118,9 @@ const $traversalStyle = computed(
         case PaintOptions.Cost:
           rainbow.setNumberRange(0, 100);
           rainbow.setSpectrum('green', 'yellow', 'orange', 'red');
+          break;
+        case PaintOptions.CostSoFar:
+          rainbow.setNumberRange(0, depth * 15);
           break;
         default:
       }

@@ -13,9 +13,10 @@ export enum PropKey {
   To = 't',
   Way = 'w',
   Depth = 'd',
-  DistanceSoFar = 'di',
+  DistanceSoFar = 'da',
   Length = 'l',
   Cost = 'c',
+  CostSoFar = 'ca',
   Index = 'i',
 }
 
@@ -55,6 +56,7 @@ export enum PaintOptions {
   DistanceSoFar = 'DistanceSoFar',
   Length = 'Length',
   Cost = 'Cost',
+  CostSoFar = 'CostSoFar',
 }
 
 export const TraversalDefaults = {

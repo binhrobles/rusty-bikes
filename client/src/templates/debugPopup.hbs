@@ -4,14 +4,14 @@
   <tr>
     <td><strong>from</strong></td>
     <td>
-    {{#if (isStartNode this.properties.from)}}
+    {{#if (isStartNode (getProp properties PropKey.From))}}
       <span>Start</span>
     {{else}}
       <a
-        href="https://www.openstreetmap.org/node/{{this.properties.from}}"
+        href="https://www.openstreetmap.org/node/{{getProp properties PropKey.From}}"
         target="_blank"
         rel="noopener noreferrer">
-        {{this.properties.from}}
+        {{getProp properties PropKey.From}}
       </a>
     {{/if}}
     </td>
@@ -20,14 +20,14 @@
   <tr>
     <td><strong>to</strong></td>
     <td>
-    {{#if (isEndNode this.properties.to)}}
+    {{#if (isEndNode (getProp properties PropKey.To))}}
       <span>End</span>
     {{else}}
       <a
-        href="https://www.openstreetmap.org/node/{{this.properties.to}}"
+        href="https://www.openstreetmap.org/node/{{getProp properties PropKey.To}}"
         target="_blank"
         rel="noopener noreferrer">
-        {{this.properties.to}}
+        {{getProp properties PropKey.To}}
       </a>
     {{/if}}
   </tr>
@@ -35,13 +35,13 @@
   <tr>
     <td><strong>way</strong></td>
     <td><a
-      href="https://www.openstreetmap.org/way/{{this.properties.way}}"
+      href="https://www.openstreetmap.org/way/{{abs (getProp properties PropKey.Way)}}"
       target="_blank"
       rel="noopener noreferrer"
-    >{{this.properties.way}}</td>
+    >{{getProp properties PropKey.Way}}</td>
   </tr>
 
-  {{#each this.properties}}
+  {{#each properties}}
   {{#if (isNotOSMKey @key)}}
       <tr>
         <td><strong>{{@key}}</strong></td>
