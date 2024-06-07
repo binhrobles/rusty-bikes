@@ -12,7 +12,7 @@ import Rainbow from 'rainbowvis.js';
 
 import { $clickTime } from './map.ts';
 import { $mode } from './mode.ts';
-import { $paint, $depth } from './traversal.ts';
+import { $paint, $depth } from './traverse.ts';
 import { $raw } from './geojson.ts';
 
 const OSMKeys = [PropKey.From, PropKey.To, PropKey.Way];

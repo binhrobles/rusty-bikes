@@ -14,7 +14,7 @@ import {
   $depth,
   $paint,
   $marker as $traversalMarker,
-} from '../store/traversal.ts';
+} from '../store/traverse.ts';
 import { $startMarker, $endMarker, $selectedInput } from '../store/route.ts';
 
 import routePanelPartial from '../templates/routePanel.hbs?raw';
