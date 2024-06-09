@@ -34,7 +34,7 @@ The underlying data is coming from [OSM's Overpass API](https://wiki.openstreetm
 
 Using OSM tags, we can create a consistent data model for understanding the roads in terms of bike-ability. We'll do this _before_ loading the data into our DB, so we can interact with our own data model at runtime rather than the sometimes-inconsistent OSM tag landscape.
 
-Because of directionality, `left` and `right` will be important designations. `left`, in the direction of the Way, will be the _opposite_ direction. `right` will designate the path along the primary direction.
+We'll do a lossy translation from that space into our 3 dimensions: Road type, Cycleway type, and Directionality.
 
 See:
 
@@ -42,62 +42,6 @@ See:
 - https://taginfo.openstreetmap.org/keys/cycleway#values
 - https://wiki.openstreetmap.org/wiki/Key:cycleway:right:oneway
 - [https://wiki.openstreetmap.org/wiki/Forward*%26_backward,\_left*%26_right](https://wiki.openstreetmap.org/wiki/Forward_%26_backward,_left_%26_right)
-
-#### Cycleway Type
-
-Note: `^cycleway` is referring to the collection of `cycleway:right`, `cycleway:left`, and `cycleway:both`, which all refer to bike infra on the Way.
-
-Types:
-
-- **Track**
-
-  - Indicates a bike path _separate_ from the road
-    ```
-    ["bicycle"="designated"]
-    ["highway"="cycleway"]
-    [~"^cycleway"~"track"]
-    ```
-
-- **Lane**
-
-  - Indicates a designated bike path _along_ the road
-    ```
-    [~"^cycleway"~"lane"]
-    ```
-
-- **Shared** (default)
-
-  - Explicit indications that bikes are welcome to _share_ the road
-  - Given no other indications, this will be the default assumption, since bikes could theoretically salmon up roads / bike lanes
-  - Cost will then depend on how this combines with the Road type and the Directionality
-    ```
-    [~"^cycleway"~"shared_lane"]
-    [~"^cycleway"~"no"]
-    ```
-
-#### Salmon? (Directionality)
-
-You're either going _with_ traffic (**salmon=false**, default) or _against_ traffic (**salmon=true** 🐟). We'll default to the assumption that every path is bidirectional unless there are _explicit_ indicators that the road is a one-way. Then, we will need _explicit_ indicators that bikes can ride bidirectionally.
-
-For OSM-normal direction:
-- **salmon=false** (default)
-  - Since the Way is tagged in this direction, I can't really think of any reason why there would be salmoning here.
-
-For OSM-reverse direction:
-- **salmon=false** (default)
-  ```
-  [~"^cycleway.*:oneway$"="no"] // indicates that the cycleway, despite other indicators, is bidirectional
-  ["oneway:bicycle"="no"]       // lesser used in NYC
-  ```
-
-- **salmon=true**
-  ```
-  ["oneway"="yes"]               // indicates that the road is one-way, so, absent other indicators, any bike infra is also oneway
-  [~"^cycleway.*:oneway$"="yes"] // explicitly indicates that the bike infra on this side is oneway
-  ["oneway:bicycle"="yes"]       // lesser used in NYC
-  ```
-
-
 
 #### Road Type
 
@@ -154,13 +98,69 @@ Types:
   ["highway"="primary_link"]
   ```
 
+#### Salmon? (Directionality)
+
+You're either going _with_ traffic (**salmon=false**, default) or _against_ traffic (**salmon=true** 🐟). We'll default to the assumption that every path is bidirectional unless there are _explicit_ indicators that the road is a one-way. Then, we will need _explicit_ indicators that bikes can ride bidirectionally.
+
+For the OSM-normal direction:
+- **salmon=false** (default)
+  - Since the Way is plotted in this direction, I can't really think of any reason why there would be salmoning here.
+
+For OSM-reverse direction:
+- **salmon=false** (default)
+  ```
+  [~"^cycleway:.*:oneway$"="no"] // indicates that the cycleway, despite other indicators, is bidirectional
+  ["oneway:bicycle"="no"]       // lesser used in NYC
+  ```
+
+- **salmon=true**
+  ```
+  ["oneway"="yes"]               // indicates that the road is one-way, so, absent other indicators, any bike infra is also oneway
+  [~"^cycleway:.*:oneway$"="yes"] // explicitly indicates that the bike infra on this side is oneway
+  ["oneway:bicycle"="yes"]       // lesser used in NYC
+  ```
+
+#### Cycleway Type
+
+Note: `^cycleway` is referring to the collection of `cycleway:right`, `cycleway:left`, and `cycleway:both`, which all refer to bike infra on the Way.
+
+Because of directionality, `left` and `right` will be important designations. On bidirectional roads, `left`, in the direction the Way has been plotted in OSM, will be the cycleway in the _incoming_ direction while `right` will designate the path along the primary direction. On oneway roads, the `left` or `right` cycleways can be used as primary direction cycleways. When the `cycleway:{direction}:oneway=no` tag is present, this is an explicit indicator that there is bidirectional bike infra, even if the road itself is a oneway for cars. 
+
+Types:
+
+- **Track**
+
+  - Indicates a bike path _separate_ from the road
+    ```
+    ["bicycle"="designated"]
+    ["highway"="cycleway"]
+    [~"^cycleway"~"track"]
+    ```
+
+- **Lane**
+
+  - Indicates a designated bike path _along_ the road
+    ```
+    [~"^cycleway"~"lane"]
+    ```
+
+- **Shared** (default)
+
+  - Explicit indications that bikes are welcome to _share_ the road
+  - Given no other indications, this will be the default assumption, since bikes could theoretically salmon up roads / bike lanes
+  - Cost will then depend on how this combines with the Road type and the Directionality
+    ```
+    [~"^cycleway"~"shared_lane"]
+    [~"^cycleway"~"no"]
+    ```
+
 ### Labeling Examples
 
 Because of directionality, we'll save labeling metadata for each **Way** twice, once for the "standard" direction, and once for the "reverse" direction. We'll indicate this by creating 2 Way entries, one with the regular, positive ID, and one with a _negative_ id. We can be certain that [no OSM IDs will be negative](https://wiki.openstreetmap.org/wiki/Elements#Common_attributes). The `Road` type will always be the same, but the `Cycleway` and `Salmon` tags may differ.
 
 Bikers going the opposite direction will check first for dedicated infrastructure in their direction, or use the contraflow bike infra.
 
-TODO: Make this a test suite
+See [test suite](./tests/way_labeling.rs)
 
 #### Ex 1: Bidirectional Road w/ One Bike Lane
 
