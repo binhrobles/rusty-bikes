@@ -15,7 +15,7 @@ fn bidirectional_road_w_one_bike_lane() -> Result<(), anyhow::Error> {
     assert_helper((Cycleway::Lane, Road::Local, false), labels, way);
 
     let labels = graph.get_way_labels(-way)?; // https://www.openstreetmap.org/way/654744285
-    assert_helper((Cycleway::Shared, Road::Local, true), labels, -way);
+    assert_helper((Cycleway::Shared, Road::Local, false), labels, -way);
 
     Ok(())
 }
