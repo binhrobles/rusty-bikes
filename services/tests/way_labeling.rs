@@ -68,10 +68,10 @@ fn one_way_road_w_left_side_bike_lane() -> Result<(), anyhow::Error> {
     let way = 844446016;
 
     let labels = graph.get_way_labels(way)?;
-    assert_helper((Cycleway::Track, Road::Collector, false), labels, way);
+    assert_helper((Cycleway::Lane, Road::Local, false), labels, way);
 
     let labels = graph.get_way_labels(-way)?;
-    assert_helper((Cycleway::Track, Road::Collector, true), labels, -way);
+    assert_helper((Cycleway::Lane, Road::Local, true), labels, -way);
 
     Ok(())
 }
@@ -82,10 +82,10 @@ fn one_way_road_w_right_side_bike_lane() -> Result<(), anyhow::Error> {
     let way = 420572575;
 
     let labels = graph.get_way_labels(way)?;
-    assert_helper((Cycleway::Lane, Road::Local, false), labels, way);
+    assert_helper((Cycleway::Track, Road::Collector, false), labels, way);
 
     let labels = graph.get_way_labels(-way)?;
-    assert_helper((Cycleway::Lane, Road::Local, true), labels, -way);
+    assert_helper((Cycleway::Track, Road::Collector, true), labels, -way);
 
     Ok(())
 }
