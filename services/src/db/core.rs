@@ -4,8 +4,8 @@ use rusqlite::{Connection, Transaction};
 use geo::prelude::*;
 use geo::{point, Point};
 
-use super::{Element, Tags};
-use crate::osm::{Cycleway, Road, Salmoning, Way};
+use super::Element;
+use crate::osm::{Cycleway, Road, Salmoning, Way, WayId};
 use std::env;
 
 pub type DBConnection = Connection;
@@ -89,7 +89,8 @@ pub fn insert_node_element(tx: &Transaction, element: Element) -> anyhow::Result
 }
 
 /// Provides helper methods for interpreting and labeling the relevant OSM tags for bike routing
-struct BikeTags {
+struct OSMMapper {
+    way: WayId,
     highway: String,
     bicycle: String,
     oneway: String,
@@ -102,8 +103,9 @@ struct BikeTags {
 }
 
 /// Parses out the tags we want from this JSON map
-impl From<Tags> for BikeTags {
-    fn from(tags: Tags) -> Self {
+impl From<&Element> for OSMMapper {
+    fn from(element: &Element) -> Self {
+        let tags = &element.tags;
         let highway = tags.get("highway").cloned().unwrap_or("none".to_owned());
         let bicycle = tags.get("bicycle").cloned().unwrap_or("none".to_owned());
         let oneway = tags.get("oneway").cloned().unwrap_or("none".to_owned());
@@ -132,7 +134,8 @@ impl From<Tags> for BikeTags {
             .cloned()
             .unwrap_or("none".to_owned());
 
-        BikeTags {
+        OSMMapper {
+            way: element.id,
             highway,
             bicycle,
             oneway,
@@ -146,69 +149,150 @@ impl From<Tags> for BikeTags {
     }
 }
 
-impl BikeTags {
+impl OSMMapper {
     /// Given these OSM tags, calculate road label
     fn get_road_label(&self) -> Road {
         match self.highway.as_str() {
             "pedestrian" | "crossing" | "corridor" | "footway" | "path" => Road::Pedestrian,
             "cycleway" => Road::Bike,
-            "residential" | "living_street" | "unclassified" | "track" => Road::Local,
-            "secondary" | "secondary_link" | "tertiary" | "tertiary_link" => Road::Collector,
+            "residential" | "living_street" | "unclassified" | "service" | "track" => Road::Local,
+            "secondary" | "secondary_link" | "tertiary" | "tertiary_link" | "none" => {
+                Road::Collector
+            }
             "primary" | "primary_link" => Road::Arterial,
-            _ => Road::Collector,
+            _ => {
+                eprintln!("{}: Unexpected highway value: {}", self.way, self.highway);
+                Road::Collector
+            }
         }
     }
 
-    #[inline]
-    /// helper method for determining if the tag indicates a Bike Track
-    fn indicates_track(&self, val: &str) -> bool {
-        val == "track" || val == "separate"
-    }
-
-    #[inline]
-    /// helper method for determining if the tags show we can use the left side cycleway
-    fn can_use_left_side(&self) -> bool {
-        // if road is a oneway, or the left side is a bidirectional bike lane
-        self.oneway == "yes" || self.oneway_bicycle == "yes" || self.cycleway_left_oneway == "no"
-    }
-
-    /// calculate cycleway label for "normal" direction
-    fn get_normal_cycleway(&self) -> Cycleway {
-        // first, just leverage big general indicators
-        if self.bicycle == "designated" || self.highway == "cycleway"
-            || self.indicates_track(&self.cycleway_both)
-            // then we can use the cycleway on the left side
-            || self.can_use_left_side() && self.indicates_track(&self.cycleway_left)
-            // otherwise, just use the right side cycleway
-            || self.indicates_track(&self.cycleway_right)
-        {
-            Cycleway::Track
-        } else if self.cycleway_both == "lane"
-            || (self.can_use_left_side() && self.cycleway_left == "lane")
-            || self.cycleway_right == "lane"
-        {
-            Cycleway::Lane
-        } else {
-            Cycleway::Shared
+    fn get_cycleway_from_tag(&self, val: &str) -> Cycleway {
+        match val {
+            "track" | "separate" => Cycleway::Track,
+            "lane" => Cycleway::Lane,
+            "shared_lane" | "share_busway" | "no" | "none" => Cycleway::Shared,
+            _ => {
+                eprintln!("{}: Unexpected cycleway value: {val}", self.way);
+                Cycleway::Shared
+            }
         }
     }
 
-    /// Calculates the cycleway label for the reverse direction
-    fn get_reverse_cycleway(&self) -> Cycleway {
-        // TODO!
-        Cycleway::Shared
-    }
+    // both cycleway + salmon strategy:
+    // - check for :both indicator
+    //   - assign both sides
+    //   - salmon false
+    // - then leverage big general indicators (bicycle = designated or highway = cycleway
+    //   - check if oneway:bicycle=yes to determine salmon
+    // - if oneway
+    //   - will need to account for cycleway:.*:oneway=-1 at some point
+    //   - get normal cycleway label + reverse cycleway uses that as well
+    //   - if cycleway:.*:oneway=yes || oneway:bicycle=yes
+    //     - salmon true
+    //   - else
+    //     - salmon false
+    // - else (not a oneway)
+    //   - if cycleway:.*:oneway=no || oneway:bicycle=no
+    //      - use the side that has bike infra
+    //   - else
+    //      - right side is normal cycleway, left side is reverse cycleway
+    fn get_cycleways_and_directionality(&self) -> (Cycleway, Cycleway, Salmoning) {
+        // easiest solution, leverage cycleway both if specified
+        if self.cycleway_both != "none" {
+            let cycleway = self.get_cycleway_from_tag(&self.cycleway_both);
+            return (cycleway, cycleway, false);
+        }
 
-    /// determines if we're salmoning when going the reverse direction
-    fn get_reverse_salmon(&self) -> Salmoning {
-        // if it's a one way street
+        // Leverage indicators for designated bike paths
+        if self.highway == "cycleway" || self.bicycle == "designated" {
+            // Check for the oneway conditions
+            if self.oneway == "yes" || self.oneway_bicycle == "yes" {
+                return (Cycleway::Track, Cycleway::Track, true);
+            } else {
+                return (Cycleway::Track, Cycleway::Track, false);
+            }
+        }
+
+        // Rule set for oneway roads
         if self.oneway == "yes" {
-            // then we are salmoning, and we need an explicit indicator that bikes are _not_ one way
-            !(self.cycleway_left_oneway == "no" || self.cycleway_right_oneway == "no" || self.oneway_bicycle == "no")
-        } else {
-            // otherwise, it's a two way road, and we are probably not salmoning
-            false
+            // if right side is specified, use that
+            if self.cycleway_right != "none"
+                && self.cycleway_right != "no"
+                && self.cycleway_right_oneway != "-1"
+            {
+                let cycleway = self.get_cycleway_from_tag(&self.cycleway_right);
+
+                // is this a bidirectional cycleway?
+                let mut salmon = true;
+                if self.cycleway_right_oneway == "no" || self.oneway_bicycle == "no" {
+                    salmon = false;
+                }
+
+                // does the opposite side have an explicit reverse lane?
+                let mut reverse_cycleway = cycleway;
+                if self.cycleway_left_oneway == "-1" {
+                    reverse_cycleway = self.get_cycleway_from_tag(&self.cycleway_left);
+                    salmon = false;
+                }
+
+                return (cycleway, reverse_cycleway, salmon);
+            }
+
+            // if left side is specified, use that
+            if self.cycleway_left != "none"
+                && self.cycleway_left != "no"
+                && self.cycleway_left_oneway != "-1"
+            {
+                let cycleway = self.get_cycleway_from_tag(&self.cycleway_left);
+
+                // is this a bidirectional cycleway?
+                let mut salmon = true;
+                if self.cycleway_left_oneway == "no" || self.oneway_bicycle == "no" {
+                    salmon = false;
+                }
+
+                // does the opposite side have an explicit reverse lane?
+                let mut reverse_cycleway = cycleway;
+                if self.cycleway_right_oneway == "-1" {
+                    reverse_cycleway = self.get_cycleway_from_tag(&self.cycleway_right);
+                    salmon = false;
+                }
+
+                return (cycleway, reverse_cycleway, salmon);
+            }
+
+            // if we are this far down, there are no forward direction lanes
+            // so begin checking for contraflow lanes
+            if self.cycleway_right_oneway == "-1" {
+                let reverse_cycleway = self.get_cycleway_from_tag(&self.cycleway_right);
+                return (Cycleway::Shared, reverse_cycleway, false);
+            }
+            if self.cycleway_left_oneway == "-1" {
+                let reverse_cycleway = self.get_cycleway_from_tag(&self.cycleway_left);
+                return (Cycleway::Shared, reverse_cycleway, false);
+            }
+
+            // if there are no forward or backward bike lanes on this oneway road, default!
+            return (Cycleway::Shared, Cycleway::Shared, true);
         }
+
+        // Rule set for bidirectional roads
+        // first, check if either side uses bidirectional bike infra
+        if self.cycleway_left_oneway == "no" {
+            let cycleway = self.get_cycleway_from_tag(&self.cycleway_left);
+            return (cycleway, cycleway, false);
+        }
+        if self.cycleway_right_oneway == "no" {
+            let cycleway = self.get_cycleway_from_tag(&self.cycleway_right);
+            return (cycleway, cycleway, false);
+        }
+
+        // otherwise, right side is the forward cycleway, left side is reverse cycleway
+        let forward_cycleway = self.get_cycleway_from_tag(&self.cycleway_right);
+        let reverse_cycleway = self.get_cycleway_from_tag(&self.cycleway_left);
+
+        (forward_cycleway, reverse_cycleway, false)
     }
 }
 
@@ -237,22 +321,19 @@ pub fn insert_way_element(tx: &Transaction, element: Element) -> anyhow::Result<
     )?;
 
     // OSM tags -> internal labeling
-    let tags: BikeTags = element.tags.into();
+    let osm_mapper: OSMMapper = (&element).into();
 
-    let road = tags.get_road_label() as isize;
-    let cycleway = tags.get_normal_cycleway() as isize;
+    let road = osm_mapper.get_road_label();
+    let (forward_cycleway, reverse_cycleway, salmon) =
+        osm_mapper.get_cycleways_and_directionality();
 
-    let params = (&way.id, cycleway, road, false);
+    let params = (&way.id, forward_cycleway as isize, road as isize, false);
     stmt.execute(params).unwrap_or_else(|e| {
         eprintln!("Failed WayLabel:\n{:#?}", params);
         panic!("{e}");
     });
 
-    // calculate cycleway and salmon label for reverse direction
-    let cycleway = tags.get_reverse_cycleway() as isize;
-    let salmon = tags.get_reverse_salmon() as isize;
-
-    let params = (-&way.id, cycleway, road, salmon);
+    let params = (-&way.id, reverse_cycleway as isize, road as isize, salmon);
     stmt.execute(params).unwrap_or_else(|e| {
         eprintln!("Failed WayLabel:\n{:#?}", params);
         panic!("{e}");
