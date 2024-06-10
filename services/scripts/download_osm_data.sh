@@ -23,6 +23,7 @@ curl --request POST \
         ["highway"!="elevator"]
         ["highway"!="bus_stop"]
         ["highway"!="platform"]
+        ["highway"!="proposed"]
         ["bicycle"!="no"]
         ;
       out geom;
