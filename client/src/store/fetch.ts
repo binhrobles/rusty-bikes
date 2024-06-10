@@ -7,10 +7,7 @@ import { FeatureCollection } from 'geojson';
 import { RUSTY_BASE_URL } from '../config.ts';
 import { Mode } from '../consts.ts';
 
-import {
-  $markerLatLng as $traversalMarkerLatLng,
-  $depth,
-} from './traverse.ts';
+import { $markerLatLng as $traversalMarkerLatLng, $depth } from './traverse.ts';
 import { $startMarkerLatLng, $endMarkerLatLng } from './route.ts';
 import { $clickTime } from './map.ts';
 import { $mode } from './mode.ts';
@@ -25,9 +22,17 @@ const fetchTraversal = async (
   depth: number
 ): Promise<ServerResponse> => {
   const { lat, lng } = latLng;
-  const res = await fetch(
-    `${RUSTY_BASE_URL}/traverse?lat=${lat}&lon=${lng}&depth=${depth}`
-  );
+  const res = await fetch(`${RUSTY_BASE_URL}/traverse`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      lat,
+      lon: lng,
+      depth,
+    }),
+  });
   console.log(`raw fetched @ ${Date.now() - $clickTime.get()}`);
   return await res.json();
 };
@@ -40,9 +45,23 @@ const fetchRoute = async (
   const { lng: startLon, lat: startLat } = startLatLng;
   const { lng: endLon, lat: endLat } = endLatLng;
 
-  const res = await fetch(
-    `${RUSTY_BASE_URL}/route?start=${startLon},${startLat}&end=${endLon},${endLat}&with_traversal=${withTraversal}`
-  );
+  const res = await fetch(`${RUSTY_BASE_URL}/route`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      start: {
+        lat: startLat,
+        lon: startLon,
+      },
+      end: {
+        lat: endLat,
+        lon: endLon,
+      },
+      with_traversal: withTraversal,
+    }),
+  });
   console.log(`raw fetched @ ${Date.now() - $clickTime.get()}`);
   return await res.json();
 };

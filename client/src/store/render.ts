@@ -13,7 +13,7 @@ import Rainbow from 'rainbowvis.js';
 import { $clickTime } from './map.ts';
 import { $mode } from './mode.ts';
 import { $paint, $depth } from './traverse.ts';
-import { $raw } from './geojson.ts';
+import { $raw } from './fetch.ts';
 
 const OSMKeys = [PropKey.From, PropKey.To, PropKey.Way];
 Handlebars.registerHelper('isNotOSMKey', (key) => !OSMKeys.includes(key));
