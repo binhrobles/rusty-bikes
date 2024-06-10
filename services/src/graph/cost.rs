@@ -1,5 +1,7 @@
 use std::collections::HashMap;
 
+use serde::Deserialize;
+
 use crate::osm::{Cycleway, Distance, Road, WayId, WayLabels};
 
 use super::Graph;
@@ -7,10 +9,21 @@ use super::Graph;
 pub type Cost = f32;
 pub type Weight = f32;
 
+#[derive(Debug, Deserialize)]
 pub struct CostModelConfiguration {
     cycleway_coefficient: Cost,
     road_coefficient: Cost,
     salmon_coefficient: Cost,
+}
+
+impl Default for CostModelConfiguration {
+    fn default() -> Self {
+        Self {
+            cycleway_coefficient: 0.3,
+            road_coefficient: 0.4,
+            salmon_coefficient: 0.3,
+        }
+    }
 }
 
 pub struct CostModel {

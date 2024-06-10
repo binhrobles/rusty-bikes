@@ -37,32 +37,19 @@ Resources:
       Architectures:
       - arm64 # seems to be a free lunch? https://aws.amazon.com/blogs/apn/comparing-aws-lambda-arm-vs-x86-performance-cost-and-analysis-2/
       Events:
+        # https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/sam-property-function-api.html
         Traverse:
           Type: Api
           Properties:
             Path: /traverse
             RestApiId: !Ref Api
-            Method: get
-            RequestParameters:
-            - method.request.querystring.lat:
-                Required: true
-            - method.request.querystring.lon:
-                Required: true
-            - method.request.querystring.depth:
-                Required: true
+            Method: post
         Route:
           Type: Api
           Properties:
             Path: /route
             RestApiId: !Ref Api
-            Method: get
-            RequestParameters:
-            - method.request.querystring.start:
-                Required: true
-            - method.request.querystring.end:
-                Required: true
-            - method.request.querystring.with_traversal:
-                Required: false
+            Method: post
 
   NYCSqliteLayer:
     Type: AWS::Serverless::LayerVersion

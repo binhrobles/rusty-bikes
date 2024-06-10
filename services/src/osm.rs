@@ -106,3 +106,9 @@ pub struct Location {
     pub lat: f64,
     pub lon: f64,
 }
+
+impl From<Location> for Point {
+    fn from(l: Location) -> Point {
+        Point::new(l.lon, l.lat)
+    }
+}

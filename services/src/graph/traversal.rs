@@ -185,7 +185,7 @@ impl TraversalContext {
         Self {
             queue: BinaryHeap::new(),
             came_from: HashMap::new(),
-            cost_model: CostModel::default(),
+            cost_model: CostModel::new(cost_params.unwrap_or_default())
         }
     }
 }

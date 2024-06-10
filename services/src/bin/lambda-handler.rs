@@ -1,12 +1,14 @@
 use anyhow::anyhow;
 use geo::Point;
-use lambda_http::{run, service_fn, Body, Error as LambdaError, Request, RequestExt, Response};
-use query_map::QueryMap;
+use lambda_http::{
+    run, service_fn, Body, Error as LambdaError, Request, RequestExt, RequestPayloadExt, Response,
+};
+use rusty_router::osm::Location;
 use serde::Deserialize;
 use tracing::error;
 
 use rusty_router::geojson;
-use rusty_router::graph::Graph;
+use rusty_router::graph::{CostModelConfiguration, Graph};
 
 // create a singleton of the Graph struct on lambda boot
 thread_local! {
@@ -29,7 +31,7 @@ async fn handler(event: Request) -> Result<Response<Body>, LambdaError> {
     let body = GRAPH.with(|graph| match event.raw_http_path() {
         "/traverse" => traverse_handler(graph, event),
         "/route" => route_handler(graph, event),
-        _ => Err(anyhow!("invalid path").into()),
+        _ => Err(anyhow!("invalid path")),
     })?;
 
     let response = Response::builder()
@@ -48,46 +50,18 @@ struct TraversalParams {
     lat: f64,
     lon: f64,
     depth: usize,
+    cost_model_config: Option<CostModelConfiguration>,
 }
 
-impl TryFrom<&QueryMap> for TraversalParams {
-    type Error = anyhow::Error;
-
-    // TODO: DRY or a lib?
-    fn try_from(query_map: &QueryMap) -> Result<Self, Self::Error> {
-        let lon = query_map
-            .first("lon")
-            .ok_or_else(|| anyhow!("missing lon"))?
-            .parse::<f64>()
-            .map_err(|_| anyhow!("invalid lon"))?;
-        let lat = query_map
-            .first("lat")
-            .ok_or_else(|| anyhow!("missing lat"))?
-            .parse::<f64>()
-            .map_err(|_| anyhow!("invalid lat"))?;
-        let depth = query_map
-            .first("depth")
-            .ok_or_else(|| anyhow!("missing depth"))?
-            .parse::<usize>()
-            .map_err(|_| anyhow!("invalid depth"))?;
-
-        Ok(Self { lon, lat, depth })
-    }
-}
-
-fn traverse_handler(graph: &Graph, event: Request) -> Result<String, LambdaError> {
-    let params = TraversalParams::try_from(&event.query_string_parameters()).map_err(|e| {
-        error!("Parsing Error: {:?}", e);
-        e
-    })?;
-
-    // TODO: get from request
-    let cost_model_config = None;
+fn traverse_handler(graph: &Graph, event: Request) -> Result<String, anyhow::Error> {
+    let params = event
+        .payload::<TraversalParams>()?
+        .ok_or_else(|| anyhow!("Missing traversal params"))?;
 
     let starting_coord = Point::new(params.lon, params.lat);
 
     let traversal = graph
-        .traverse_from(starting_coord, params.depth, cost_model_config)
+        .traverse_from(starting_coord, params.depth, params.cost_model_config)
         .map_err(|e| {
             error!("Routing Error: {e}");
             e
@@ -103,61 +77,26 @@ fn traverse_handler(graph: &Graph, event: Request) -> Result<String, LambdaError
 
 #[derive(Debug, Deserialize)]
 struct RouteParams {
-    start: Point,
-    end: Point,
-    with_traversal: bool,
+    start: Location,
+    end: Location,
+    with_traversal: Option<bool>,
+    cost_model_config: Option<CostModelConfiguration>,
 }
 
-fn parse_point(param: &str) -> Result<Point, anyhow::Error> {
-    if let Some((lon, lat)) = param.split_once(',') {
-        let lon: f64 = lon.parse()?;
-        let lat: f64 = lat.parse()?;
-        Ok(Point::new(lon, lat))
-    } else {
-        Err(anyhow!("Couldn't parse Point"))
-    }
-}
+fn route_handler(graph: &Graph, event: Request) -> Result<String, anyhow::Error> {
+    let params = event
+        .payload::<RouteParams>()?
+        .ok_or_else(|| anyhow!("Missing route params"))?;
 
-impl TryFrom<&QueryMap> for RouteParams {
-    type Error = anyhow::Error;
-
-    // TODO: DRY or a lib?
-    fn try_from(query_map: &QueryMap) -> Result<Self, Self::Error> {
-        let start = query_map
-            .first("start")
-            .ok_or_else(|| anyhow!("missing start"))?;
-        let start = parse_point(start).map_err(|_| anyhow!("invalid start"))?;
-
-        let end = query_map
-            .first("end")
-            .ok_or_else(|| anyhow!("missing end"))?;
-        let end = parse_point(end).map_err(|_| anyhow!("invalid end"))?;
-
-        let with_traversal: bool = query_map
-            .first("with_traversal")
-            .unwrap_or("false")
-            .parse()
-            .map_err(|_| anyhow!("invalid with_traversal"))?;
-
-        Ok(Self {
-            start,
-            end,
-            with_traversal,
-        })
-    }
-}
-
-fn route_handler(graph: &Graph, event: Request) -> Result<String, LambdaError> {
-    let params = RouteParams::try_from(&event.query_string_parameters()).map_err(|e| {
-        error!("Parsing Error: {:?}", e);
-        e
-    })?;
-
-    // TODO: get from request
-    let cost_model_config = None;
+    let with_traversal = params.with_traversal.unwrap_or(false);
 
     let (route, traversal) = graph
-        .route_between(params.start, params.end, params.with_traversal, cost_model_config)
+        .route_between(
+            params.start.into(),
+            params.end.into(),
+            with_traversal,
+            params.cost_model_config,
+        )
         .map_err(|e| {
             error!("Routing Error: {e}");
             e
