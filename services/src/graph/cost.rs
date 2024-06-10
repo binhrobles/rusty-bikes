@@ -45,7 +45,6 @@ impl Default for CostModel {
 }
 
 impl CostModel {
-    #[inline]
     pub fn calculate_cost(&self, graph: &Graph, way: WayId, length: Distance) -> Result<(Cost, WayLabels), anyhow::Error> {
         let labels = graph.get_way_labels(way)?;
         let (ref cycleway, ref road, salmon) = labels;
