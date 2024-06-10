@@ -81,10 +81,13 @@ fn traverse_handler(graph: &Graph, event: Request) -> Result<String, LambdaError
         e
     })?;
 
+    // TODO: get from request
+    let cost_model_config = None;
+
     let starting_coord = Point::new(params.lon, params.lat);
 
     let traversal = graph
-        .traverse_from(starting_coord, params.depth)
+        .traverse_from(starting_coord, params.depth, cost_model_config)
         .map_err(|e| {
             error!("Routing Error: {e}");
             e
@@ -150,8 +153,11 @@ fn route_handler(graph: &Graph, event: Request) -> Result<String, LambdaError> {
         e
     })?;
 
+    // TODO: get from request
+    let cost_model_config = None;
+
     let (route, traversal) = graph
-        .route_between(params.start, params.end, params.with_traversal)
+        .route_between(params.start, params.end, params.with_traversal, cost_model_config)
         .map_err(|e| {
             error!("Routing Error: {e}");
             e

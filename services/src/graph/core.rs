@@ -1,5 +1,6 @@
 /// Exposes OSM data interactions via a Graph interface
 use super::traversal::{Route, Traversal, TraversalSegment, END_NODE_ID, START_NODE_ID};
+use super::CostModelConfiguration;
 use crate::db;
 use crate::osm::{Distance, Neighbor, Node, NodeId, WayId, WayLabels};
 use anyhow::anyhow;
@@ -25,13 +26,14 @@ impl Graph {
         start: Point,
         end: Point,
         with_traversal: bool,
+        cost_model_configuration: Option<CostModelConfiguration>,
     ) -> Result<(Route, Option<Traversal>), anyhow::Error> {
         let end_node = Node::new(END_NODE_ID, &end);
         let target_neighbors = self.guess_neighbors(end)?;
         let target_neighbor_node_ids: Vec<NodeId> =
             target_neighbors.iter().map(|n| n.node.id).collect();
 
-        let mut context = super::initialize_traversal(self, &start)?;
+        let mut context = super::initialize_traversal(self, &start, cost_model_configuration)?;
 
         super::traverse_between(self, &mut context, &target_neighbor_node_ids, &end_node)?;
 
@@ -62,8 +64,9 @@ impl Graph {
         &self,
         start: Point,
         max_depth: usize,
+        cost_model_configuration: Option<CostModelConfiguration>,
     ) -> Result<Traversal, anyhow::Error> {
-        let mut context = super::initialize_traversal(self, &start)?;
+        let mut context = super::initialize_traversal(self, &start, cost_model_configuration)?;
 
         super::traverse_from(self, &mut context, max_depth)?;
 
