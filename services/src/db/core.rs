@@ -89,6 +89,7 @@ pub fn insert_node_element(tx: &Transaction, element: Element) -> anyhow::Result
 }
 
 /// Provides helper methods for interpreting and labeling the relevant OSM tags for bike routing
+#[derive(Debug)]
 struct OSMMapper {
     way: WayId,
     highway: String,
@@ -130,7 +131,7 @@ impl From<&Element> for OSMMapper {
             .cloned()
             .unwrap_or("none".to_owned());
         let oneway_bicycle = tags
-            .get("oneway_bicycle")
+            .get("oneway:bicycle")
             .cloned()
             .unwrap_or("none".to_owned());
 
@@ -167,6 +168,29 @@ impl OSMMapper {
         }
     }
 
+    /// Given these OSM tags, get the forward and reverse cycleways and directionality
+    // opted to make this a mega function, since the logic for
+    // determining these 3 was always coupled
+    fn get_cycleways_and_directionality(&self) -> (Cycleway, Cycleway, Salmoning) {
+        // easiest solution, leverage cycleway both if specified
+        if let Some(cycleway) = self.get_cycleway_if_specified(&self.cycleway_both) {
+            return (cycleway, cycleway, false);
+        }
+
+        // Leverage indicators for designated bike paths
+        if self.highway == "cycleway" || self.bicycle == "designated" {
+            return self.handle_designated_paths();
+        }
+
+        // Now handle oneway roads
+        if self.oneway == "yes" {
+            return self.handle_oneway_roads();
+        }
+
+        // finally, handle bidirectional roads
+        self.handle_bidirectional_roads()
+    }
+
     fn get_cycleway_from_tag(&self, val: &str) -> Cycleway {
         match val {
             "track" | "separate" => Cycleway::Track,
@@ -179,112 +203,110 @@ impl OSMMapper {
         }
     }
 
-    // both cycleway + salmon strategy:
-    // - check for :both indicator
-    //   - assign both sides
-    //   - salmon false
-    // - then leverage big general indicators (bicycle = designated or highway = cycleway
-    //   - check if oneway:bicycle=yes to determine salmon
-    // - if oneway
-    //   - will need to account for cycleway:.*:oneway=-1 at some point
-    //   - get normal cycleway label + reverse cycleway uses that as well
-    //   - if cycleway:.*:oneway=yes || oneway:bicycle=yes
-    //     - salmon true
-    //   - else
-    //     - salmon false
-    // - else (not a oneway)
-    //   - if cycleway:.*:oneway=no || oneway:bicycle=no
-    //      - use the side that has bike infra
-    //   - else
-    //      - right side is normal cycleway, left side is reverse cycleway
-    fn get_cycleways_and_directionality(&self) -> (Cycleway, Cycleway, Salmoning) {
-        // easiest solution, leverage cycleway both if specified
-        if self.cycleway_both != "none" {
-            let cycleway = self.get_cycleway_from_tag(&self.cycleway_both);
-            return (cycleway, cycleway, false);
+    fn get_cycleway_if_specified(&self, tag: &str) -> Option<Cycleway> {
+        if tag != "none" {
+            Some(self.get_cycleway_from_tag(tag))
+        } else {
+            None
+        }
+    }
+
+    fn handle_designated_paths(&self) -> (Cycleway, Cycleway, Salmoning) {
+        // Just need to check if this designated path is a oneway
+        // A lack of these tags is an implicit _oneway=yes_
+        if self.oneway == "no" || self.oneway_bicycle == "no" {
+            (Cycleway::Track, Cycleway::Track, false)
+        } else {
+            (Cycleway::Track, Cycleway::Track, true)
+        }
+    }
+
+    fn handle_oneway_roads(&self) -> (Cycleway, Cycleway, Salmoning) {
+        // if right side is specified, use that
+        if let Some(labels) = self.check_cycleway_side(
+            &self.cycleway_right,
+            &self.cycleway_right_oneway,
+            &self.cycleway_left,
+            &self.cycleway_left_oneway,
+        ) {
+            return labels;
         }
 
-        // Leverage indicators for designated bike paths
-        if self.highway == "cycleway" || self.bicycle == "designated" {
-            // Check for the oneway conditions
-            if self.oneway == "yes" || self.oneway_bicycle == "yes" {
-                return (Cycleway::Track, Cycleway::Track, true);
-            } else {
-                return (Cycleway::Track, Cycleway::Track, false);
-            }
+        // if left side is specified, use that
+        if let Some(labels) = self.check_cycleway_side(
+            &self.cycleway_left,
+            &self.cycleway_left_oneway,
+            &self.cycleway_right,
+            &self.cycleway_right_oneway,
+        ) {
+            return labels;
         }
 
-        // Rule set for oneway roads
-        if self.oneway == "yes" {
-            // if right side is specified, use that
-            if self.cycleway_right != "none"
-                && self.cycleway_right != "no"
-                && self.cycleway_right_oneway != "-1"
-            {
-                let cycleway = self.get_cycleway_from_tag(&self.cycleway_right);
-
-                // is this a bidirectional cycleway?
-                let mut salmon = true;
-                if self.cycleway_right_oneway == "no" || self.oneway_bicycle == "no" {
-                    salmon = false;
-                }
-
-                // does the opposite side have an explicit reverse lane?
-                let mut reverse_cycleway = cycleway;
-                if self.cycleway_left_oneway == "-1" {
-                    reverse_cycleway = self.get_cycleway_from_tag(&self.cycleway_left);
-                    salmon = false;
-                }
-
-                return (cycleway, reverse_cycleway, salmon);
-            }
-
-            // if left side is specified, use that
-            if self.cycleway_left != "none"
-                && self.cycleway_left != "no"
-                && self.cycleway_left_oneway != "-1"
-            {
-                let cycleway = self.get_cycleway_from_tag(&self.cycleway_left);
-
-                // is this a bidirectional cycleway?
-                let mut salmon = true;
-                if self.cycleway_left_oneway == "no" || self.oneway_bicycle == "no" {
-                    salmon = false;
-                }
-
-                // does the opposite side have an explicit reverse lane?
-                let mut reverse_cycleway = cycleway;
-                if self.cycleway_right_oneway == "-1" {
-                    reverse_cycleway = self.get_cycleway_from_tag(&self.cycleway_right);
-                    salmon = false;
-                }
-
-                return (cycleway, reverse_cycleway, salmon);
-            }
-
-            // if we are this far down, there are no forward direction lanes
-            // so begin checking for contraflow lanes
-            if self.cycleway_right_oneway == "-1" {
-                let reverse_cycleway = self.get_cycleway_from_tag(&self.cycleway_right);
-                return (Cycleway::Shared, reverse_cycleway, false);
-            }
-            if self.cycleway_left_oneway == "-1" {
-                let reverse_cycleway = self.get_cycleway_from_tag(&self.cycleway_left);
-                return (Cycleway::Shared, reverse_cycleway, false);
-            }
-
-            // if there are no forward or backward bike lanes on this oneway road, default!
-            return (Cycleway::Shared, Cycleway::Shared, true);
+        // if we are this far down, there are no forward direction lanes
+        // so begin checking for contraflow lanes
+        if let Some(reverse_cycleway) =
+            self.get_cycleway_if_contraflow(&self.cycleway_right_oneway, &self.cycleway_right)
+        {
+            return (Cycleway::Shared, reverse_cycleway, false);
+        }
+        if let Some(reverse_cycleway) =
+            self.get_cycleway_if_contraflow(&self.cycleway_left_oneway, &self.cycleway_left)
+        {
+            return (Cycleway::Shared, reverse_cycleway, false);
         }
 
-        // Rule set for bidirectional roads
+        // if there are no forward or backward bike lanes on this oneway road, default!
+        (Cycleway::Shared, Cycleway::Shared, true)
+    }
+
+    /// For use with oneway roads: if there is non-contraflow bike infra on the specified side, use it
+    /// Also check the opposite side for an explicit, different reverse lane
+    fn check_cycleway_side(
+        &self,
+        cycleway_side: &str,
+        cycleway_side_oneway: &str,
+        opposite_side: &str,
+        opposite_side_oneway: &str,
+    ) -> Option<(Cycleway, Cycleway, Salmoning)> {
+        if cycleway_side != "none" && cycleway_side != "no" && cycleway_side_oneway != "-1" {
+            let cycleway = self.get_cycleway_from_tag(cycleway_side);
+
+            // is this a bidirectional cycleway?
+            let mut salmon = true;
+            if cycleway_side_oneway == "no" || self.oneway_bicycle == "no" {
+                salmon = false;
+            }
+
+            // does the opposite side have an explicit reverse lane?
+            let mut reverse_cycleway = cycleway;
+            if opposite_side_oneway == "-1" {
+                reverse_cycleway = self.get_cycleway_from_tag(opposite_side);
+                salmon = false;
+            }
+
+            return Some((cycleway, reverse_cycleway, salmon));
+        }
+        None
+    }
+
+    fn get_cycleway_if_contraflow(&self, oneway_tag: &str, cycleway_tag: &str) -> Option<Cycleway> {
+        if oneway_tag == "-1" {
+            Some(self.get_cycleway_from_tag(cycleway_tag))
+        } else {
+            None
+        }
+    }
+
+    fn handle_bidirectional_roads(&self) -> (Cycleway, Cycleway, Salmoning) {
         // first, check if either side uses bidirectional bike infra
-        if self.cycleway_left_oneway == "no" {
-            let cycleway = self.get_cycleway_from_tag(&self.cycleway_left);
+        if let Some(cycleway) =
+            self.get_cycleway_if_bidirectional(&self.cycleway_left, &self.cycleway_left_oneway)
+        {
             return (cycleway, cycleway, false);
         }
-        if self.cycleway_right_oneway == "no" {
-            let cycleway = self.get_cycleway_from_tag(&self.cycleway_right);
+        if let Some(cycleway) =
+            self.get_cycleway_if_bidirectional(&self.cycleway_right, &self.cycleway_right_oneway)
+        {
             return (cycleway, cycleway, false);
         }
 
@@ -293,6 +315,18 @@ impl OSMMapper {
         let reverse_cycleway = self.get_cycleway_from_tag(&self.cycleway_left);
 
         (forward_cycleway, reverse_cycleway, false)
+    }
+
+    fn get_cycleway_if_bidirectional(
+        &self,
+        cycleway_tag: &str,
+        oneway_tag: &str,
+    ) -> Option<Cycleway> {
+        if oneway_tag == "no" {
+            Some(self.get_cycleway_from_tag(cycleway_tag))
+        } else {
+            None
+        }
     }
 }
 

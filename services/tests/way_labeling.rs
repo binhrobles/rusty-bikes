@@ -138,10 +138,10 @@ fn one_way_road_w_contraflow_bidirectional_bike_lane() -> Result<(), anyhow::Err
     let way = 1258745670;
 
     let labels = graph.get_way_labels(way)?;
-    assert_helper((Cycleway::Shared, Road::Local, false), labels, way);
+    assert_helper((Cycleway::Track, Road::Local, false), labels, way);
 
     let labels = graph.get_way_labels(-way)?;
-    assert_helper((Cycleway::Lane, Road::Local, false), labels, -way);
+    assert_helper((Cycleway::Track, Road::Local, false), labels, -way);
 
     Ok(())
 }
