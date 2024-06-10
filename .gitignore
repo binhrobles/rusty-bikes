@@ -6,4 +6,4 @@ build
 samconfig.toml
 
 *.geom.json
-*.db3
+*.db3*

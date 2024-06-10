@@ -102,8 +102,8 @@ const $traversalStyle = computed(
     let color = (_properties: Record<string, number>): string => '#F26F75';
 
     if (mode === Mode.RouteViz) {
-      rainbow.setNumberRange(0, 100);
-      rainbow.setSpectrum('#40EB1A', '#A9A9A9');
+      rainbow.setNumberRange(0, 300); // arbitrary...Atlantic Ave is ~250
+      rainbow.setSpectrum('#2BEA01', '#A9A9A9', 'red');
       color = (properties) => `#${rainbow.colourAt(properties[PropKey.Cost])}`;
     }
 
@@ -116,11 +116,12 @@ const $traversalStyle = computed(
           rainbow.setNumberRange(1, depth * 50);
           break;
         case PaintOptions.Cost:
-          rainbow.setNumberRange(0, 100);
+          rainbow.setNumberRange(0, 300);
           rainbow.setSpectrum('green', 'yellow', 'orange', 'red');
           break;
         case PaintOptions.CostSoFar:
-          rainbow.setNumberRange(0, depth * 15);
+          rainbow.setSpectrum('green', 'yellow', 'orange', 'red');
+          rainbow.setNumberRange(0, 300 * 10);
           break;
         default:
       }

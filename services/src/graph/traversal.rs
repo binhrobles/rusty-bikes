@@ -63,8 +63,7 @@ impl PartialOrd for TraversalSegment {
     }
 }
 
-/// TraversalSegment comparisons make use of distance_so_far from traversal start
-/// TODO: eventually use cost for sorting
+/// TraversalSegment comparisons make use of cost_so_far from traversal start
 impl Ord for TraversalSegment {
     #[inline]
     fn cmp(&self, other: &Self) -> Ordering {
