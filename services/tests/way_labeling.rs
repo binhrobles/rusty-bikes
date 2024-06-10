@@ -49,6 +49,20 @@ fn bidirectional_road_w_bidirectional_bike_lane() -> Result<(), anyhow::Error> {
 }
 
 #[test]
+fn bidirectional_road_w_shared_bike_lane_both_ways() -> Result<(), anyhow::Error> {
+    let graph = Graph::new()?;
+    let way = 68523765;
+
+    let labels = graph.get_way_labels(way)?;
+    assert_helper((Cycleway::Shared, Road::Collector, false), labels, way);
+
+    let labels = graph.get_way_labels(-way)?;
+    assert_helper((Cycleway::Shared, Road::Collector, false), labels, -way);
+
+    Ok(())
+}
+
+#[test]
 fn bidirectional_arterial_w_no_bike_infra() -> Result<(), anyhow::Error> {
     let graph = Graph::new()?;
     let way = 420880039;
@@ -105,7 +119,7 @@ fn one_way_road_w_bidirectional_bike_lane() -> Result<(), anyhow::Error> {
 }
 
 #[test]
-fn one_way_road_w_contraflow_bike_lane() -> Result<(), anyhow::Error> {
+fn one_way_road_w_single_contraflow_bike_lane() -> Result<(), anyhow::Error> {
     let graph = Graph::new()?;
     let way = 455014439;
 
@@ -114,6 +128,48 @@ fn one_way_road_w_contraflow_bike_lane() -> Result<(), anyhow::Error> {
 
     let labels = graph.get_way_labels(-way)?;
     assert_helper((Cycleway::Track, Road::Local, false), labels, -way);
+
+    Ok(())
+}
+
+#[test]
+fn one_way_road_w_contraflow_bidirectional_bike_lane() -> Result<(), anyhow::Error> {
+    let graph = Graph::new()?;
+    let way = 1258745670;
+
+    let labels = graph.get_way_labels(way)?;
+    assert_helper((Cycleway::Shared, Road::Local, false), labels, way);
+
+    let labels = graph.get_way_labels(-way)?;
+    assert_helper((Cycleway::Lane, Road::Local, false), labels, -way);
+
+    Ok(())
+}
+
+#[test]
+fn bidirectional_bike_lane() -> Result<(), anyhow::Error> {
+    let graph = Graph::new()?;
+    let way = 505864686;
+
+    let labels = graph.get_way_labels(way)?;
+    assert_helper((Cycleway::Track, Road::Bike, false), labels, way);
+
+    let labels = graph.get_way_labels(-way)?;
+    assert_helper((Cycleway::Track, Road::Bike, false), labels, -way);
+
+    Ok(())
+}
+
+#[test]
+fn oneway_bike_lane() -> Result<(), anyhow::Error> {
+    let graph = Graph::new()?;
+    let way = 1232753103;
+
+    let labels = graph.get_way_labels(way)?;
+    assert_helper((Cycleway::Track, Road::Bike, false), labels, way);
+
+    let labels = graph.get_way_labels(-way)?;
+    assert_helper((Cycleway::Track, Road::Bike, true), labels, -way);
 
     Ok(())
 }
