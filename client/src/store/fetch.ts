@@ -12,6 +12,11 @@ import { $startMarkerLatLng, $endMarkerLatLng } from './route.ts';
 import { $clickTime } from './map.ts';
 import { $mode } from './mode.ts';
 
+// number of significant figs to truncate our coords to
+// the OSM data only has up to 7 figures precision
+// using more might be making our spatial queries wack
+const COORD_SIG_FIGS = 7;
+
 type ServerResponse = {
   traversal: FeatureCollection;
   route: FeatureCollection;
@@ -28,8 +33,8 @@ const fetchTraversal = async (
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
-      lat,
-      lon: lng,
+      lat: Number(lat.toFixed(COORD_SIG_FIGS)),
+      lon: Number(lng.toFixed(COORD_SIG_FIGS)),
       depth,
     }),
   });
@@ -52,12 +57,12 @@ const fetchRoute = async (
     },
     body: JSON.stringify({
       start: {
-        lat: startLat,
-        lon: startLon,
+        lat: Number(startLat.toFixed(COORD_SIG_FIGS)),
+        lon: Number(startLon.toFixed(COORD_SIG_FIGS)),
       },
       end: {
-        lat: endLat,
-        lon: endLon,
+        lat: Number(endLat.toFixed(COORD_SIG_FIGS)),
+        lon: Number(endLon.toFixed(COORD_SIG_FIGS)),
       },
       with_traversal: withTraversal,
     }),

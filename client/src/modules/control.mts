@@ -13,7 +13,6 @@ import { $mode } from '../store/mode.ts';
 import {
   $depth,
   $paint,
-  $marker as $traversalMarker,
 } from '../store/traverse.ts';
 import { $startMarker, $endMarker, $selectedInput } from '../store/route.ts';
 
@@ -110,7 +109,6 @@ const render = (map: L.Map) => {
   $mode.listen(renderPanel);
 
   // updates markers should tie them to the relevant element
-  $traversalMarker.listen(onMarkerChange(HtmlElementId.TraversalLonLat));
   $startMarker.listen(onMarkerChange(HtmlElementId.StartInput));
   $endMarker.listen(onMarkerChange(HtmlElementId.EndInput));
 

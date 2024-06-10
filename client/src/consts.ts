@@ -30,7 +30,6 @@ export enum HtmlElementId {
   PanelParent = 'panel-parent',
   RoutePanel = 'route-panel',
   StartInput = 'start-input',
-  TraversalLonLat = 'traversal-lon-lat',
   TraversePanel = 'traverse-panel',
 }
 

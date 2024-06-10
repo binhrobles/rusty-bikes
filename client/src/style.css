@@ -1,3 +1,8 @@
+body {
+  /* allegedly the color of concrete very thematic */
+  background-color: #C4B6A6;
+}
+
 #map {
   height: 90vh;
   width: 100vw;
