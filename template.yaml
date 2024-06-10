@@ -33,7 +33,7 @@ Resources:
       Runtime: provided.al2023
       Environment:
         Variables:
-          DB_PATH: "/opt/lib/nyc.db3" # unzipped here by lambda layer
+          DB_PATH: "/opt/lib/db.db3" # unzipped here by lambda layer
       Architectures:
       - arm64 # seems to be a free lunch? https://aws.amazon.com/blogs/apn/comparing-aws-lambda-arm-vs-x86-performance-cost-and-analysis-2/
       Events:
@@ -68,7 +68,7 @@ Resources:
     Type: AWS::Serverless::LayerVersion
     Properties:
       # when a new zip is uploaded, change the name to trigger a new version / association
-      LayerName: nyc-sqlite-db-5-28
+      LayerName: nyc-sqlite-db-6-10
       Description: Layer containing NYC SQLite DB
       ContentUri: s3://rusty-bikes-osm-data/nyc-sqlite-db-layer.zip
       CompatibleRuntimes:

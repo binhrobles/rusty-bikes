@@ -23,7 +23,7 @@ endif
 # build a lambda layer artifact from the sqlite db
 layer-build $(BUILD)/nyc-sqlite-db-layer.zip: db.db3
 	mkdir -p $(BUILD)/lib/
-	cp osm-data/nyc.db3 $(BUILD)/lib/
+	cp db.db3 $(BUILD)/lib/
 	# cd into build directory to do the zipping (heckin relative pathing)
 	cd $(BUILD) && zip -r nyc-sqlite-db-layer.zip lib
 
