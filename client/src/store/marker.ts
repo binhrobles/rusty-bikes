@@ -17,9 +17,11 @@ export const StoredMarker = (): StoredMarker => {
   // update the latLon and attach a handler to update on the drag event
   $marker.listen((marker) => {
     $latLng.set(marker?.getLatLng() || null);
-    marker?.on('move', async (event) => {
-      $latLng.set((event as L.LeafletMouseEvent).latlng);
+    marker?.on('moveend', async () => {
+      console.log(`moveend: ${marker?.getLatLng()}`);
+      $latLng.set(marker?.getLatLng());
     });
+
   });
 
   return {
