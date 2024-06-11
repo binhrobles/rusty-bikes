@@ -9,16 +9,16 @@ export enum Mode {
 // moved to using single letter prop keys to save some space
 // see TraversalSegment's serialization
 export enum PropKey {
-  From = 'f',
-  To = 't',
-  Way = 'w',
-  Depth = 'd',
-  DistanceSoFar = 'da',
-  DistanceRemaining = 'dr',
-  Length = 'l',
-  Cost = 'c',
-  CostSoFar = 'ca',
-  Index = 'i',
+  From = 'from',
+  To = 'to',
+  Way = 'way',
+  Depth = 'depth',
+  DistanceSoFar = 'distance_so_far',
+  DistanceRemaining = 'distance_remaining',
+  Length = 'length',
+  Cost = 'cost',
+  CostSoFar = 'cost_so_far',
+  Index = 'idx',
 }
 
 // typo mitigation

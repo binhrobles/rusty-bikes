@@ -56,7 +56,7 @@ pub fn init_tables(conn: &Connection) -> Result<(), anyhow::Error> {
             n1  INTEGER NOT NULL,
             n2  INTEGER NOT NULL,
             way INTEGER NOT NULL,
-            distance REAL NOT NULL,
+            distance INTEGER NOT NULL,
             PRIMARY KEY (n1, n2, way),
             FOREIGN KEY (n1) REFERENCES Nodes(id),
             FOREIGN KEY (n2) REFERENCES Nodes(id)
@@ -170,8 +170,7 @@ pub fn insert_way_element(tx: &Transaction, element: Element) -> anyhow::Result<
 
         // attach this and the previous node as Segments
         if let Some(prev_node) = prev_node {
-            let distance = p.haversine_distance(&prev_node.1);
-            // TODO: also pre-calculate `default` cost for this segment
+            let distance = p.haversine_distance(&prev_node.1).ceil() as i32;
 
             let segment_params = (prev_node.0, n_id, &way.id, distance);
             segment_insert_stmt

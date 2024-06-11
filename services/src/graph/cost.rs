@@ -1,11 +1,19 @@
 use super::Graph;
 use crate::osm::{Cycleway, Distance, Road, WayId, WayLabels};
-use serde::Deserialize;
+use serde::{Deserialize, Serializer};
 use std::collections::HashMap;
 use tracing::error;
 
 pub type Cost = f32;
 pub type Weight = f32;
+
+/// simple serialization of a Node to just its ID
+pub fn serialize_cost_simple<S>(cost: &Cost, serializer: S) -> Result<S::Ok, S::Error>
+where
+    S: Serializer,
+{
+    serializer.serialize_i64(cost.ceil() as i64)
+}
 
 #[derive(Debug, Deserialize)]
 pub struct CostModel {
@@ -57,7 +65,7 @@ impl CostModel {
                 let road_cost = self.road_coefficient * self.road_weights.get(road).unwrap();
                 let salmon_cost = if salmon { self.salmon_coefficient } else { 0.0 };
 
-                let cost = (cycleway_cost + road_cost + salmon_cost) * length;
+                let cost = (cycleway_cost + road_cost + salmon_cost) * length as f32;
 
                 (cost, labels)
             }

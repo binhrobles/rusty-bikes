@@ -59,19 +59,12 @@ pub struct RouteStep {
     geometry: Vec<Coord>,
 
     // route step metadata from TraversalSegment
-    #[serde(rename(serialize = "f"))]
     pub from: NodeId,
-    #[serde(rename(serialize = "t"))]
     pub to: NodeId,
-    #[serde(rename(serialize = "w"))]
     pub way: WayId,
-    #[serde(rename(serialize = "di"))]
     pub distance: Distance,
-    #[serde(rename(serialize = "d"))]
     pub depth: Depth,
-    #[serde(rename(serialize = "wl"))]
     pub labels: WayLabels,
-    #[serde(rename(serialize = "i"))]
     pub idx: usize,
 }
 

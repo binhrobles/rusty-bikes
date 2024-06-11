@@ -1,4 +1,4 @@
-use super::{Cost, CostModel, Graph, Weight};
+use super::{serialize_cost_simple, Cost, CostModel, Graph, Weight};
 use crate::osm::{
     serialize_node_simple, Cycleway, Distance, Neighbor, Node, NodeId, Road, WayId, WayLabels,
 };
@@ -23,32 +23,26 @@ pub type Traversal = Vec<TraversalSegment>;
 
 #[derive(Clone, Debug, Serialize)]
 pub struct TraversalSegment {
-    #[serde(serialize_with = "serialize_node_simple", rename(serialize = "f"))]
+    #[serde(serialize_with = "serialize_node_simple")]
     pub from: Node,
-    #[serde(serialize_with = "serialize_node_simple", rename(serialize = "t"))]
+    #[serde(serialize_with = "serialize_node_simple")]
     pub to: Node,
-    #[serde(rename(serialize = "w"))]
     pub way: WayId,
 
     #[serde(serialize_with = "geojson::ser::serialize_geometry")]
     pub geometry: Line,
 
     // segment metadata for weighing / constructing the route
-    #[serde(rename(serialize = "d"))]
     pub depth: Depth,
-    #[serde(rename(serialize = "l"))]
     pub length: Distance,
-    #[serde(rename(serialize = "da"))]
     pub distance_so_far: Distance,
-    #[serde(rename(serialize = "wl"))]
     pub labels: WayLabels,
 
-    #[serde(rename(serialize = "c"))]
+    #[serde(serialize_with = "serialize_cost_simple")]
     pub cost: Cost,
-    #[serde(rename(serialize = "ca"))]
+    #[serde(serialize_with = "serialize_cost_simple")]
     pub cost_so_far: Cost,
 
-    #[serde(rename(serialize = "dr"))]
     pub distance_remaining: Distance,
 }
 
@@ -77,8 +71,8 @@ impl Ord for TraversalSegment {
     #[inline]
     fn cmp(&self, other: &Self) -> Ordering {
         let heuristic_weight = TraversalContext::get_heuristic_weight();
-        let other_total = other.cost_so_far + (other.distance_remaining * heuristic_weight);
-        let self_total = self.cost_so_far + (self.distance_remaining * heuristic_weight);
+        let other_total = other.cost_so_far + (other.distance_remaining as f32 * heuristic_weight);
+        let self_total = self.cost_so_far + (self.distance_remaining as f32 * heuristic_weight);
         other_total.total_cmp(&self_total)
     }
 }
@@ -124,7 +118,7 @@ impl TraversalSegmentBuilder {
             labels: (Cycleway::Shared, Road::Collector, false),
             cost: 0.0,
             cost_so_far: 0.0,
-            distance_remaining: 0.0,
+            distance_remaining: 0,
         }
     }
 
@@ -143,7 +137,7 @@ impl TraversalSegmentBuilder {
             labels: (Cycleway::Shared, Road::Collector, false),
             cost: 0.0,
             cost_so_far: 0.0,
-            distance_remaining: 0.0,
+            distance_remaining: 0,
         }
     }
 
