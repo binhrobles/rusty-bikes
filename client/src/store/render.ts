@@ -63,7 +63,9 @@ const $routeStyle = computed($mode, (mode) => {
       return {};
     }
 
-    let className = `route-depth-${feature.properties[PropKey.Depth]} step-${feature.properties[PropKey.Index]}`;
+    let className = `route-depth-${feature.properties[PropKey.Depth]} step-${
+      feature.properties[PropKey.Index]
+    }`;
     if (mode === Mode.RouteViz) className += ' svg-path';
 
     return {
@@ -102,10 +104,12 @@ const $traversalStyle = computed(
     let color = (_properties: Record<string, number>): string => '#F26F75';
 
     if (mode === Mode.RouteViz) {
-      rainbow.setNumberRange(0, 250); // arbitrary...Atlantic Ave is ~250
-      // rainbow.setSpectrum('#2BEA01', '#A9A9A9', 'red');
-      rainbow.setSpectrum('green', 'yellow', 'orange', 'red');
-      color = (properties) => `#${rainbow.colourAt(properties[PropKey.Cost])}`;
+      rainbow.setNumberRange(0.6, 1.5); // TODO: somewhat arbitrary view of cost, may need to be dynamic w/ custom model
+      rainbow.setSpectrum('#2BEA01', '#A9A9A9', 'red');
+      color = (properties) =>
+        `#${rainbow.colourAt(
+          properties[PropKey.Cost] / properties[PropKey.Length]
+        )}`;
     }
 
     if (mode === Mode.Traverse) {
@@ -127,7 +131,8 @@ const $traversalStyle = computed(
         default:
       }
 
-      color = (properties) => `#${rainbow.colourAt(properties[PropKey[paint]])}`;
+      color = (properties) =>
+        `#${rainbow.colourAt(properties[PropKey[paint]])}`;
     }
 
     ensureDepthAnimationClassesExist(depth);
