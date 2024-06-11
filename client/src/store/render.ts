@@ -22,7 +22,7 @@ Handlebars.registerHelper('isStartNode', (id) => id === -1);
 Handlebars.registerHelper('isEndNode', (id) => id === -2);
 Handlebars.registerHelper('abs', (id) => Math.abs(Number(id)));
 
-import debugPopupTemplate from '../templates/debugPopup.hbs?raw';
+import debugPopupTemplate from '../templates/debug_popup.hbs?raw';
 const compiledDebugPopupTemplate = Handlebars.compile(debugPopupTemplate);
 
 export const addDebugClick = (feature: Feature, layer: L.Layer) => {

@@ -16,9 +16,9 @@ import {
 } from '../store/traverse.ts';
 import { $startMarker, $endMarker, $selectedInput } from '../store/route.ts';
 
-import routePanelPartial from '../templates/routePanel.hbs?raw';
-import traversalPanelPartial from '../templates/traversalPanel.hbs?raw';
-import controlTemplate from '../templates/control.hbs?raw';
+import routePanelPartial from '../templates/route_panel.hbs?raw';
+import traversalPanelPartial from '../templates/traversal_panel.hbs?raw';
+import controlTemplate from '../templates/mode_control.hbs?raw';
 
 Handlebars.registerPartial('routePanel', routePanelPartial);
 Handlebars.registerPartial('traversalPanel', traversalPanelPartial);
@@ -89,7 +89,7 @@ const render = (map: L.Map) => {
   const control = new L.Control({ position: 'topleft' });
 
   control.onAdd = () => {
-    const controlDiv = L.DomUtil.create('div', 'control');
+    const controlDiv = L.DomUtil.create('div', 'mode-control control');
     L.DomEvent.disableClickPropagation(controlDiv).disableScrollPropagation(
       controlDiv
     );

@@ -1,6 +1,8 @@
 import './style.css';
 
 import map from './modules/map.mjs';
-import control from './modules/control.mjs';
+import mode_control from './modules/mode_control.mjs';
+import cost_control from './modules/cost_control.mjs';
 
-control.render(map);
+mode_control.render(map);
+cost_control.render(map);

@@ -23,6 +23,7 @@ export enum PropKey {
 
 // typo mitigation
 export enum HtmlElementId {
+  CyclewayCoefficientRange = 'cycleway-coefficient-range',
   DepthRange = 'depth-range',
   DepthValue = 'depth-value',
   EndInput = 'end-input',
@@ -64,4 +65,8 @@ export const TraversalDefaults = {
   paint: PaintOptions.Depth,
   clickHint: 'Click Somewhere!',
   stepDelayMs: 75,
+};
+
+export const CostDefaults = {
+  CyclewayCoefficient: 0.4,
 };
