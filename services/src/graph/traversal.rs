@@ -41,7 +41,7 @@ pub struct TraversalSegment {
     #[serde(rename(serialize = "da"))]
     pub distance_so_far: Distance,
     #[serde(rename(serialize = "wl"))]
-    labels: WayLabels,
+    pub labels: WayLabels,
 
     #[serde(rename(serialize = "c"))]
     pub cost: Cost,

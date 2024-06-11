@@ -1,6 +1,6 @@
 /// Middleware for formatting Graph structures into Geojson
 use crate::graph::{Depth, TraversalSegment};
-use crate::osm::{Distance, NodeId, WayId};
+use crate::osm::{Distance, NodeId, WayId, WayLabels};
 use geo::{Coord, LineString};
 use geojson::ser::serialize_geometry;
 use serde::{Serialize, Serializer};
@@ -69,6 +69,8 @@ pub struct RouteStep {
     pub distance: Distance,
     #[serde(rename(serialize = "d"))]
     pub depth: Depth,
+    #[serde(rename(serialize = "wl"))]
+    pub labels: WayLabels,
     #[serde(rename(serialize = "i"))]
     pub idx: usize,
 }
@@ -83,6 +85,7 @@ impl RouteStep {
             to: segment.to.id,
             way: segment.way,
             depth: segment.depth,
+            labels: segment.labels,
             idx,
         }
     }
