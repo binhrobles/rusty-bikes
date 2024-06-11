@@ -14,6 +14,7 @@ export enum PropKey {
   Way = 'w',
   Depth = 'd',
   DistanceSoFar = 'da',
+  DistanceRemaining = 'dr',
   Length = 'l',
   Cost = 'c',
   CostSoFar = 'ca',
