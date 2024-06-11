@@ -42,6 +42,9 @@ pub struct TraversalSegment {
     pub cost: Cost,
     #[serde(rename(serialize = "ca"))]
     pub cost_so_far: Cost,
+
+    #[serde(rename(serialize = "dr"))]
+    pub distance_remaining: Distance,
 }
 
 /// TraversalSegments are equivalent when they connect the same points along the same way
@@ -63,11 +66,14 @@ impl PartialOrd for TraversalSegment {
     }
 }
 
-/// TraversalSegment comparisons make use of cost_so_far from traversal start
+/// TraversalSegment comparisons make use of cost_so_far from traversal start and a factor of the distance
+/// remaining to the end node
 impl Ord for TraversalSegment {
     #[inline]
     fn cmp(&self, other: &Self) -> Ordering {
-        other.cost_so_far.total_cmp(&self.cost_so_far)
+        let other_total = other.cost_so_far + (other.distance_remaining * 0.75);
+        let self_total = self.cost_so_far + (self.distance_remaining * 0.75);
+        other_total.total_cmp(&self_total)
     }
 }
 
@@ -84,6 +90,7 @@ pub struct TraversalSegmentBuilder {
     labels: WayLabels,
     cost: Cost,
     cost_so_far: Cost,
+    distance_remaining: Distance,
 }
 
 impl TraversalSegmentBuilder {
@@ -101,6 +108,7 @@ impl TraversalSegmentBuilder {
             labels: (Cycleway::Shared, Road::Collector, false),
             cost: 0.0,
             cost_so_far: 0.0,
+            distance_remaining: 0.0,
         }
     }
 
@@ -119,6 +127,7 @@ impl TraversalSegmentBuilder {
             labels: (Cycleway::Shared, Road::Collector, false),
             cost: 0.0,
             cost_so_far: 0.0,
+            distance_remaining: 0.0,
         }
     }
 
@@ -138,12 +147,19 @@ impl TraversalSegmentBuilder {
         cost_model: &CostModel,
         graph: &Graph,
         cost_so_far: Cost,
-    ) -> Result<Self, anyhow::Error> {
-        let (cost, labels) = cost_model.calculate_cost(graph, self.way, self.length)?;
+    ) -> Self {
+        let (cost, labels) = cost_model.calculate_cost(graph, self.way, self.length);
         self.cost = cost;
         self.cost_so_far = cost_so_far + self.cost;
         self.labels = labels;
-        Ok(self)
+        self
+    }
+
+    /// add the distance to end node heuristic
+    fn with_heuristic(mut self, end_node: &Node) -> Self {
+        self.distance_remaining =
+            self.to.geometry.haversine_distance(&end_node.geometry) as Distance;
+        self
     }
 
     pub fn build(self) -> TraversalSegment {
@@ -160,6 +176,7 @@ impl TraversalSegmentBuilder {
             labels: self.labels,
             cost: self.cost,
             cost_so_far: self.cost_so_far,
+            distance_remaining: self.distance_remaining,
         }
     }
 }
@@ -232,7 +249,8 @@ pub fn traverse_between(
             let segment = TraversalSegment::build_to_node(&current.to, end_node, current.way)
                 .with_depth(current.depth + 1)
                 .with_prev_distance(current.distance_so_far)
-                .calculate_cost(&context.cost_model, graph, current.cost_so_far)?
+                .calculate_cost(&context.cost_model, graph, current.cost_so_far)
+                .with_heuristic(end_node)
                 .build();
             context.came_from.insert(END_NODE_ID, segment);
             return Ok(());
@@ -249,7 +267,7 @@ pub fn traverse_between(
                         .with_depth(current.depth + 1)
                         .with_prev_distance(current.distance_so_far)
                         .calculate_cost(&context.cost_model, graph, current.cost_so_far)
-                        .unwrap() // TODO: not this
+                        .with_heuristic(end_node)
                         .build();
                     context.queue.push(segment.clone());
                     segment
@@ -283,7 +301,6 @@ pub fn traverse_from(
                         .with_depth(current.depth + 1)
                         .with_prev_distance(current.distance_so_far)
                         .calculate_cost(&context.cost_model, graph, current.cost_so_far)
-                        .unwrap() // TODO: not this
                         .build();
                     context.queue.push(segment.clone());
                     segment
