@@ -14,7 +14,7 @@ pub type WayLabels = (Cycleway, Road, Salmoning);
 pub type Salmoning = bool;
 
 /// Designations for varying levels of bike lanes
-#[derive(Debug, Copy, Clone, Hash, Eq, PartialEq, Serialize)]
+#[derive(Debug, Copy, Clone, Hash, Eq, PartialEq, Deserialize, Serialize)]
 #[repr(u8)]
 pub enum Cycleway {
     /// There is no bike-specific infra
@@ -26,7 +26,7 @@ pub enum Cycleway {
 }
 
 /// Designations for varying levels of roads
-#[derive(Debug, Copy, Clone, Hash, Eq, PartialEq, Serialize)]
+#[derive(Debug, Copy, Clone, Hash, Eq, PartialEq, Deserialize, Serialize)]
 #[repr(u8)]
 pub enum Road {
     /// Walking path, generally for pedestrians

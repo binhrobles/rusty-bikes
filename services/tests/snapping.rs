@@ -1,5 +1,5 @@
-use rusty_router::graph::Graph;
 use geo::Point;
+use rusty_router::graph::Graph;
 
 #[test]
 fn get_corner_coords_in_lot() -> Result<(), anyhow::Error> {

@@ -1,5 +1,5 @@
 /// Structs and logic specific to traversing a Graph
-use super::{Cost, CostModel, CostModelConfiguration, Graph};
+use super::{Cost, CostModel, Graph};
 use crate::osm::{
     serialize_node_simple, Cycleway, Distance, Neighbor, Node, NodeId, Road, WayId, WayLabels,
 };
@@ -181,11 +181,11 @@ pub struct TraversalContext {
 }
 
 impl TraversalContext {
-    pub fn new(cost_params: Option<CostModelConfiguration>) -> Self {
+    pub fn new(cost_model: Option<CostModel>) -> Self {
         Self {
             queue: BinaryHeap::new(),
             came_from: HashMap::new(),
-            cost_model: CostModel::new(cost_params.unwrap_or_default())
+            cost_model: cost_model.unwrap_or_default(),
         }
     }
 }
@@ -201,12 +201,12 @@ impl Default for TraversalContext {
 pub fn initialize_traversal(
     graph: &Graph,
     start: &Point,
-    cost_model_configuration: Option<CostModelConfiguration>,
+    cost_model: Option<CostModel>,
 ) -> Result<TraversalContext, anyhow::Error> {
     let start_node = Node::new(START_NODE_ID, start);
     let starting_neighbors = graph.guess_neighbors(*start, None)?;
 
-    let mut context = TraversalContext::new(cost_model_configuration);
+    let mut context = TraversalContext::new(cost_model);
 
     for neighbor in starting_neighbors {
         let segment = TraversalSegment::build_to_neighbor(&start_node, &neighbor).build();

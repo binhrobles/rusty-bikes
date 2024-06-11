@@ -1,9 +1,16 @@
-use rusty_router::{graph::Graph, osm::{Cycleway, WayLabels}, osm::{Road, WayId}};
+use rusty_router::{
+    graph::Graph,
+    osm::{Cycleway, WayLabels},
+    osm::{Road, WayId},
+};
 
 fn assert_helper(expected: WayLabels, actual: WayLabels, header: WayId) {
-    assert!(expected == actual,
+    assert!(
+        expected == actual,
         "{header} | expected: {:?}, actual: {:?}",
-        expected, actual)
+        expected,
+        actual
+    )
 }
 
 #[test]

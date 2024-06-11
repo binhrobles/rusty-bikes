@@ -1,5 +1,5 @@
-use crate::osm::{Cycleway, Road, Salmoning, WayId};
 use super::Element;
+use crate::osm::{Cycleway, Road, Salmoning, WayId};
 
 /// Provides helper methods for interpreting and labeling the relevant OSM tags for bike routing
 #[derive(Debug)]

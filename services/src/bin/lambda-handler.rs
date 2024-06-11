@@ -5,10 +5,10 @@ use lambda_http::{
 };
 use rusty_router::osm::Location;
 use serde::Deserialize;
-use tracing::error;
+use tracing::{error, info};
 
 use rusty_router::geojson;
-use rusty_router::graph::{CostModelConfiguration, Graph};
+use rusty_router::graph::{CostModel, Graph};
 
 // create a singleton of the Graph struct on lambda boot
 thread_local! {
@@ -50,7 +50,7 @@ struct TraversalParams {
     lat: f64,
     lon: f64,
     depth: usize,
-    cost_model_config: Option<CostModelConfiguration>,
+    cost_model: Option<CostModel>,
 }
 
 fn traverse_handler(graph: &Graph, event: Request) -> Result<String, anyhow::Error> {
@@ -59,9 +59,12 @@ fn traverse_handler(graph: &Graph, event: Request) -> Result<String, anyhow::Err
         .ok_or_else(|| anyhow!("Missing traversal params"))?;
 
     let starting_coord = Point::new(params.lon, params.lat);
+    if let Some(cost_model) = params.cost_model.as_ref() {
+        info!("custom cost model: {:#?}", cost_model);
+    }
 
     let traversal = graph
-        .traverse_from(starting_coord, params.depth, params.cost_model_config)
+        .traverse_from(starting_coord, params.depth, params.cost_model)
         .map_err(|e| {
             error!("Routing Error: {e}");
             e
@@ -80,7 +83,7 @@ struct RouteParams {
     start: Location,
     end: Location,
     with_traversal: Option<bool>,
-    cost_model_config: Option<CostModelConfiguration>,
+    cost_model: Option<CostModel>,
 }
 
 fn route_handler(graph: &Graph, event: Request) -> Result<String, anyhow::Error> {
@@ -89,13 +92,16 @@ fn route_handler(graph: &Graph, event: Request) -> Result<String, anyhow::Error>
         .ok_or_else(|| anyhow!("Missing route params"))?;
 
     let with_traversal = params.with_traversal.unwrap_or(false);
+    if let Some(cost_model) = params.cost_model.as_ref() {
+        info!("custom cost model: {:#?}", cost_model);
+    }
 
     let (route, traversal) = graph
         .route_between(
             params.start.into(),
             params.end.into(),
             with_traversal,
-            params.cost_model_config,
+            params.cost_model,
         )
         .map_err(|e| {
             error!("Routing Error: {e}");

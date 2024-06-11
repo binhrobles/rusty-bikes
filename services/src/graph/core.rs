@@ -1,6 +1,6 @@
 /// Exposes OSM data interactions via a Graph interface
 use super::traversal::{Route, Traversal, TraversalSegment, END_NODE_ID, START_NODE_ID};
-use super::CostModelConfiguration;
+use super::CostModel;
 use crate::db;
 use crate::osm::{Distance, Neighbor, Node, NodeId, WayId, WayLabels};
 use anyhow::anyhow;
@@ -30,14 +30,14 @@ impl Graph {
         start: Point,
         end: Point,
         with_traversal: bool,
-        cost_model_configuration: Option<CostModelConfiguration>,
+        cost_model: Option<CostModel>,
     ) -> Result<(Route, Option<Traversal>), anyhow::Error> {
         let end_node = Node::new(END_NODE_ID, &end);
         let target_neighbors = self.guess_neighbors(end, None)?;
         let target_neighbor_node_ids: Vec<NodeId> =
             target_neighbors.iter().map(|n| n.node.id).collect();
 
-        let mut context = super::initialize_traversal(self, &start, cost_model_configuration)?;
+        let mut context = super::initialize_traversal(self, &start, cost_model)?;
 
         super::traverse_between(self, &mut context, &target_neighbor_node_ids, &end_node)?;
 
@@ -68,9 +68,9 @@ impl Graph {
         &self,
         start: Point,
         max_depth: usize,
-        cost_model_configuration: Option<CostModelConfiguration>,
+        cost_model: Option<CostModel>,
     ) -> Result<Traversal, anyhow::Error> {
-        let mut context = super::initialize_traversal(self, &start, cost_model_configuration)?;
+        let mut context = super::initialize_traversal(self, &start, cost_model)?;
 
         super::traverse_from(self, &mut context, max_depth)?;
 
@@ -85,7 +85,11 @@ impl Graph {
     /// the closest Way, because of how R*Trees work
     /// - TODO: handle no Ways returned, empty case
     /// - TODO: more than 2 neighbors?
-    pub fn guess_neighbors(&self, center: Point, snap_radius: Option<f64>) -> Result<Vec<Neighbor>, anyhow::Error> {
+    pub fn guess_neighbors(
+        &self,
+        center: Point,
+        snap_radius: Option<f64>,
+    ) -> Result<Vec<Neighbor>, anyhow::Error> {
         type Bearing = f64;
         let snap_radius = snap_radius.unwrap_or(SNAP_INCREMENT);
 
