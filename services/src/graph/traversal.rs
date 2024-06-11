@@ -204,7 +204,7 @@ pub fn initialize_traversal(
     cost_model_configuration: Option<CostModelConfiguration>,
 ) -> Result<TraversalContext, anyhow::Error> {
     let start_node = Node::new(START_NODE_ID, start);
-    let starting_neighbors = graph.guess_neighbors(*start)?;
+    let starting_neighbors = graph.guess_neighbors(*start, None)?;
 
     let mut context = TraversalContext::new(cost_model_configuration);
 

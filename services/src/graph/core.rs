@@ -7,6 +7,10 @@ use anyhow::anyhow;
 use geo::prelude::*;
 use geo::{HaversineBearing, Point};
 use std::collections::VecDeque;
+use tracing::debug;
+
+const MAX_SNAP_RADIUS: f64 = 0.001;
+const SNAP_INCREMENT: f64 = 0.0002;
 
 #[derive(Debug)]
 pub struct Graph {
@@ -29,7 +33,7 @@ impl Graph {
         cost_model_configuration: Option<CostModelConfiguration>,
     ) -> Result<(Route, Option<Traversal>), anyhow::Error> {
         let end_node = Node::new(END_NODE_ID, &end);
-        let target_neighbors = self.guess_neighbors(end)?;
+        let target_neighbors = self.guess_neighbors(end, None)?;
         let target_neighbor_node_ids: Vec<NodeId> =
             target_neighbors.iter().map(|n| n.node.id).collect();
 
@@ -73,18 +77,17 @@ impl Graph {
         Ok(context.came_from.values().cloned().collect())
     }
 
-    /// Returns Edges to the closest Node(s) to the location provided
+    /// Returns the closest Node(s) to the location provided
+    /// Creates a buffer around the location and searches a small square area
     ///
     /// Implementation notes:
     /// - We cannot guarantee that the first Way returned from the R*tree query will be
     /// the closest Way, because of how R*Trees work
-    /// - TODO: locations on corners are edge cases
-    /// - TODO: locations directly on Nodes are edge cases (or will this be accounted for by the alg's
-    /// cost model?)
     /// - TODO: handle no Ways returned, empty case
     /// - TODO: more than 2 neighbors?
-    pub fn guess_neighbors(&self, start: Point) -> Result<Vec<Neighbor>, anyhow::Error> {
+    pub fn guess_neighbors(&self, center: Point, snap_radius: Option<f64>) -> Result<Vec<Neighbor>, anyhow::Error> {
         type Bearing = f64;
+        let snap_radius = snap_radius.unwrap_or(SNAP_INCREMENT);
 
         let mut stmt = self.conn.prepare_cached(
             "
@@ -92,46 +95,62 @@ impl Graph {
             FROM Ways
             JOIN WayNodes ON WayNodes.way=Ways.id
             JOIN Nodes ON WayNodes.node=Nodes.id
-            WHERE minLat <= ?2
-              AND maxLat >= ?2
-              AND minLon <= ?1
-              AND maxLon >= ?1
+            WHERE minLon <= ?1
+              AND maxLon >= ?2
+              AND minLat <= ?3
+              AND maxLat >= ?4
         ",
         )?;
-        let results = stmt.query_map([start.x(), start.y()], |row| {
-            let lon = row.get(1)?;
-            let lat = row.get(2)?;
 
-            let loc = Point::new(lon, lat);
+        let center_lon = center.x();
+        let center_lat = center.y();
+        let results = stmt.query_map(
+            [
+                center_lon + snap_radius,
+                center_lon - snap_radius,
+                center_lat + snap_radius,
+                center_lat - snap_radius,
+            ],
+            |row| {
+                let lon = row.get(1)?;
+                let lat = row.get(2)?;
 
-            // for each returned Node, calculate the distance from the start point
-            Ok((
-                Neighbor {
-                    node: Node::new(row.get(0)?, &loc),
-                    way: row.get(3)?,
-                    distance: start.haversine_distance(&loc) as Distance,
-                },
-                start.haversine_bearing(loc),
-            ))
-        })?;
+                let loc = Point::new(lon, lat);
+
+                // for each returned Node, calculate the distance from the center point
+                Ok((
+                    Neighbor {
+                        node: Node::new(row.get(0)?, &loc),
+                        way: row.get(3)?,
+                        distance: center.haversine_distance(&loc) as Distance,
+                    },
+                    center.haversine_bearing(loc),
+                ))
+            },
+        )?;
 
         let mut results: Vec<(Neighbor, Bearing)> = results.map(|r| r.unwrap()).collect();
 
-        // at this point we have a sorted list of nodes by distance
-        // the first, closest node is clearly the best candidate
+        // if no results returned w/ this snap radius, expand it by a bit
         if results.is_empty() {
-            // TODO: do something better, with a wider search radius?
-            return Err(anyhow!("Could not snap coords to graph nodes"));
+            if snap_radius >= MAX_SNAP_RADIUS {
+                return Err(anyhow!("Could not snap coords to graph"));
+            }
+
+            debug!("Could not snap coords to graph, expanding");
+            return self.guess_neighbors(center, Some(snap_radius + SNAP_INCREMENT));
         }
 
-        // sort these results by the total distance from the start point
+        // sort these results by the total distance from the center point
         results.sort_by(|(n1, _), (n2, _)| n1.distance.partial_cmp(&n2.distance).unwrap());
 
+        // at this point we have a sorted list of nodes by distance
+        // the first, closest node is clearly the best candidate
         let mut results_iter = results.into_iter();
         let (closest_neighbor, closest_bearing) = results_iter.next().unwrap();
 
         // then, use the wayId + the bearing relationship to find
-        // the next node on the way on the other side of the start point
+        // the next node on the way on the other side of the center point
         let mut next_closest: Option<Neighbor> = None;
         for (neighbor, bearing) in results_iter {
             // This Node is on the same Way as the `closest`
