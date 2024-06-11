@@ -34,6 +34,7 @@ layer-upload: $(BUILD)/nyc-sqlite-db-layer.zip
 
 # SAM toolkit helpers for deploying to AWS
 service-build:
+	sam validate
 	sam build
 
 service-deploy:

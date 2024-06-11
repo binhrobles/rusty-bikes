@@ -16,7 +16,10 @@ Resources:
   Api:
     Type: AWS::Serverless::Api
     Properties:
-      Cors: "'*'"
+      Cors:
+        AllowMethods: "'OPTIONS, POST'"
+        AllowHeaders: "'content-type'"
+        AllowOrigin: "'*'"
       StageName: Prod
 
   ApiFunction:
