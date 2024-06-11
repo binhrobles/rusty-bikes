@@ -1,13 +1,18 @@
-/// Structs and logic specific to traversing a Graph
-use super::{Cost, CostModel, Graph};
+use super::{Cost, CostModel, Graph, Weight};
 use crate::osm::{
     serialize_node_simple, Cycleway, Distance, Neighbor, Node, NodeId, Road, WayId, WayLabels,
 };
 use anyhow::anyhow;
 use geo::{HaversineDistance, Line, Point};
 use serde::Serialize;
+use std::cell::RefCell;
 use std::cmp::Ordering;
 use std::collections::{BinaryHeap, HashMap};
+
+// define a thread local variable to reference during traversal ordering
+thread_local! {
+    static HEURISTIC_WEIGHT: RefCell<f32> = const { RefCell::new(0.75) };
+}
 
 pub const START_NODE_ID: NodeId = -1;
 pub const END_NODE_ID: NodeId = -2;
@@ -71,9 +76,20 @@ impl PartialOrd for TraversalSegment {
 impl Ord for TraversalSegment {
     #[inline]
     fn cmp(&self, other: &Self) -> Ordering {
-        let other_total = other.cost_so_far + (other.distance_remaining * 0.75);
-        let self_total = self.cost_so_far + (self.distance_remaining * 0.75);
+        let heuristic_weight = TraversalContext::get_heuristic_weight();
+        let other_total = other.cost_so_far + (other.distance_remaining * heuristic_weight);
+        let self_total = self.cost_so_far + (self.distance_remaining * heuristic_weight);
         other_total.total_cmp(&self_total)
+    }
+}
+
+impl TraversalSegment {
+    pub fn build_to_neighbor(from: &Node, to: &Neighbor) -> TraversalSegmentBuilder {
+        TraversalSegmentBuilder::new_from_neighbor(from, to)
+    }
+
+    pub fn build_to_node(from: &Node, to: &Node, way: WayId) -> TraversalSegmentBuilder {
+        TraversalSegmentBuilder::new_from_node(from, to, way)
     }
 }
 
@@ -181,16 +197,6 @@ impl TraversalSegmentBuilder {
     }
 }
 
-impl TraversalSegment {
-    pub fn build_to_neighbor(from: &Node, to: &Neighbor) -> TraversalSegmentBuilder {
-        TraversalSegmentBuilder::new_from_neighbor(from, to)
-    }
-
-    pub fn build_to_node(from: &Node, to: &Node, way: WayId) -> TraversalSegmentBuilder {
-        TraversalSegmentBuilder::new_from_node(from, to, way)
-    }
-}
-
 pub struct TraversalContext {
     pub queue: BinaryHeap<TraversalSegment>,
     pub came_from: HashMap<NodeId, TraversalSegment>,
@@ -198,18 +204,33 @@ pub struct TraversalContext {
 }
 
 impl TraversalContext {
-    pub fn new(cost_model: Option<CostModel>) -> Self {
+    pub fn new(cost_model: Option<CostModel>, heuristic_weight: Option<f32>) -> Self {
+        if let Some(weight) = heuristic_weight {
+            TraversalContext::set_heuristic_weight(weight);
+        }
+
         Self {
             queue: BinaryHeap::new(),
             came_from: HashMap::new(),
             cost_model: cost_model.unwrap_or_default(),
         }
     }
+
+    fn set_heuristic_weight(weight: f32) {
+        HEURISTIC_WEIGHT.with(|w| {
+            *w.borrow_mut() = weight;
+        });
+    }
+
+    #[inline]
+    fn get_heuristic_weight() -> f32 {
+        HEURISTIC_WEIGHT.with(|w| *w.borrow())
+    }
 }
 
 impl Default for TraversalContext {
     fn default() -> Self {
-        Self::new(None)
+        Self::new(None, None)
     }
 }
 
@@ -219,11 +240,12 @@ pub fn initialize_traversal(
     graph: &Graph,
     start: &Point,
     cost_model: Option<CostModel>,
+    heuristic_weight: Option<Weight>,
 ) -> Result<TraversalContext, anyhow::Error> {
     let start_node = Node::new(START_NODE_ID, start);
     let starting_neighbors = graph.guess_neighbors(*start, None)?;
 
-    let mut context = TraversalContext::new(cost_model);
+    let mut context = TraversalContext::new(cost_model, heuristic_weight);
 
     for neighbor in starting_neighbors {
         let segment = TraversalSegment::build_to_neighbor(&start_node, &neighbor).build();
@@ -249,8 +271,6 @@ pub fn traverse_between(
             let segment = TraversalSegment::build_to_node(&current.to, end_node, current.way)
                 .with_depth(current.depth + 1)
                 .with_prev_distance(current.distance_so_far)
-                .calculate_cost(&context.cost_model, graph, current.cost_so_far)
-                .with_heuristic(end_node)
                 .build();
             context.came_from.insert(END_NODE_ID, segment);
             return Ok(());
@@ -259,19 +279,24 @@ pub fn traverse_between(
         let adjacent_neighbors = graph.get_neighbors(current.to.id)?;
 
         for neighbor in adjacent_neighbors {
-            context
-                .came_from
-                .entry(neighbor.node.id)
-                .or_insert_with(|| {
-                    let segment = TraversalSegment::build_to_neighbor(&current.to, &neighbor)
-                        .with_depth(current.depth + 1)
-                        .with_prev_distance(current.distance_so_far)
-                        .calculate_cost(&context.cost_model, graph, current.cost_so_far)
-                        .with_heuristic(end_node)
-                        .build();
+            let segment = TraversalSegment::build_to_neighbor(&current.to, &neighbor)
+                .with_depth(current.depth + 1)
+                .with_prev_distance(current.distance_so_far)
+                .calculate_cost(&context.cost_model, graph, current.cost_so_far)
+                .with_heuristic(end_node)
+                .build();
+
+            if let Some(existing_segment) = context.came_from.get(&neighbor.node.id) {
+                // if we already have a path to this neighbor, compare costs, take the cheaper
+                // also queue up this neighbor, so a possibly better route can be identified
+                if segment.cost_so_far < existing_segment.cost_so_far {
                     context.queue.push(segment.clone());
-                    segment
-                });
+                    context.came_from.insert(neighbor.node.id, segment);
+                }
+            } else {
+                context.queue.push(segment.clone());
+                context.came_from.insert(neighbor.node.id, segment);
+            }
         }
     }
 

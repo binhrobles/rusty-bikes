@@ -8,7 +8,7 @@ use serde::Deserialize;
 use tracing::{error, info};
 
 use rusty_router::geojson;
-use rusty_router::graph::{CostModel, Graph};
+use rusty_router::graph::{CostModel, Graph, Weight};
 
 // create a singleton of the Graph struct on lambda boot
 thread_local! {
@@ -51,6 +51,7 @@ struct TraversalParams {
     lon: f64,
     depth: usize,
     cost_model: Option<CostModel>,
+    heuristic_weight: Option<Weight>,
 }
 
 fn traverse_handler(graph: &Graph, event: Request) -> Result<String, anyhow::Error> {
@@ -64,7 +65,7 @@ fn traverse_handler(graph: &Graph, event: Request) -> Result<String, anyhow::Err
     }
 
     let traversal = graph
-        .traverse_from(starting_coord, params.depth, params.cost_model)
+        .traverse_from(starting_coord, params.depth, params.cost_model, params.heuristic_weight)
         .map_err(|e| {
             error!("Routing Error: {e}");
             e
@@ -84,6 +85,7 @@ struct RouteParams {
     end: Location,
     with_traversal: Option<bool>,
     cost_model: Option<CostModel>,
+    heuristic_weight: Option<Weight>,
 }
 
 fn route_handler(graph: &Graph, event: Request) -> Result<String, anyhow::Error> {
@@ -102,6 +104,7 @@ fn route_handler(graph: &Graph, event: Request) -> Result<String, anyhow::Error>
             params.end.into(),
             with_traversal,
             params.cost_model,
+            params.heuristic_weight,
         )
         .map_err(|e| {
             error!("Routing Error: {e}");

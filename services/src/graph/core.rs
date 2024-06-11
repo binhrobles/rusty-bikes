@@ -1,6 +1,6 @@
 /// Exposes OSM data interactions via a Graph interface
 use super::traversal::{Route, Traversal, TraversalSegment, END_NODE_ID, START_NODE_ID};
-use super::CostModel;
+use super::{CostModel, Weight};
 use crate::db;
 use crate::osm::{Distance, Neighbor, Node, NodeId, WayId, WayLabels};
 use anyhow::anyhow;
@@ -31,13 +31,14 @@ impl Graph {
         end: Point,
         with_traversal: bool,
         cost_model: Option<CostModel>,
+        heuristic_weight: Option<Weight>,
     ) -> Result<(Route, Option<Traversal>), anyhow::Error> {
         let end_node = Node::new(END_NODE_ID, &end);
         let target_neighbors = self.guess_neighbors(end, None)?;
         let target_neighbor_node_ids: Vec<NodeId> =
             target_neighbors.iter().map(|n| n.node.id).collect();
 
-        let mut context = super::initialize_traversal(self, &start, cost_model)?;
+        let mut context = super::initialize_traversal(self, &start, cost_model, heuristic_weight)?;
 
         super::traverse_between(self, &mut context, &target_neighbor_node_ids, &end_node)?;
 
@@ -69,8 +70,9 @@ impl Graph {
         start: Point,
         max_depth: usize,
         cost_model: Option<CostModel>,
+        heuristic_weight: Option<Weight>,
     ) -> Result<Traversal, anyhow::Error> {
-        let mut context = super::initialize_traversal(self, &start, cost_model)?;
+        let mut context = super::initialize_traversal(self, &start, cost_model, heuristic_weight)?;
 
         super::traverse_from(self, &mut context, max_depth)?;
 
