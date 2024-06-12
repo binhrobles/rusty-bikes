@@ -1,5 +1,6 @@
 <script lang="ts">
-  import { CostDefaults, HtmlElementId } from '../consts.ts';
+  import { CostDefaults, HtmlElementId, Mode } from '../consts.ts';
+  import { $mode as m } from '../store/mode.ts';
   import {
     $heuristicWeight as hw,
     $coefficients as cd,
@@ -16,7 +17,8 @@
 <h4>Pathfinding Configuration</h4>
 <br />
 
-<span>A* Heuristic Greediness</span>
+{#if $m !== Mode.Traverse}
+<span>Algorithm Directness</span>
 <br />
 <input
   class="slider"
@@ -27,6 +29,7 @@
   step="0.1"
   bind:value={$hw}>
 <br />
+{/if}
 
 <span>Prefer Bike Lanes:</span>
 <br />
