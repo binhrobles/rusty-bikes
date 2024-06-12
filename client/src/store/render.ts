@@ -3,9 +3,9 @@
  */
 import { computed } from 'nanostores';
 import L from 'leaflet';
-import Handlebars from 'handlebars';
 import { Feature } from 'geojson';
 import { Mode, PaintOptions, PropKey, TraversalDefaults } from '../consts.ts';
+import DebugPopup from '../components/DebugPopup.svelte';
 const { stepDelayMs } = TraversalDefaults;
 
 import Rainbow from 'rainbowvis.js';
@@ -14,16 +14,7 @@ import { $mode } from './mode.ts';
 import { $paint, $depth } from './traverse.ts';
 import { $raw } from './fetch.ts';
 
-const OSMKeys = [PropKey.From, PropKey.To, PropKey.Way];
-Handlebars.registerHelper('isNotOSMKey', (key) => !OSMKeys.includes(key));
-Handlebars.registerHelper('getProp', (properties, key) => properties[key]);
-Handlebars.registerHelper('isStartNode', (id) => id === -1);
-Handlebars.registerHelper('isEndNode', (id) => id === -2);
-Handlebars.registerHelper('abs', (id) => Math.abs(Number(id)));
-
-import debugPopupTemplate from '../templates/debug_popup.hbs?raw';
 import { $coefficients } from './cost.ts';
-const compiledDebugPopupTemplate = Handlebars.compile(debugPopupTemplate);
 
 export const addDebugClick = (feature: Feature, layer: L.Layer) => {
   const featurePopupDiv = L.DomUtil.create('div', 'feature-popup');
@@ -33,9 +24,11 @@ export const addDebugClick = (feature: Feature, layer: L.Layer) => {
   );
 
   if (feature.properties) {
-    featurePopupDiv.innerHTML = compiledDebugPopupTemplate({
-      PropKey,
-      properties: feature.properties,
+    new DebugPopup({
+      target: featurePopupDiv,
+      props: {
+        properties: feature.properties,
+      }
     });
     layer.bindPopup(featurePopupDiv);
   }
