@@ -32,7 +32,6 @@
     "vite-plugin-handlebars": "^2.0.0"
   },
   "dependencies": {
-    "handlebars": "^4.7.8",
     "leaflet": "^1.9.4",
     "nanostores": "^0.10.3",
     "rainbowvis.js": "^1.1.1"
