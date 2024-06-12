@@ -10,7 +10,6 @@ const { stepDelayMs } = TraversalDefaults;
 
 import Rainbow from 'rainbowvis.js';
 
-import { $clickTime } from './map.ts';
 import { $mode } from './mode.ts';
 import { $paint, $depth } from './traverse.ts';
 import { $raw } from './fetch.ts';
@@ -154,11 +153,11 @@ const $traversalStyle = computed(
 );
 
 export const $traversalLayer = computed(
-  [$clickTime, $raw, $paint],
-  (clickTime, json, _paint) => {
-    // if no geojson or if the new map click happened recently,
+  [$raw, $paint],
+  (json, _paint) => {
+    // if no geojson
     // return an empty feature group / clear the map
-    if (!json || Date.now() - clickTime < 10 || !json.traversal) return null;
+    if (!json || !json.traversal) return null;
 
     // if we're doing the fancy route viz thingy, just quickly ensure that classes to this depth exist
     // we need to do this _before_ traversal gets created / added to the DOM
@@ -178,11 +177,11 @@ export const $traversalLayer = computed(
   }
 );
 export const $routeLayer = computed(
-  [$clickTime, $raw, $paint],
-  (clickTime, json, _paint) => {
-    // if no geojson or if the new map click happened recently,
+  [$raw, $paint],
+  (json, _paint) => {
+    // if no geojson
     // return an empty feature group / clear the map
-    if (!json || Date.now() - clickTime < 10 || !json.route) return null;
+    if (!json || !json.route) return null;
 
     return L.geoJSON(json.route, {
       style: $routeStyle.get(),

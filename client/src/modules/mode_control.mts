@@ -9,11 +9,8 @@ import {
   TraversalDefaults,
 } from '../consts.ts';
 
-import { $mode } from '../store/mode.ts';
-import {
-  $depth,
-  $paint,
-} from '../store/traverse.ts';
+import { default as mode, $mode } from '../store/mode.ts';
+import traverse from '../store/traverse.ts';
 import { $startMarker, $endMarker, $selectedInput } from '../store/route.ts';
 
 import routePanelPartial from '../templates/route_panel.hbs?raw';
@@ -80,6 +77,35 @@ const renderPanel = (mode: Mode, oldMode: Mode | null) => {
   modePanel.hidden = false;
 };
 
+const addReactivity = () => {
+  // subscribe control to state changes
+  // updates to the mode should cause the appropriate panel to be rendered
+  $mode.listen(renderPanel);
+
+  // updates markers should tie them to the relevant element
+  $startMarker.listen(onMarkerChange(HtmlElementId.StartInput));
+  $endMarker.listen(onMarkerChange(HtmlElementId.EndInput));
+
+  // bind elements to publish to state
+  mode.bind();
+  traverse.bind();
+
+  // when the Routing start / end inputs are clicked,
+  // queue them up to be changed on the next map click
+  document
+    .getElementById(HtmlElementId.PanelParent)
+    ?.addEventListener('click', (event: Event) => {
+      const target = event.target as HTMLElement;
+      switch (target.id) {
+        case HtmlElementId.StartInput:
+        case HtmlElementId.EndInput:
+          $selectedInput.set(target.id);
+          break;
+        default:
+      }
+    });
+}
+
 /**
  * Creates a Leaflet control, creates the html element representing it,
  * and instantiates all the html
@@ -100,76 +126,11 @@ const render = (map: L.Map) => {
 
   control.addTo(map);
 
-  // now, set up the initial view + render the appropriate panel
+  // set up the initial view + render the appropriate panel
   setSelectedMode($mode.get());
   renderPanel($mode.get(), null);
 
-  // subscribe control to state changes
-  // updates to the mode should cause the appropriate panel to be rendered
-  $mode.listen(renderPanel);
-
-  // updates markers should tie them to the relevant element
-  $startMarker.listen(onMarkerChange(HtmlElementId.StartInput));
-  $endMarker.listen(onMarkerChange(HtmlElementId.EndInput));
-
-  // bind elements to publish to state
-  // bind mode select changes to $mode state
-  document
-    .getElementById(HtmlElementId.ModeSelect)
-    ?.addEventListener('change', (event: Event) => {
-      $mode.set((event.target as HTMLSelectElement).value as Mode);
-    });
-
-  // bind the panel's bubbled up change events to the appropriate state changes
-  document
-    .getElementById(HtmlElementId.PanelParent)
-    ?.addEventListener('change', (event: Event) => {
-      const target = event.target as HTMLElement;
-
-      switch (target.id) {
-        // Traversal DOM event handlers
-        case HtmlElementId.DepthRange:
-          {
-            const value = (target as HTMLInputElement).value;
-
-            const depthValue = document.getElementById(
-              HtmlElementId.DepthValue
-            );
-            if (!depthValue) throw "depthValue wasn't ready";
-
-            depthValue.innerText = value;
-            $depth.set(Number(value));
-          }
-          break;
-        case HtmlElementId.PaintSelect:
-          {
-            const paint = (target as HTMLSelectElement).value as PaintOptions;
-            $paint.set(paint);
-          }
-          break;
-
-        // Routing
-        // TODO: trigger geosearch on start / end input values changed
-
-        default:
-          console.error(`no onChange event handler for ${target.id}`);
-      }
-    });
-
-  document
-    .getElementById(HtmlElementId.PanelParent)
-    ?.addEventListener('click', (event: Event) => {
-      const target = event.target as HTMLElement;
-      switch (target.id) {
-        // when the Routing start / end inputs are clicked,
-        // queue them up to be changed on the next map click
-        case HtmlElementId.StartInput:
-        case HtmlElementId.EndInput:
-          $selectedInput.set(target.id);
-          break;
-        default:
-      }
-    });
+  addReactivity();
 };
 
 export default {

@@ -50,10 +50,13 @@ $click.listen((event: LeafletMouseEvent | null) => {
 
   // if no start marker, lay that down
   const start = $startMarker.get();
+  const end = $endMarker.get();
   if (!start) {
     $startMarker.set(marker);
-  } else {
-    // otherwise, move the end marker
+  } else if (!end) {
+    // otherwise if no end marker, move the end marker
     $endMarker.set(marker);
   }
+
+  // rely on dragging / clicking user input field to change marker location
 });
