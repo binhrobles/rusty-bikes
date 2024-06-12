@@ -11,11 +11,28 @@ import { $markerLatLng as $traversalMarkerLatLng, $depth } from './traverse.ts';
 import { $startMarkerLatLng, $endMarkerLatLng } from './route.ts';
 import { $clickTime } from './map.ts';
 import { $mode } from './mode.ts';
+import { $coefficients, $heuristicWeight, CostModel } from './cost.ts';
 
 // number of significant figs to truncate our coords to
 // the OSM data only has up to 7 figures precision
 // using more might be making our spatial queries wack
 const COORD_SIG_FIGS = 7;
+
+// maybe make these configurable
+const HARDCODED_WEIGHTS = {
+  cycleway_weights: {
+    Shared: 1.5,
+    Lane: 1.0,
+    Track: 0.5,
+  },
+  road_weights: {
+    Pedestrian: 1.2,
+    Bike: 0.5,
+    Local: 1.2,
+    Collector: 1.4,
+    Arterial: 2,
+  },
+};
 
 type ServerResponse = {
   traversal: FeatureCollection;
@@ -24,7 +41,9 @@ type ServerResponse = {
 
 const fetchTraversal = async (
   latLng: L.LatLng,
-  depth: number
+  depth: number,
+  costModel: CostModel,
+  heuristicWeight: number
 ): Promise<ServerResponse> => {
   const { lat, lng } = latLng;
   const res = await fetch(`${RUSTY_BASE_URL}/traverse`, {
@@ -36,6 +55,11 @@ const fetchTraversal = async (
       lat: Number(lat.toFixed(COORD_SIG_FIGS)),
       lon: Number(lng.toFixed(COORD_SIG_FIGS)),
       depth,
+      heuristic_weight: heuristicWeight,
+      cost_model: {
+        ...costModel,
+        ...HARDCODED_WEIGHTS,
+      },
     }),
   });
   console.log(`raw fetched @ ${Date.now() - $clickTime.get()}`);
@@ -45,7 +69,9 @@ const fetchTraversal = async (
 const fetchRoute = async (
   startLatLng: L.LatLng,
   endLatLng: L.LatLng,
-  withTraversal: boolean
+  withTraversal: boolean,
+  costModel: CostModel,
+  heuristicWeight: number
 ): Promise<ServerResponse> => {
   const { lng: startLon, lat: startLat } = startLatLng;
   const { lng: endLon, lat: endLat } = endLatLng;
@@ -65,6 +91,11 @@ const fetchRoute = async (
         lon: Number(endLon.toFixed(COORD_SIG_FIGS)),
       },
       with_traversal: withTraversal,
+      heuristic_weight: heuristicWeight,
+      cost_model: {
+        ...costModel,
+        ...HARDCODED_WEIGHTS,
+      },
     }),
   });
   console.log(`raw fetched @ ${Date.now() - $clickTime.get()}`);
@@ -73,14 +104,35 @@ const fetchRoute = async (
 
 // make a fetch request whenever all conditions for the $mode have been met
 export const $raw = batched(
-  [$mode, $traversalMarkerLatLng, $depth, $startMarkerLatLng, $endMarkerLatLng],
-  (mode, traversalLatLng, depth, startLatLng, endLatLng) =>
+  [
+    $mode,
+    $traversalMarkerLatLng,
+    $depth,
+    $startMarkerLatLng,
+    $endMarkerLatLng,
+    $coefficients,
+    $heuristicWeight,
+  ],
+  (
+    mode,
+    traversalLatLng,
+    depth,
+    startLatLng,
+    endLatLng,
+    costModel,
+    heuristicWeight
+  ) =>
     task(async () => {
       console.log(`fetch beginning @ ${Date.now() - $clickTime.get()}`);
 
       if (mode === Mode.Traverse && traversalLatLng) {
         try {
-          return await fetchTraversal(traversalLatLng, depth);
+          return await fetchTraversal(
+            traversalLatLng,
+            depth,
+            costModel,
+            heuristicWeight
+          );
         } catch (e) {
           console.error('failed to fetch traversal: ', e);
           return null;
@@ -94,7 +146,9 @@ export const $raw = batched(
           return await fetchRoute(
             startLatLng,
             endLatLng,
-            mode === Mode.RouteViz
+            mode === Mode.RouteViz,
+            costModel,
+            heuristicWeight
           );
         } catch (e) {
           console.error('failed to fetch traversal: ', e);

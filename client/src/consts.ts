@@ -23,15 +23,19 @@ export enum PropKey {
 
 // typo mitigation
 export enum HtmlElementId {
+  CostConfigParent = 'cost-config-parent',
   CyclewayCoefficientRange = 'cycleway-coefficient-range',
   DepthRange = 'depth-range',
   DepthValue = 'depth-value',
   EndInput = 'end-input',
+  HeuristicWeightRange = 'heuristic-weight-range',
   ModeSelect = 'mode-select',
   PaintSelect = 'paint-select',
   PanelParent = 'panel-parent',
+  RoadCoefficientRange = 'road-coefficient-range',
   RoutePanel = 'route-panel',
   StartInput = 'start-input',
+  SalmonCoefficientRange = 'salmon-coefficient-range',
   TraversePanel = 'traverse-panel',
 }
 
@@ -63,10 +67,12 @@ export enum PaintOptions {
 export const TraversalDefaults = {
   depth: 20,
   paint: PaintOptions.Depth,
-  clickHint: 'Click Somewhere!',
   stepDelayMs: 75,
 };
 
 export const CostDefaults = {
-  CyclewayCoefficient: 0.4,
+  CyclewayCoefficient: 0.3,
+  RoadCoefficient: 0.4,
+  SalmonCoefficient: 0.3,
+  HeuristicWeight: 0.75,
 };

@@ -23,6 +23,7 @@ Handlebars.registerHelper('isEndNode', (id) => id === -2);
 Handlebars.registerHelper('abs', (id) => Math.abs(Number(id)));
 
 import debugPopupTemplate from '../templates/debug_popup.hbs?raw';
+import { $coefficients } from './cost.ts';
 const compiledDebugPopupTemplate = Handlebars.compile(debugPopupTemplate);
 
 export const addDebugClick = (feature: Feature, layer: L.Layer) => {
@@ -63,9 +64,8 @@ const $routeStyle = computed($mode, (mode) => {
       return {};
     }
 
-    let className = `route-depth-${feature.properties[PropKey.Depth]} step-${
-      feature.properties[PropKey.Index]
-    }`;
+    let className = `route-depth-${feature.properties[PropKey.Depth]} step-${feature.properties[PropKey.Index]
+      }`;
     if (mode === Mode.RouteViz) className += ' svg-path';
 
     return {
@@ -97,14 +97,15 @@ const ensureDepthAnimationClassesExist = (depth: number) => {
 };
 
 const $traversalStyle = computed(
-  [$mode, $paint, $depth],
-  (mode, paint, depth) => {
+  [$mode, $paint, $depth, $coefficients],
+  (mode, paint, depth, coefficients) => {
     const rainbow = new Rainbow();
 
     let color = (_properties: Record<string, number>): string => '#F26F75';
 
     if (mode === Mode.RouteViz) {
-      rainbow.setNumberRange(0.6, 1.5); // TODO: somewhat arbitrary view of cost, may need to be dynamic w/ custom model
+      const maxishCost = Object.values(coefficients).reduce((s, n) => s + n, 0) * 1.5;
+      rainbow.setNumberRange(0.6, maxishCost);
       rainbow.setSpectrum('#2BEA01', '#A9A9A9', 'red');
       color = (properties) =>
         `#${rainbow.colourAt(
@@ -152,14 +153,12 @@ const $traversalStyle = computed(
   }
 );
 
-export const $featureGroup = computed(
+export const $traversalLayer = computed(
   [$clickTime, $raw, $paint],
   (clickTime, json, _paint) => {
-    const featureGroup = new L.FeatureGroup([]);
-
     // if no geojson or if the new map click happened recently,
     // return an empty feature group / clear the map
-    if (!json || Date.now() - clickTime < 10) return featureGroup;
+    if (!json || Date.now() - clickTime < 10 || !json.traversal) return null;
 
     // if we're doing the fancy route viz thingy, just quickly ensure that classes to this depth exist
     // we need to do this _before_ traversal gets created / added to the DOM
@@ -171,30 +170,31 @@ export const $featureGroup = computed(
     }
 
     // if traversal exists, paint it
-    if (json.traversal) {
-      L.geoJSON(json.traversal, {
-        style: $traversalStyle.get(),
-        onEachFeature: addDebugClick,
-        bubblingMouseEvents: false,
-      }).addTo(featureGroup);
-    }
+    return L.geoJSON(json.traversal, {
+      style: $traversalStyle.get(),
+      onEachFeature: addDebugClick,
+      bubblingMouseEvents: false,
+    });
+  }
+);
+export const $routeLayer = computed(
+  [$clickTime, $raw, $paint],
+  (clickTime, json, _paint) => {
+    // if no geojson or if the new map click happened recently,
+    // return an empty feature group / clear the map
+    if (!json || Date.now() - clickTime < 10 || !json.route) return null;
 
-    // if route exists, paint it
-    if (json.route) {
-      L.geoJSON(json.route, {
-        style: $routeStyle.get(),
-        onEachFeature: addDebugClick,
-        bubblingMouseEvents: false,
-      }).addTo(featureGroup);
-    }
-
-    return featureGroup;
+    return L.geoJSON(json.route, {
+      style: $routeStyle.get(),
+      onEachFeature: addDebugClick,
+      bubblingMouseEvents: false,
+    });
   }
 );
 
 // callback invoked after the feature group has been added to the Dom
 // animates traversals
-export const onFeatureGroupAdded = async () => {
+export const onGeoJsonAdded = async () => {
   const mode = $mode.get();
 
   // if RouteViz, get the depth and step count from the last step in the route response
