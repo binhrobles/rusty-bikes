@@ -1,35 +1,35 @@
 import L from 'leaflet';
-import Handlebars from 'handlebars';
+import { SvelteComponent } from 'svelte';
 
-import controlTemplate from '../templates/cost_control.hbs?raw';
-import { CostDefaults, HtmlElementId } from '../consts';
-import cost from '../store/cost';
-const compiledControlTemplate = Handlebars.compile(controlTemplate);
+import CostPanel from '../components/CostPanel.svelte';
 
 /**
- * Creates a Leaflet control for the cost model config
- * creates the html element representing it and instantiates all the html
+ * Creates a Leaflet control for the cost model config and adds it to the map
  */
 const render = (map: L.Map) => {
-  // scaffold the leaflet control w/ a static initial div
   const control = new L.Control({ position: 'topleft' });
 
+  let costComponent: SvelteComponent;
   control.onAdd = () => {
-    const controlDiv = L.DomUtil.create('div', 'cost-control control');
+    const controlDiv = L.DomUtil.create('div', 'control');
     L.DomEvent.disableClickPropagation(controlDiv).disableScrollPropagation(
       controlDiv
     );
 
-    controlDiv.innerHTML = compiledControlTemplate({
-      HtmlElementId,
-      CostDefaults,
+    costComponent = new CostPanel({
+      target: controlDiv,
     });
+
     return controlDiv;
   };
 
-  control.addTo(map);
+  control.onRemove = () => {
+    if (costComponent) {
+      costComponent.$destroy();
+    }
+  }
 
-  cost.bind();
+  control.addTo(map);
 }
 
 export default {

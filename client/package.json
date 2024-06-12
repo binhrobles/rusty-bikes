@@ -8,10 +8,13 @@
     "lint": "eslint .",
     "build": "tsc && vite build",
     "preview": "vite preview",
-    "depcruise": "depcruise src --include-only \"^src\" --output-type dot | dot -T svg > dependency-graph.svg"
+    "depcruise": "depcruise src --include-only \"^src\" --output-type dot | dot -T svg > dependency-graph.svg",
+    "check": "svelte-check --tsconfig ./tsconfig.json"
   },
   "devDependencies": {
     "@stylistic/eslint-plugin": "^2.1.0",
+    "@sveltejs/vite-plugin-svelte": "^3.1.1",
+    "@tsconfig/svelte": "^5.0.4",
     "@types/geojson": "^7946.0.14",
     "@types/leaflet": "^1.9.12",
     "dependency-cruiser": "^16.3.2",
@@ -21,6 +24,8 @@
     "geojson": "^0.5.0",
     "globals": "^15.3.0",
     "prettier": "^3.2.5",
+    "svelte": "^4.2.18",
+    "svelte-check": "^3.8.0",
     "typescript": "^5.2.2",
     "vite": "^5.2.0",
     "vite-plugin-eslint": "^1.8.1",

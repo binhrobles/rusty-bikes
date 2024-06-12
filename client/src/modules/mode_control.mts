@@ -115,7 +115,7 @@ const render = (map: L.Map) => {
   const control = new L.Control({ position: 'topleft' });
 
   control.onAdd = () => {
-    const controlDiv = L.DomUtil.create('div', 'mode-control control');
+    const controlDiv = L.DomUtil.create('div', 'control');
     L.DomEvent.disableClickPropagation(controlDiv).disableScrollPropagation(
       controlDiv
     );

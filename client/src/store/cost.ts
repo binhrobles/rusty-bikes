@@ -1,58 +1,31 @@
-import { atom, map } from 'nanostores'
-import { CostDefaults, HtmlElementId } from '../consts';
+import { atom, map } from 'nanostores';
+import { CostDefaults } from '../consts';
 
 export type CostModel = {
-  cycleway_coefficient: number,
-  road_coefficient: number,
-  salmon_coefficient: number,
-}
+  cycleway_coefficient: number;
+  road_coefficient: number;
+  salmon_coefficient: number;
+};
 
-export const $coefficients = map<CostModel>({
+const defaultCostModel: CostModel = {
   cycleway_coefficient: CostDefaults.CyclewayCoefficient,
   road_coefficient: CostDefaults.RoadCoefficient,
   salmon_coefficient: CostDefaults.SalmonCoefficient,
-});
+};
 
 export const $heuristicWeight = atom<number>(CostDefaults.HeuristicWeight);
+export const $coefficients = map<CostModel>(defaultCostModel);
 
-// bind the panel's bubbled up change events to the appropriate state changes
-export const bind = () => {
-  document
-    .getElementById(HtmlElementId.CostConfigParent)
-    ?.addEventListener('change', (event: Event) => {
-      const target = event.target as HTMLElement;
-
-      switch (target.id) {
-        case HtmlElementId.HeuristicWeightRange:
-          {
-            const value = (target as HTMLInputElement).value;
-            $heuristicWeight.set(Number(value));
-          }
-          break;
-        case HtmlElementId.CyclewayCoefficientRange:
-          {
-            const value = (target as HTMLInputElement).value;
-            $coefficients.setKey('cycleway_coefficient', Number(value));
-          }
-          break;
-        case HtmlElementId.RoadCoefficientRange:
-          {
-            const value = (target as HTMLInputElement).value;
-            $coefficients.setKey('road_coefficient', Number(value));
-          }
-          break;
-        case HtmlElementId.SalmonCoefficientRange:
-          {
-            const value = (target as HTMLInputElement).value;
-            $coefficients.setKey('salmon_coefficient', Number(value));
-          }
-          break;
-      }
-
-      console.log(`updated cost model: ${JSON.stringify($coefficients.get(), null, 2)}`);
-    });
-}
-
-export default {
-  bind,
-}
+// helper functions to just update the key in the model
+export const updateCycleway = (event: Event) => {
+  const value = Number((event.target as HTMLInputElement).value);
+  $coefficients.setKey('cycleway_coefficient', value);
+};
+export const updateRoad = (event: Event) => {
+  const value = Number((event.target as HTMLInputElement).value);
+  $coefficients.setKey('road_coefficient', value);
+};
+export const updateSalmon = (event: Event) => {
+  const value = Number((event.target as HTMLInputElement).value);
+  $coefficients.setKey('salmon_coefficient', value);
+};
