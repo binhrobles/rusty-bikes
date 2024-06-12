@@ -30,7 +30,7 @@ impl Default for CostModel {
         Self {
             cycleway_coefficient: 0.3,
             road_coefficient: 0.4,
-            salmon_coefficient: 0.3,
+            salmon_coefficient: 1.3,
 
             cycleway_weights: HashMap::from([
                 (Cycleway::Track, 0.5),
@@ -63,9 +63,9 @@ impl CostModel {
                 let cycleway_cost =
                     self.cycleway_coefficient * self.cycleway_weights.get(cycleway).unwrap();
                 let road_cost = self.road_coefficient * self.road_weights.get(road).unwrap();
-                let salmon_cost = if salmon { self.salmon_coefficient } else { 0.0 };
+                let salmon_cost = if salmon { self.salmon_coefficient } else { 1.0 };
 
-                let cost = (cycleway_cost + road_cost + salmon_cost) * length as f32;
+                let cost = (cycleway_cost + road_cost) * salmon_cost * length as f32;
 
                 (cost, labels)
             }

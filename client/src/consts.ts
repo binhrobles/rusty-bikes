@@ -73,6 +73,6 @@ export const TraversalDefaults = {
 export const CostDefaults = {
   CyclewayCoefficient: 0.3,
   RoadCoefficient: 0.4,
-  SalmonCoefficient: 0.3,
+  SalmonCoefficient: 1.3,
   HeuristicWeight: 0.75,
 };
