@@ -1,5 +1,4 @@
 import L from 'leaflet';
-import { SvelteComponent } from 'svelte';
 
 import CostPanel from '../components/CostPanel.svelte';
 
@@ -9,25 +8,18 @@ import CostPanel from '../components/CostPanel.svelte';
 const render = (map: L.Map) => {
   const control = new L.Control({ position: 'topleft' });
 
-  let costComponent: SvelteComponent;
   control.onAdd = () => {
     const controlDiv = L.DomUtil.create('div', 'control');
     L.DomEvent.disableClickPropagation(controlDiv).disableScrollPropagation(
       controlDiv
     );
 
-    costComponent = new CostPanel({
+    new CostPanel({
       target: controlDiv,
     });
 
     return controlDiv;
   };
-
-  control.onRemove = () => {
-    if (costComponent) {
-      costComponent.$destroy();
-    }
-  }
 
   control.addTo(map);
 }

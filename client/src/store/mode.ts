@@ -2,7 +2,7 @@
  * Global `mode` of the app
  */
 import { atom } from 'nanostores';
-import { HtmlElementId, Mode } from '../consts.ts';
+import { Mode } from '../consts.ts';
 
 /*
  * Checks if the `mode` queryParam has been set to a valid Mode option,
@@ -18,16 +18,3 @@ const determineFirstMode = (): Mode => {
 };
 
 export const $mode = atom<Mode>(determineFirstMode());
-
-// bind mode select changes to $mode state
-const bind = () => {
-  document
-    .getElementById(HtmlElementId.ModeSelect)
-    ?.addEventListener('change', (event: Event) => {
-      $mode.set((event.target as HTMLSelectElement).value as Mode);
-    });
-};
-
-export default {
-  bind,
-};
