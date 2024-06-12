@@ -3,11 +3,6 @@ body {
   background-color: #C4B6A6;
 }
 
-#map {
-  height: 90vh;
-  width: 100vw;
-}
-
 #depth-range {
   width: 200px;
 }

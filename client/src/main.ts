@@ -1,8 +1,8 @@
 import './style.css';
+import App from './App.svelte'
 
-import map from './modules/map.mjs';
-import mode_control from './modules/mode_control.mjs';
-import cost_control from './modules/cost_control.mjs';
+const app = new App({
+  target: document.getElementById('app')!,
+})
 
-mode_control.render(map);
-cost_control.render(map);
+export default app;
