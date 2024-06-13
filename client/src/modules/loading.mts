@@ -1,12 +1,12 @@
 import L from 'leaflet';
 
-import Control from '../components/Control.svelte';
+import LoadingIndicator from '../components/LoadingIndicator.svelte';
 
 /**
  * Creates a Leaflet control for the cost model config and adds it to the map
  */
-export const addPathfindingControl = (map: L.Map) => {
-  const control = new L.Control({ position: 'topleft' });
+export const addLoadingControl = (map: L.Map) => {
+  const control = new L.Control({ position: 'topright' });
 
   control.onAdd = () => {
     const controlDiv = L.DomUtil.create('div');
@@ -14,7 +14,7 @@ export const addPathfindingControl = (map: L.Map) => {
       controlDiv
     );
 
-    new Control({
+    new LoadingIndicator({
       target: controlDiv,
     });
 

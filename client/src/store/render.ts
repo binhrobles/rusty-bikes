@@ -32,13 +32,13 @@ export const addDebugClick = (feature: Feature, layer: L.Layer) => {
 };
 
 const getRouteDepthAndSteps = () => {
-  const features = $raw.get()?.route?.features;
-  if (!features) return {};
+  const raw = $raw.get();
+  if (!raw) return {};
 
-  const properties = features[features.length - 1].properties;
+  const properties = raw?.route?.features[raw?.route?.features.length - 1].properties;
 
   if (!properties) return {};
-  const depth: number = properties[PropKey.Depth];
+  const depth: number = raw.meta.max_depth;
   const steps: number = properties[PropKey.Index];
 
   return { depth, steps };
@@ -142,7 +142,7 @@ export const $routeLayer = computed([$raw], (json) => {
 export const onGeoJsonAdded = async () => {
   const withTraversal = $withTraversal.get();
 
-  // if visualizing traversal, get the depth and step count from the last step in the route response
+  // if visualizing traversal, get the depth and step count from the route response
   // and paint route animation in reverse from end to start
   if (withTraversal) {
     const features = $raw.get()?.route?.features;

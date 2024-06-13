@@ -3,6 +3,7 @@
 
   import { addLayerControl, createMap, configureBindings } from './modules/map.mts';
   import { addPathfindingControl } from './modules/control.mts';
+  import { addLoadingControl } from './modules/loading.mts';
   import { RUSTY_BASE_URL } from './config.ts';
 
   let map;
@@ -12,6 +13,7 @@
     configureBindings(map);
     addPathfindingControl(map);
     addLayerControl(map);
+    addLoadingControl(map);
 
     return {
       destroy: () => {
