@@ -4,7 +4,8 @@ use lambda_http::{
     run, service_fn, Body, Error as LambdaError, Request, RequestExt, RequestPayloadExt, Response,
 };
 use rusty_router::osm::Location;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
+use serde_json::Value;
 use tracing::{error, info};
 
 use rusty_router::geojson;
@@ -55,6 +56,11 @@ struct TraversalParams {
     heuristic_weight: Option<Weight>,
 }
 
+#[derive(Serialize)]
+struct TraversalResponse {
+    traversal: Value,
+}
+
 fn traverse_handler(graph: &Graph, event: Request) -> Result<String, anyhow::Error> {
     let params = event
         .payload::<TraversalParams>()?
@@ -66,18 +72,25 @@ fn traverse_handler(graph: &Graph, event: Request) -> Result<String, anyhow::Err
     }
 
     let traversal = graph
-        .traverse_from(starting_coord, params.depth, params.cost_model, params.heuristic_weight)
+        .traverse_from(
+            starting_coord,
+            params.depth,
+            params.cost_model,
+            params.heuristic_weight,
+        )
         .map_err(|e| {
             error!("Routing Error: {e}");
             e
         })?;
-
     let traversal = geojson::serialize_traversal_geoms(&traversal).map_err(|e| {
         error!("Serialization Error: {e}");
         e
     })?;
 
-    Ok(format!("{{ \"traversal\": {traversal} }}"))
+    let response = TraversalResponse { traversal };
+
+    // TODO: vec -> string -> json::Value -> string ?
+    Ok(serde_json::to_string(&response)?)
 }
 
 #[derive(Debug, Deserialize)]
@@ -87,6 +100,12 @@ struct RouteParams {
     with_traversal: Option<bool>,
     cost_model: Option<CostModel>,
     heuristic_weight: Option<Weight>,
+}
+
+#[derive(Serialize)]
+struct RouteResponse {
+    route: Value,
+    traversal: Option<Value>,
 }
 
 fn route_handler(graph: &Graph, event: Request) -> Result<String, anyhow::Error> {
@@ -116,18 +135,17 @@ fn route_handler(graph: &Graph, event: Request) -> Result<String, anyhow::Error>
         error!("Serialization Error: {e}");
         e
     })?;
-    let traversal = match traversal {
-        Some(t) => geojson::serialize_traversal_geoms(&t).map_err(|e| {
-            error!("Serialization Error: {e}");
-            e
-        })?,
-        None => "null".to_string(),
-    };
+    let traversal = traversal
+        .map(|t| {
+            geojson::serialize_traversal_geoms(&t).map_err(|e| {
+                error!("Serialization Error: {e}");
+                e
+            })
+        })
+        .transpose()?;
 
-    // TODO: oh god how do we use struct serialization to help us here
-    //       had issues trying to leverage the geojson serialization helpers in a custom
-    //       Serializer impl for a RouteResponse struct
-    Ok(format!(
-        "{{ \"route\": {route}, \"traversal\": {traversal} }}"
-    ))
+    let response = RouteResponse { route, traversal };
+
+    // TODO: vec -> string -> json::Value -> string ?
+    Ok(serde_json::to_string(&response)?)
 }

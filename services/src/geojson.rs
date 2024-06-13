@@ -4,6 +4,7 @@ use crate::osm::{Distance, NodeId, WayId, WayLabels};
 use geo::{Coord, LineString};
 use geojson::ser::serialize_geometry;
 use serde::{Serialize, Serializer};
+use serde_json::Value;
 
 #[derive(Serialize, Clone, Debug)]
 pub struct Route {
@@ -101,11 +102,15 @@ where
     serialize_geometry(&line_string, serializer)
 }
 
-pub fn serialize_traversal_geoms(traversal: &[TraversalSegment]) -> Result<String, anyhow::Error> {
-    Ok(geojson::ser::to_feature_collection_string(traversal)?)
+pub fn serialize_traversal_geoms(traversal: &[TraversalSegment]) -> Result<Value, anyhow::Error> {
+    Ok(serde_json::from_str(
+        &geojson::ser::to_feature_collection_string(traversal)?,
+    )?)
 }
 
-pub fn serialize_route_geom(segments: &[TraversalSegment]) -> Result<String, anyhow::Error> {
+pub fn serialize_route_geom(segments: &[TraversalSegment]) -> Result<Value, anyhow::Error> {
     let route: Route = segments.into();
-    Ok(geojson::ser::to_feature_collection_string(&route.steps)?)
+    Ok(serde_json::from_str(
+        &geojson::ser::to_feature_collection_string(&route.steps)?,
+    )?)
 }
