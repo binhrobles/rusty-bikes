@@ -27,6 +27,7 @@ curl http://localhost:9000/lambda-url/lambda-handler/traverse?lat=40.68376227690
 6. [Hosting](#hosting)
 
 ![system diagram](./system_diagram.png)
+![service architecture](./service_arch.png)
 
 ### Leveraging OSM Data
 
