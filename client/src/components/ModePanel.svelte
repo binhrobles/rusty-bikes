@@ -5,9 +5,6 @@
   import { $mode as m } from '../store/mode.ts';
 </script>
 
-<h4>Rusty Bikes</h4>
-<br />
-
 <label for="mode-select">Mode:</label>
 <select name="mode-select" id="mode-select" bind:value={$m}>
   {#each Object.keys(ModeMeta) as key }

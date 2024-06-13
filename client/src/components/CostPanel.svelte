@@ -14,9 +14,6 @@
   const { cycleway_coefficient, road_coefficient, salmon_coefficient } = cd.get();
 </script>
 
-<h4>Pathfinding Configuration</h4>
-<br />
-
 {#if $m !== Mode.Traverse}
 <span>Algorithm Directness</span>
 <br />
