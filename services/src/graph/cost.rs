@@ -1,5 +1,5 @@
 use super::Graph;
-use crate::osm::{Cycleway, Distance, Road, WayId, WayLabels};
+use crate::osm::{Cycleway, Road, WayId, WayLabels};
 use serde::{Deserialize, Serializer};
 use std::collections::HashMap;
 use tracing::error;
@@ -49,7 +49,7 @@ impl Default for CostModel {
 }
 
 impl CostModel {
-    pub fn calculate_cost(&self, graph: &Graph, way: WayId, length: Distance) -> (Cost, WayLabels) {
+    pub fn calculate_cost(&self, graph: &Graph, way: WayId) -> (Cost, WayLabels) {
         match graph.get_way_labels(way) {
             Err(e) => {
                 // shouldn't error...but if we do just return an absurd cost
@@ -65,7 +65,7 @@ impl CostModel {
                 let road_cost = self.road_coefficient * self.road_weights.get(road).unwrap();
                 let salmon_cost = if salmon { self.salmon_coefficient } else { 1.0 };
 
-                let cost = (cycleway_cost + road_cost) * salmon_cost * length as f32;
+                let cost = (cycleway_cost + road_cost) * salmon_cost;
 
                 (cost, labels)
             }

@@ -9,7 +9,7 @@ use serde_json::Value;
 use tracing::{error, info};
 
 use rusty_router::geojson;
-use rusty_router::graph::{CostModel, Graph, Weight};
+use rusty_router::graph::{CostModel, Graph, RouteMetadata, Weight};
 
 // create a singleton of the Graph struct on lambda boot
 thread_local! {
@@ -106,6 +106,7 @@ struct RouteParams {
 struct RouteResponse {
     route: Value,
     traversal: Option<Value>,
+    meta: RouteMetadata
 }
 
 fn route_handler(graph: &Graph, event: Request) -> Result<String, anyhow::Error> {
@@ -118,7 +119,7 @@ fn route_handler(graph: &Graph, event: Request) -> Result<String, anyhow::Error>
         info!("custom cost model: {:#?}", cost_model);
     }
 
-    let (route, traversal) = graph
+    let (route, traversal, meta) = graph
         .route_between(
             params.start.into(),
             params.end.into(),
@@ -144,7 +145,7 @@ fn route_handler(graph: &Graph, event: Request) -> Result<String, anyhow::Error>
         })
         .transpose()?;
 
-    let response = RouteResponse { route, traversal };
+    let response = RouteResponse { route, traversal, meta };
 
     // TODO: vec -> string -> json::Value -> string ?
     Ok(serde_json::to_string(&response)?)

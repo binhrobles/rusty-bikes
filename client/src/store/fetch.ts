@@ -31,13 +31,15 @@ const HARDCODED_WEIGHTS = {
   },
 };
 
+export type RouteMetadata = {
+  max_depth: number;
+  cost_range: number[];
+}
+
 type ServerResponse = {
   traversal: FeatureCollection;
   route: FeatureCollection;
-  // TODO: meta: {
-  //   max_depth: number,
-  //   cost_range: number[],
-  // }
+  meta: RouteMetadata;
 };
 
 const fetchRoute = async (

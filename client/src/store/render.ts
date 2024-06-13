@@ -10,8 +10,7 @@ const { stepDelayMs } = TraversalDefaults;
 
 import Rainbow from 'rainbowvis.js';
 
-import { $raw } from './fetch.ts';
-import { $coefficients } from './cost.ts';
+import { $raw, RouteMetadata } from './fetch.ts';
 import { $withTraversal } from './route.ts';
 
 export const addDebugClick = (feature: Feature, layer: L.Layer) => {
@@ -32,8 +31,6 @@ export const addDebugClick = (feature: Feature, layer: L.Layer) => {
   }
 };
 
-// get the depth and step count from the last step in the route response
-// TODO: this assumes the last feature is the deepest
 const getRouteDepthAndSteps = () => {
   const features = $raw.get()?.route?.features;
   if (!features) return {};
@@ -54,9 +51,8 @@ const $routeStyle = computed($withTraversal, (withTraversal) => {
       return {};
     }
 
-    let className = `route-depth-${feature.properties[PropKey.Depth]} step-${
-      feature.properties[PropKey.Index]
-    }`;
+    let className = `route-depth-${feature.properties[PropKey.Depth]} step-${feature.properties[PropKey.Index]
+      }`;
     if (withTraversal) className += ' svg-path';
 
     return {
@@ -87,22 +83,20 @@ const ensureDepthAnimationClassesExist = (depth: number) => {
   }
 };
 
-const $traversalStyle = computed([$coefficients], (coefficients) => {
+const getTraversalStyleFunc = (meta: RouteMetadata) => {
+  const { max_depth, cost_range } = meta;
   const rainbow = new Rainbow();
 
   let color = (_properties: Record<string, number>): string => '#F26F75';
 
-  const maxishCost =
-    Object.values(coefficients).reduce((s, n) => s + n, 0) * 1.5;
-  rainbow.setNumberRange(0.6, maxishCost);
-  rainbow.setSpectrum('#2BEA01', '#A9A9A9', 'red');
+  rainbow.setNumberRange(cost_range[0], cost_range[1]);
+  rainbow.setSpectrum('#2BEA01', '#A9A9A9', '#A9A9A9', 'red');
   color = (properties) =>
     `#${rainbow.colourAt(
       properties[PropKey.Cost] / properties[PropKey.Length]
     )}`;
 
-  // TODO: get this from the traversal response metadata
-  // ensureDepthAnimationClassesExist(depth);
+  ensureDepthAnimationClassesExist(max_depth);
 
   return (feature: Feature | undefined) => {
     if (!feature?.properties) {
@@ -116,27 +110,21 @@ const $traversalStyle = computed([$coefficients], (coefficients) => {
       className: `svg-path depth-${feature.properties[PropKey.Depth]}`,
     };
   };
-});
+};
 
 export const $traversalLayer = computed([$raw], (json) => {
   // if no geojson
   // return an empty feature group / clear the map
   if (!json || !json.traversal) return null;
 
-  // just quickly ensure that classes to this depth exist
-  // we need to do this _before_ traversal gets created / added to the DOM
-  const { depth } = getRouteDepthAndSteps();
-  console.log(`got depth ${depth} from getRouteDepthAndSteps`);
-  // there's probably a catastrophic failure mode here but hey
-  if (depth) ensureDepthAnimationClassesExist(depth);
-
   // if traversal exists, paint it
   return L.geoJSON(json.traversal, {
-    style: $traversalStyle.get(),
+    style: getTraversalStyleFunc(json.meta),
     onEachFeature: addDebugClick,
     bubblingMouseEvents: false,
   });
 });
+
 export const $routeLayer = computed([$raw], (json) => {
   // if no geojson
   // return an empty feature group / clear the map

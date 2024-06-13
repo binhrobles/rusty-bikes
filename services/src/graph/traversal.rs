@@ -8,6 +8,7 @@ use serde::Serialize;
 use std::cell::RefCell;
 use std::cmp::Ordering;
 use std::collections::{BinaryHeap, HashMap};
+use std::f32::{MAX, MIN};
 
 // define a thread local variable to reference during traversal ordering
 thread_local! {
@@ -40,6 +41,8 @@ pub struct TraversalSegment {
 
     #[serde(serialize_with = "serialize_cost_simple")]
     pub cost: Cost,
+    #[serde(serialize_with = "serialize_cost_simple")]
+    pub cost_factor: Cost,
     #[serde(serialize_with = "serialize_cost_simple")]
     pub cost_so_far: Cost,
 
@@ -99,6 +102,7 @@ pub struct TraversalSegmentBuilder {
     distance_so_far: Distance,
     labels: WayLabels,
     cost: Cost,
+    cost_factor: Cost,
     cost_so_far: Cost,
     distance_remaining: Distance,
 }
@@ -117,6 +121,7 @@ impl TraversalSegmentBuilder {
             distance_so_far: to.distance,
             labels: (Cycleway::Shared, Road::Collector, false),
             cost: 0.0,
+            cost_factor: 0.0,
             cost_so_far: 0.0,
             distance_remaining: 0,
         }
@@ -136,6 +141,7 @@ impl TraversalSegmentBuilder {
             distance_so_far: length,
             labels: (Cycleway::Shared, Road::Collector, false),
             cost: 0.0,
+            cost_factor: 0.0,
             cost_so_far: 0.0,
             distance_remaining: 0,
         }
@@ -158,8 +164,9 @@ impl TraversalSegmentBuilder {
         graph: &Graph,
         cost_so_far: Cost,
     ) -> Self {
-        let (cost, labels) = cost_model.calculate_cost(graph, self.way, self.length);
-        self.cost = cost;
+        let (cost_factor, labels) = cost_model.calculate_cost(graph, self.way);
+        self.cost_factor = cost_factor;
+        self.cost = cost_factor * self.length as f32;
         self.cost_so_far = cost_so_far + self.cost;
         self.labels = labels;
         self
@@ -185,6 +192,7 @@ impl TraversalSegmentBuilder {
             distance_so_far: self.distance_so_far,
             labels: self.labels,
             cost: self.cost,
+            cost_factor: self.cost_factor,
             cost_so_far: self.cost_so_far,
             distance_remaining: self.distance_remaining,
         }
@@ -195,6 +203,9 @@ pub struct TraversalContext {
     pub queue: BinaryHeap<TraversalSegment>,
     pub came_from: HashMap<NodeId, TraversalSegment>,
     pub cost_model: CostModel,
+
+    pub max_depth: Depth,
+    pub cost_range: (Cost, Cost),
 }
 
 impl TraversalContext {
@@ -207,6 +218,8 @@ impl TraversalContext {
             queue: BinaryHeap::new(),
             came_from: HashMap::new(),
             cost_model: cost_model.unwrap_or_default(),
+            max_depth: 0,
+            cost_range: (MAX, MIN),
         }
     }
 
@@ -266,6 +279,7 @@ pub fn traverse_between(
                 .with_depth(current.depth + 1)
                 .with_prev_distance(current.distance_so_far)
                 .build();
+            context.max_depth = current.depth + 1;
             context.came_from.insert(END_NODE_ID, segment);
             return Ok(());
         }
@@ -279,6 +293,8 @@ pub fn traverse_between(
                 .calculate_cost(&context.cost_model, graph, current.cost_so_far)
                 .with_heuristic(end_node)
                 .build();
+            context.cost_range.0 = context.cost_range.0.min(segment.cost_factor);
+            context.cost_range.1 = context.cost_range.1.max(segment.cost_factor);
 
             if let Some(existing_segment) = context.came_from.get(&neighbor.node.id) {
                 // if we already have a path to this neighbor, compare costs, take the cheaper
@@ -306,6 +322,7 @@ pub fn traverse_from(
 ) -> Result<(), anyhow::Error> {
     while let Some(current) = context.queue.pop() {
         if current.depth == max_depth {
+            context.max_depth = max_depth;
             return Ok(());
         }
 
@@ -321,6 +338,8 @@ pub fn traverse_from(
                         .with_prev_distance(current.distance_so_far)
                         .calculate_cost(&context.cost_model, graph, current.cost_so_far)
                         .build();
+                    context.cost_range.0 = context.cost_range.0.min(segment.cost_factor);
+                    context.cost_range.1 = context.cost_range.1.max(segment.cost_factor);
                     context.queue.push(segment.clone());
                     segment
                 });

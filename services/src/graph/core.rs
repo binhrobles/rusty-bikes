@@ -1,11 +1,12 @@
 /// Exposes OSM data interactions via a Graph interface
 use super::traversal::{Route, Traversal, TraversalSegment, END_NODE_ID, START_NODE_ID};
-use super::{CostModel, Weight};
+use super::{Cost, CostModel, Depth, Weight};
 use crate::db;
 use crate::osm::{Distance, Neighbor, Node, NodeId, WayId, WayLabels};
 use anyhow::anyhow;
 use geo::prelude::*;
 use geo::{HaversineBearing, Point};
+use serde::Serialize;
 use std::collections::VecDeque;
 use tracing::debug;
 
@@ -15,6 +16,12 @@ const SNAP_INCREMENT: f64 = 0.0002;
 #[derive(Debug)]
 pub struct Graph {
     conn: db::DBConnection,
+}
+
+#[derive(Serialize)]
+pub struct RouteMetadata {
+    max_depth: Depth,
+    cost_range: (Cost, Cost),
 }
 
 impl Graph {
@@ -32,7 +39,7 @@ impl Graph {
         with_traversal: bool,
         cost_model: Option<CostModel>,
         heuristic_weight: Option<Weight>,
-    ) -> Result<(Route, Option<Traversal>), anyhow::Error> {
+    ) -> Result<(Route, Option<Traversal>, RouteMetadata), anyhow::Error> {
         let end_node = Node::new(END_NODE_ID, &end);
         let target_neighbors = self.guess_neighbors(end, None)?;
         let target_neighbor_node_ids: Vec<NodeId> =
@@ -61,7 +68,11 @@ impl Graph {
             None
         };
 
-        Ok((result.make_contiguous().to_vec(), traversal))
+        let meta = RouteMetadata {
+            max_depth: context.max_depth,
+            cost_range: context.cost_range,
+        };
+        Ok((result.make_contiguous().to_vec(), traversal, meta))
     }
 
     /// returns a traversal map and the relevant geometries from the start point to the depth specified
