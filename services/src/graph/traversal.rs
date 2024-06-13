@@ -279,7 +279,6 @@ pub fn traverse_between(
                 .with_depth(current.depth + 1)
                 .with_prev_distance(current.distance_so_far)
                 .build();
-            context.max_depth = current.depth + 1;
             context.came_from.insert(END_NODE_ID, segment);
             return Ok(());
         }
@@ -295,6 +294,7 @@ pub fn traverse_between(
                 .build();
             context.cost_range.0 = context.cost_range.0.min(segment.cost_factor);
             context.cost_range.1 = context.cost_range.1.max(segment.cost_factor);
+            context.max_depth = context.max_depth.max(segment.depth);
 
             if let Some(existing_segment) = context.came_from.get(&neighbor.node.id) {
                 // if we already have a path to this neighbor, compare costs, take the cheaper
