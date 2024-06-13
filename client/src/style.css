@@ -3,33 +3,6 @@ body {
   background-color: #C4B6A6;
 }
 
-#depth-range {
-  width: 200px;
-}
-
-.control {
-  width: 250px;
-  padding: 6px 8px;
-  font: 14px/16px Arial, Helvetica, sans-serif;
-  background: white;
-  background: rgba(255,255,255,0.8);
-  box-shadow: 0 0 15px rgba(0,0,0,0.2);
-  border-radius: 5px;
-}
-
-h4 {
-  margin: 0 0 5px;
-  color: #777;
-}
-
-.route-table {
-  width: 100%;
-}
-
-.route-table input {
-  width: 75%;
-}
-
 .svg-path {
   animation-name: fadein;
   animation-duration: 500ms;

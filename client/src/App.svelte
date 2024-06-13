@@ -1,18 +1,17 @@
 <script lang="ts">
   import { onMount } from 'svelte';
 
-  import { createMap, configureBindings } from './modules/map.mts';
-  import mode_control from './modules/mode_control.mts';
-  import cost_control from './modules/cost_control.mts';
+  import { addLayerControl, createMap, configureBindings } from './modules/map.mts';
+  import { addPathfindingControl } from './modules/control.mts';
   import { RUSTY_BASE_URL } from './config.ts';
 
   let map;
   const mapAction = (container) => {
     map = createMap(container);
-    configureBindings(map);
 
-    mode_control.render(map);
-    cost_control.render(map);
+    configureBindings(map);
+    addPathfindingControl(map);
+    addLayerControl(map);
 
     return {
       destroy: () => {
@@ -54,7 +53,7 @@
 
   header {
     font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
-    padding-bottom: 0.5rem;
+    padding-bottom: 1rem;
     font-size: 0.9rem;
   }
 

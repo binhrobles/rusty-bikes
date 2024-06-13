@@ -1,11 +1,11 @@
 import L from 'leaflet';
-import ModePanel from '../components/ModePanel.svelte';
+
+import Control from '../components/Control.svelte';
 
 /**
- * Creates a Leaflet control, creates the html element representing it,
- * and instantiates all the html
+ * Creates a Leaflet control for the cost model config and adds it to the map
  */
-const render = (map: L.Map) => {
+export const addPathfindingControl = (map: L.Map) => {
   const control = new L.Control({ position: 'topleft' });
 
   control.onAdd = () => {
@@ -14,7 +14,7 @@ const render = (map: L.Map) => {
       controlDiv
     );
 
-    new ModePanel({
+    new Control({
       target: controlDiv,
     });
 
@@ -22,8 +22,4 @@ const render = (map: L.Map) => {
   };
 
   control.addTo(map);
-};
-
-export default {
-  render,
-};
+}

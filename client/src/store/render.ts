@@ -4,17 +4,15 @@
 import { computed } from 'nanostores';
 import L from 'leaflet';
 import { Feature } from 'geojson';
-import { Mode, PaintOptions, PropKey, TraversalDefaults } from '../consts.ts';
+import { PropKey, TraversalDefaults } from '../consts.ts';
 import DebugPopup from '../components/DebugPopup.svelte';
 const { stepDelayMs } = TraversalDefaults;
 
 import Rainbow from 'rainbowvis.js';
 
-import { $mode } from './mode.ts';
-import { $paint, $depth } from './traverse.ts';
 import { $raw } from './fetch.ts';
-
 import { $coefficients } from './cost.ts';
+import { $withTraversal } from './route.ts';
 
 export const addDebugClick = (feature: Feature, layer: L.Layer) => {
   const featurePopupDiv = L.DomUtil.create('div', 'feature-popup');
@@ -28,7 +26,7 @@ export const addDebugClick = (feature: Feature, layer: L.Layer) => {
       target: featurePopupDiv,
       props: {
         properties: feature.properties,
-      }
+      },
     });
     layer.bindPopup(featurePopupDiv);
   }
@@ -49,20 +47,21 @@ const getRouteDepthAndSteps = () => {
   return { depth, steps };
 };
 
-const $routeStyle = computed($mode, (mode) => {
+const $routeStyle = computed($withTraversal, (withTraversal) => {
   return (feature: Feature | undefined) => {
     if (!feature?.properties) {
       console.error(`unable to style feature: ${JSON.stringify(feature)}`);
       return {};
     }
 
-    let className = `route-depth-${feature.properties[PropKey.Depth]} step-${feature.properties[PropKey.Index]
-      }`;
-    if (mode === Mode.RouteViz) className += ' svg-path';
+    let className = `route-depth-${feature.properties[PropKey.Depth]} step-${
+      feature.properties[PropKey.Index]
+    }`;
+    if (withTraversal) className += ' svg-path';
 
     return {
-      opacity: mode === Mode.RouteViz ? 0 : 1,
-      weight: mode === Mode.RouteViz ? 5 : 3,
+      opacity: withTraversal ? 0 : 1,
+      weight: withTraversal ? 5 : 3,
       className,
     };
   };
@@ -88,110 +87,76 @@ const ensureDepthAnimationClassesExist = (depth: number) => {
   }
 };
 
-const $traversalStyle = computed(
-  [$mode, $paint, $depth, $coefficients],
-  (mode, paint, depth, coefficients) => {
-    const rainbow = new Rainbow();
+const $traversalStyle = computed([$coefficients], (coefficients) => {
+  const rainbow = new Rainbow();
 
-    let color = (_properties: Record<string, number>): string => '#F26F75';
+  let color = (_properties: Record<string, number>): string => '#F26F75';
 
-    if (mode === Mode.RouteViz) {
-      const maxishCost = Object.values(coefficients).reduce((s, n) => s + n, 0) * 1.5;
-      rainbow.setNumberRange(0.6, maxishCost);
-      rainbow.setSpectrum('#2BEA01', '#A9A9A9', 'red');
-      color = (properties) =>
-        `#${rainbow.colourAt(
-          properties[PropKey.Cost] / properties[PropKey.Length]
-        )}`;
+  const maxishCost =
+    Object.values(coefficients).reduce((s, n) => s + n, 0) * 1.5;
+  rainbow.setNumberRange(0.6, maxishCost);
+  rainbow.setSpectrum('#2BEA01', '#A9A9A9', 'red');
+  color = (properties) =>
+    `#${rainbow.colourAt(
+      properties[PropKey.Cost] / properties[PropKey.Length]
+    )}`;
+
+  // TODO: get this from the traversal response metadata
+  // ensureDepthAnimationClassesExist(depth);
+
+  return (feature: Feature | undefined) => {
+    if (!feature?.properties) {
+      console.error(`unable to style feature: ${JSON.stringify(feature)}`);
+      return {};
     }
 
-    if (mode === Mode.Traverse) {
-      switch (paint) {
-        case PaintOptions.Depth:
-          rainbow.setNumberRange(1, depth);
-          break;
-        case PaintOptions.DistanceSoFar:
-          rainbow.setNumberRange(1, depth * 50);
-          break;
-        case PaintOptions.Cost:
-          rainbow.setNumberRange(0, 250);
-          rainbow.setSpectrum('green', 'yellow', 'orange', 'red');
-          break;
-        case PaintOptions.CostSoFar:
-          rainbow.setSpectrum('green', 'yellow', 'orange', 'red');
-          rainbow.setNumberRange(0, 300 * 10);
-          break;
-        default:
-      }
-
-      color = (properties) =>
-        `#${rainbow.colourAt(properties[PropKey[paint]])}`;
-    }
-
-    ensureDepthAnimationClassesExist(depth);
-
-    return (feature: Feature | undefined) => {
-      if (!feature?.properties) {
-        console.error(`unable to style feature: ${JSON.stringify(feature)}`);
-        return {};
-      }
-
-      return {
-        color: color(feature.properties),
-        opacity: 0, // start off invisible
-        className: `svg-path depth-${feature.properties[PropKey.Depth]}`,
-      };
+    return {
+      color: color(feature.properties),
+      opacity: 0, // start off invisible
+      className: `svg-path depth-${feature.properties[PropKey.Depth]}`,
     };
-  }
-);
+  };
+});
 
-export const $traversalLayer = computed(
-  [$raw, $paint],
-  (json, _paint) => {
-    // if no geojson
-    // return an empty feature group / clear the map
-    if (!json || !json.traversal) return null;
+export const $traversalLayer = computed([$raw], (json) => {
+  // if no geojson
+  // return an empty feature group / clear the map
+  if (!json || !json.traversal) return null;
 
-    // if we're doing the fancy route viz thingy, just quickly ensure that classes to this depth exist
-    // we need to do this _before_ traversal gets created / added to the DOM
-    if ($mode.get() === Mode.RouteViz) {
-      const { depth } = getRouteDepthAndSteps();
-      console.log(`got depth ${depth} from getRouteDepthAndSteps`);
-      // there's probably a catastrophic failure mode here but hey
-      if (depth) ensureDepthAnimationClassesExist(depth);
-    }
+  // just quickly ensure that classes to this depth exist
+  // we need to do this _before_ traversal gets created / added to the DOM
+  const { depth } = getRouteDepthAndSteps();
+  console.log(`got depth ${depth} from getRouteDepthAndSteps`);
+  // there's probably a catastrophic failure mode here but hey
+  if (depth) ensureDepthAnimationClassesExist(depth);
 
-    // if traversal exists, paint it
-    return L.geoJSON(json.traversal, {
-      style: $traversalStyle.get(),
-      onEachFeature: addDebugClick,
-      bubblingMouseEvents: false,
-    });
-  }
-);
-export const $routeLayer = computed(
-  [$raw, $paint],
-  (json, _paint) => {
-    // if no geojson
-    // return an empty feature group / clear the map
-    if (!json || !json.route) return null;
+  // if traversal exists, paint it
+  return L.geoJSON(json.traversal, {
+    style: $traversalStyle.get(),
+    onEachFeature: addDebugClick,
+    bubblingMouseEvents: false,
+  });
+});
+export const $routeLayer = computed([$raw], (json) => {
+  // if no geojson
+  // return an empty feature group / clear the map
+  if (!json || !json.route) return null;
 
-    return L.geoJSON(json.route, {
-      style: $routeStyle.get(),
-      onEachFeature: addDebugClick,
-      bubblingMouseEvents: false,
-    });
-  }
-);
+  return L.geoJSON(json.route, {
+    style: $routeStyle.get(),
+    onEachFeature: addDebugClick,
+    bubblingMouseEvents: false,
+  });
+});
 
 // callback invoked after the feature group has been added to the Dom
 // animates traversals
 export const onGeoJsonAdded = async () => {
-  const mode = $mode.get();
+  const withTraversal = $withTraversal.get();
 
-  // if RouteViz, get the depth and step count from the last step in the route response
+  // if visualizing traversal, get the depth and step count from the last step in the route response
   // and paint route animation in reverse from end to start
-  if (mode === Mode.RouteViz) {
+  if (withTraversal) {
     const features = $raw.get()?.route?.features;
     if (!features) return;
     const { depth, steps } = getRouteDepthAndSteps();

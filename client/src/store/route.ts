@@ -1,14 +1,14 @@
 /*
- * All config concerning the Routing mode
+ * All config concerning the Routing
  */
 import { atom } from 'nanostores';
 import { Marker, LeafletMouseEvent } from 'leaflet';
-import { Mode, HtmlElementId } from '../consts.ts';
+import { HtmlElementId } from '../consts.ts';
 import { StoredMarker } from './marker.ts';
 
 import { $click } from './map.ts';
-import { $mode } from './mode.ts';
 
+export const $withTraversal = atom<boolean>(false);
 export const { $marker: $startMarker, $latLng: $startMarkerLatLng } =
   StoredMarker();
 export const { $marker: $endMarker, $latLng: $endMarkerLatLng } =
@@ -17,20 +17,9 @@ export const $selectedInput = atom<
   HtmlElementId.StartInput | HtmlElementId.EndInput | null
 >(null);
 
-// when mode switches away, clear markers
-$mode.listen((_, oldMode) => {
-  if (oldMode === Mode.Route || oldMode === Mode.RouteViz) {
-    [$startMarker, $endMarker].forEach(($marker) => {
-      $marker.set(null);
-    });
-    $selectedInput.set(null);
-  }
-});
-
-// tie the route $markers to map $clicks when in a Route $mode
+// tie the route $markers to map $clicks
 $click.listen((event: LeafletMouseEvent | null) => {
-  const mode = $mode.get();
-  if ((mode !== Mode.Route && mode !== Mode.RouteViz) || !event) return;
+  if (!event) return;
 
   // create a new marker at the mouse click location
   const marker = new Marker(event.latlng, { draggable: true });

@@ -1,7 +1,6 @@
 import L from 'leaflet';
 
 import { $click } from '../store/map.ts';
-import { $marker as $traversalMarker } from '../store/traverse.ts';
 import { $startMarker, $endMarker } from '../store/route.ts';
 import {
   $traversalLayer,
@@ -20,7 +19,6 @@ export const createMap = (container: string) => {
     {
       attribution: `&copy;<a href="https://www.openstreetmap.org/copyright" target="_blank">OpenStreetMap</a>,
             &copy;<a href="https://carto.com/attributions" target="_blank">CARTO</a>`,
-      subdomains: 'abcd',
       maxZoom: 19,
     }
   ).addTo(map);
@@ -35,18 +33,20 @@ export const configureBindings = (map: L.Map) => {
   });
 
   // sub some things that can be added to the map
-  [$traversalMarker, $startMarker, $endMarker].forEach(($layer) =>
+  [$startMarker, $endMarker].forEach(($layer) =>
     $layer.listen((layer, oldLayer) => {
       // handles removing and adding everything to the map on change
       oldLayer?.remove();
       layer?.addTo(map);
     })
   );
+};
 
-  // allow hiding of traversal / route layers independently
-  const layerControl = L.control.layers().addTo(map);
+// allow hiding of traversal / route layers independently
+export const addLayerControl = (map: L.Map) => {
+  const layerControl = L.control.layers({}, {}, { position: 'topright', collapsed: false }).addTo(map);
   const geojsonAtoms: [string, ReadableAtom][] = [
-    ['Traversal', $traversalLayer],
+    ['Pathfinding', $traversalLayer],
     ['Route', $routeLayer],
   ];
 

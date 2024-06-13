@@ -5,12 +5,9 @@ import { batched, task } from 'nanostores';
 import L from 'leaflet';
 import { FeatureCollection } from 'geojson';
 import { RUSTY_BASE_URL } from '../config.ts';
-import { Mode } from '../consts.ts';
 
-import { $markerLatLng as $traversalMarkerLatLng, $depth } from './traverse.ts';
-import { $startMarkerLatLng, $endMarkerLatLng } from './route.ts';
+import { $startMarkerLatLng, $endMarkerLatLng, $withTraversal } from './route.ts';
 import { $clickTime } from './map.ts';
-import { $mode } from './mode.ts';
 import { $coefficients, $heuristicWeight, CostModel } from './cost.ts';
 
 // number of significant figs to truncate our coords to
@@ -37,33 +34,10 @@ const HARDCODED_WEIGHTS = {
 type ServerResponse = {
   traversal: FeatureCollection;
   route: FeatureCollection;
-};
-
-const fetchTraversal = async (
-  latLng: L.LatLng,
-  depth: number,
-  costModel: CostModel,
-  heuristicWeight: number
-): Promise<ServerResponse> => {
-  const { lat, lng } = latLng;
-  const res = await fetch(`${RUSTY_BASE_URL}/traverse`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      lat: Number(lat.toFixed(COORD_SIG_FIGS)),
-      lon: Number(lng.toFixed(COORD_SIG_FIGS)),
-      depth,
-      heuristic_weight: heuristicWeight,
-      cost_model: {
-        ...costModel,
-        ...HARDCODED_WEIGHTS,
-      },
-    }),
-  });
-  console.log(`raw fetched @ ${Date.now() - $clickTime.get()}`);
-  return await res.json();
+  // TODO: meta: {
+  //   max_depth: number,
+  //   cost_range: number[],
+  // }
 };
 
 const fetchRoute = async (
@@ -90,7 +64,7 @@ const fetchRoute = async (
         lat: Number(endLat.toFixed(COORD_SIG_FIGS)),
         lon: Number(endLon.toFixed(COORD_SIG_FIGS)),
       },
-      with_traversal: withTraversal,
+      with_traversal: Boolean(withTraversal), // ensure this gets sent as a bool, not stringified
       heuristic_weight: heuristicWeight,
       cost_model: {
         ...costModel,
@@ -102,43 +76,26 @@ const fetchRoute = async (
   return await res.json();
 };
 
-// make a fetch request whenever all conditions for the $mode have been met
+// make a fetch request whenever all conditions have been met
 export const $raw = batched(
   [
-    $mode,
-    $traversalMarkerLatLng,
-    $depth,
     $startMarkerLatLng,
     $endMarkerLatLng,
+    $withTraversal,
     $coefficients,
     $heuristicWeight,
   ],
   (
-    mode,
-    traversalLatLng,
-    depth,
     startLatLng,
     endLatLng,
+    withTraversal,
     costModel,
     heuristicWeight
   ) =>
     task(async () => {
       console.log(`fetch beginning @ ${Date.now() - $clickTime.get()}`);
 
-      if (mode === Mode.Traverse && traversalLatLng) {
-        try {
-          return await fetchTraversal(
-            traversalLatLng,
-            depth,
-            costModel,
-            heuristicWeight
-          );
-        } catch (e) {
-          console.error('failed to fetch traversal: ', e);
-          return null;
-        }
-      } else if (
-        (mode === Mode.Route || mode === Mode.RouteViz) &&
+      if (
         startLatLng &&
         endLatLng
       ) {
@@ -146,12 +103,12 @@ export const $raw = batched(
           return await fetchRoute(
             startLatLng,
             endLatLng,
-            mode === Mode.RouteViz,
+            withTraversal,
             costModel,
             heuristicWeight
           );
         } catch (e) {
-          console.error('failed to fetch traversal: ', e);
+          console.error('failed to fetch: ', e);
           return null;
         }
       }
