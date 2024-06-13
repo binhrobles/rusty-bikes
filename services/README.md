@@ -26,7 +26,10 @@ curl http://localhost:9000/lambda-url/lambda-handler/traverse?lat=40.68376227690
 5. [Query Optimization](#query-optimization)
 6. [Hosting](#hosting)
 
+### High Level System
 ![system diagram](./system_diagram.png)
+
+### Rusty Bikes Service
 ![service architecture](./service_arch.png)
 
 ### Leveraging OSM Data
