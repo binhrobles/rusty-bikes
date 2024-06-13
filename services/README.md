@@ -22,9 +22,11 @@ curl http://localhost:9000/lambda-url/lambda-handler/traverse?lat=40.68376227690
 1. [Leveraging OSM Data](#leveraging-osm-data)
 2. [Labeling Definitions](#labeling-definitions)
 3. [Labeling Examples](#labeling-examples)
-4. [Cost Model](#routing-cost-model)
+4. [Cost Function](#routing-cost-function)
 5. [Query Optimization](#query-optimization)
 6. [Hosting](#hosting)
+
+![system diagram](./system_diagram.png)
 
 ### Leveraging OSM Data
 
@@ -124,7 +126,7 @@ For OSM-reverse direction:
 
 Note: `^cycleway` is referring to the collection of `cycleway:right`, `cycleway:left`, and `cycleway:both`, which all refer to bike infra on the Way.
 
-Because of directionality, `left` and `right` will be important designations. On bidirectional roads, `left`, in the direction the Way has been plotted in OSM, will be the cycleway in the _incoming_ direction while `right` will designate the path along the primary direction. On oneway roads, the `left` or `right` cycleways can be used as primary direction cycleways. When the `cycleway:{direction}:oneway=no` tag is present, this is an explicit indicator that there is bidirectional bike infra, even if the road itself is a oneway for cars. 
+Because of directionality, `left` and `right` will be important designations. On bidirectional roads, `left`, in the direction the Way has been plotted in OSM, will be the cycleway in the _incoming_ direction while `right` will designate the path along the primary direction. On oneway roads, the `left` or `right` cycleways can be used as primary direction cycleways. When the `cycleway:{direction}:oneway=no` tag is present, this is an explicit indicator that there is bidirectional bike infra, even if the road itself is a oneway for cars.
 
 Types:
 
@@ -178,7 +180,7 @@ indicate that it is a local road with a designated bike lane on the road going s
 In this case, we'll label standard direction Way (654744285) to be `Road.Local`, `Cycleway.Lane`, and the reverse direction Way (-654744285) to be `Cycleway.Lane`, `Salmon=true`.
 
 #### Ex 2: Bidirectional Road w/ Bike Lanes going both ways
-[7th Ave in Park Slope](https://www.openstreetmap.org/way/494221659) is a bidirectional road with bike lanes on both sides, going both ways. 
+[7th Ave in Park Slope](https://www.openstreetmap.org/way/494221659) is a bidirectional road with bike lanes on both sides, going both ways.
 
 The tags:
 ```
@@ -239,17 +241,13 @@ highway = residential
 oneway = yes
 oneway:bicycle = no
 ```
-indicate that it is a one-way local road going northbound, but with a designated bike lane going south, on the right side. 
+indicate that it is a one-way local road going northbound, but with a designated bike lane going south, on the right side.
 
 We'll label the standard direction Way (455014439) to be `Road.Local`, `Cycleway.Shared` (due to lack of bike infra in their direction, a biker would use the road), `Salmon=false`. The reverse (-455014439) will be labeled `Cycleway.Track`, `Salmon=false`.
 
-### Routing Cost Model
+### Routing Cost Function
 
 This piece of the system should use the bike path labels to return high "costs" for undesireable biking paths (like busy streets with no dedicated bike lanes (ie: [Atlantic Ave](https://www.openstreetmap.org/way/1204342261)), and low "costs" for desireable biking paths (like [along Flushing Ave / BK Naval Yards](https://www.openstreetmap.org/way/488161824)).
-
-Considerations:
-
-- What is high cost vs low cost? Grade things on a 0 -> 100 scale?
 
 ### Query Optimization
 

@@ -53,7 +53,7 @@ impl CostModel {
         match graph.get_way_labels(way) {
             Err(e) => {
                 // shouldn't error...but if we do just return an absurd cost
-                error!("cost model: could not fetch way #{way}");
+                error!("cost function: could not fetch way #{way}");
                 error!("{e}");
                 (1000.0, (Cycleway::Shared, Road::Arterial, true))
             }
