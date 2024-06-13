@@ -22,14 +22,20 @@
     };
   }
 
+  // some loading indicator until lambda is ready to do stuff
   let lambdaReady = false;
   onMount(async () => {
-    try {
-      const res = await fetch(`${RUSTY_BASE_URL}/ping`);
-      lambdaReady = true;
-    } catch (e) {
-      console.error(e);
-    }
+      let retries = 0;
+      while (!lambdaReady && retries < 10) {
+        try {
+          await fetch(`${RUSTY_BASE_URL}/ping`);
+          lambdaReady = true;
+        } catch (e) {
+          retries++;
+          console.error(`received ${e} from /ping`);
+          await new Promise(resolve => setTimeout(resolve, 2000));
+        }
+      }
   });
 </script>
 
