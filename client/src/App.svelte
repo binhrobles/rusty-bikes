@@ -62,7 +62,7 @@
 </style>
 
 <header>
-  <span class="title">Rusty Bikes</span>
+  <span class="title">Rusty Bikes 🚲</span>
   <span><i>An interactive urban bike route explorer</i></span>
 </header>
 
