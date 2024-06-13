@@ -17,7 +17,7 @@ Resources:
     Type: AWS::Serverless::Api
     Properties:
       Cors:
-        AllowMethods: "'OPTIONS, POST'"
+        AllowMethods: "'OPTIONS, GET, POST'"
         AllowHeaders: "'content-type'"
         AllowOrigin: "'*'"
       StageName: Prod
@@ -53,6 +53,12 @@ Resources:
             Path: /route
             RestApiId: !Ref Api
             Method: post
+        Ping:
+          Type: Api
+          Properties:
+            Path: /ping
+            RestApiId: !Ref Api
+            Method: get
 
   NYCSqliteLayer:
     Type: AWS::Serverless::LayerVersion

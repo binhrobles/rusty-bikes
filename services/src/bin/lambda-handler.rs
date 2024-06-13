@@ -31,6 +31,7 @@ async fn handler(event: Request) -> Result<Response<Body>, LambdaError> {
     let body = GRAPH.with(|graph| match event.raw_http_path() {
         "/traverse" => traverse_handler(graph, event),
         "/route" => route_handler(graph, event),
+        "/ping" => Ok("ok!".to_owned()),
         _ => Err(anyhow!("invalid path")),
     })?;
 
@@ -39,7 +40,7 @@ async fn handler(event: Request) -> Result<Response<Body>, LambdaError> {
         .header("content-type", "application/json")
         .header("Access-Control-Allow-Headers", "Content-Type")
         .header("Access-Control-Allow-Origin", "*")
-        .header("Access-Control-Allow-Methods", "POST")
+        .header("Access-Control-Allow-Methods", "GET,POST")
         .body(body.into())?;
 
     Ok(response)
