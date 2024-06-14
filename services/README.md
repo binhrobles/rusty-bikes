@@ -165,7 +165,7 @@ Because of directionality, we'll save labeling metadata for each **Way** twice, 
 
 Bikers going the opposite direction will check first for dedicated infrastructure in their direction, or use the contraflow bike infra.
 
-See [test suite](./tests/way_labeling.rs)
+See [test suite](./tests/way-labeling.rs)
 
 #### Ex 1: Bidirectional Road w/ One Bike Lane
 
