@@ -9,21 +9,25 @@ import {
 } from '../store/render.ts';
 import { ReadableAtom } from 'nanostores';
 
-export const createMap = (container: string) => {
-  const map = L.map(container, {
-    zoomControl: false,
-  }).setView([40.7, -73.98], 13);
+let mapInstance: L.Map | null = null;
 
-  L.tileLayer(
-    'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',
-    {
-      attribution: `&copy;<a href="https://www.openstreetmap.org/copyright" target="_blank">OpenStreetMap</a>,
-            &copy;<a href="https://carto.com/attributions" target="_blank">CARTO</a>`,
-      maxZoom: 19,
-    }
-  ).addTo(map);
+export const createMap = (container: string): L.Map => {
+  if (!mapInstance) {
+    mapInstance = L.map(container, {
+      zoomControl: false,
+    }).setView([40.7, -73.98], 13);
 
-  return map;
+    L.tileLayer(
+      'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',
+      {
+        attribution: `&copy;<a href="https://www.openstreetmap.org/copyright" target="_blank">OpenStreetMap</a>,
+              &copy;<a href="https://carto.com/attributions" target="_blank">CARTO</a>`,
+        maxZoom: 19,
+      }
+    ).addTo(mapInstance);
+  }
+
+  return mapInstance;
 };
 
 export const configureBindings = (map: L.Map) => {
