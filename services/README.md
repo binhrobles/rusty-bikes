@@ -4,7 +4,6 @@
 
 ### Requirements
 
-- A JSON OSM export for the area you want to serve (see [OSM Data](#osm-data) for an example query)
 - [Cargo Lambda](https://github.com/awslabs/aws-lambda-rust-runtime)
 
 Do it:
