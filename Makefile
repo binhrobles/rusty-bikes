@@ -14,17 +14,17 @@ service-bench: db.db3
 
 ## ------------ Deploying ------------ ##
 # deploys services to AWS
-deploy: service-build service-deploy
+service-deploy: sam-build sam-deploy
 
 # SAM toolkit helpers for deploying to AWS
-service-build:
+sam-build:
 	sam validate
 	sam build
 
-service-deploy:
+sam-deploy:
 	sam deploy --no-confirm-changeset
 
-service-clean:
+sam-clean:
 	rm -rf .aws-sam/build/
 
 ## ------------ OSM / DB ------------ ##
