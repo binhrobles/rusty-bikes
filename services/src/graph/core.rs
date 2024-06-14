@@ -41,7 +41,7 @@ impl Graph {
         heuristic_weight: Option<Weight>,
     ) -> Result<(Route, Option<Traversal>, RouteMetadata), anyhow::Error> {
         let end_node = Node::new(END_NODE_ID, &end);
-        let target_neighbors = self.guess_neighbors(end, None)?;
+        let target_neighbors = self.snap_to_graph(end, None)?;
         let target_neighbor_node_ids: Vec<NodeId> =
             target_neighbors.iter().map(|n| n.node.id).collect();
 
@@ -96,9 +96,10 @@ impl Graph {
     /// Implementation notes:
     /// - We cannot guarantee that the first Way returned from the R*tree query will be
     /// the closest Way, because of how R*Trees work
+    /// - TODO: this sometimes returns the wrong street (ie: the next one over)
+    /// existing Node
     /// - TODO: handle no Ways returned, empty case
-    /// - TODO: more than 2 neighbors?
-    pub fn guess_neighbors(
+    pub fn snap_to_graph(
         &self,
         center: Point,
         snap_radius: Option<f64>,
@@ -155,7 +156,7 @@ impl Graph {
             }
 
             debug!("Could not snap coords to graph, expanding");
-            return self.guess_neighbors(center, Some(snap_radius + SNAP_INCREMENT));
+            return self.snap_to_graph(center, Some(snap_radius + SNAP_INCREMENT));
         }
 
         // sort these results by the total distance from the center point
@@ -205,6 +206,35 @@ impl Graph {
                 node: Node::new(row.get(1)?, &Point::new(row.get(2)?, row.get(3)?)),
                 distance: row.get(4)?,
             })
+        })?;
+
+        Ok(result.map(|r| r.unwrap()).collect())
+    }
+
+    /// given a NodeId, gets the neighbors from the Segments table and labels from WayLabels table
+    /// returns a Vec of (Neighbor, WayLabels) representing each "edge" out of this Node
+    pub fn get_neighbors_with_labels(
+        &self,
+        id: NodeId,
+    ) -> Result<Vec<(Neighbor, WayLabels)>, anyhow::Error> {
+        let mut stmt = self.conn.prepare_cached(
+            "
+            SELECT way, n2, N2.lon, N2.lat, distance, WL.cycleway, WL.road, WL.salmon
+            FROM Segments
+            JOIN Nodes as N2 ON n2=N2.id
+            JOIN WayLabels as WL ON way=WL.id
+            WHERE n1 = ?1
+        ",
+        )?;
+        let result = stmt.query_map([id], |row| {
+            Ok((
+                Neighbor {
+                    way: row.get(0)?,
+                    node: Node::new(row.get(1)?, &Point::new(row.get(2)?, row.get(3)?)),
+                    distance: row.get(4)?,
+                },
+                (row.get(5)?, row.get(6)?, row.get(7)?),
+            ))
         })?;
 
         Ok(result.map(|r| r.unwrap()).collect())

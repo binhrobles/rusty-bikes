@@ -70,6 +70,9 @@ impl PartialOrd for TraversalSegment {
 
 /// TraversalSegment comparisons make use of cost_so_far from traversal start and a factor of the distance
 /// remaining to the end node
+/// TODO: do less in the cmp function and load more into the Segments themselves? this seems like a
+///       lot of work to do inside a cmp which will be called (possibly recursively?) on each
+///       PriorityQueue insert
 impl Ord for TraversalSegment {
     #[inline]
     fn cmp(&self, other: &Self) -> Ordering {
@@ -161,14 +164,14 @@ impl TraversalSegmentBuilder {
     pub fn calculate_cost(
         mut self,
         cost_model: &CostModel,
-        graph: &Graph,
+        way_labels: &WayLabels,
         cost_so_far: Cost,
     ) -> Self {
-        let (cost_factor, labels) = cost_model.calculate_cost(graph, self.way);
+        let cost_factor = cost_model.calculate_cost(way_labels);
         self.cost_factor = cost_factor;
         self.cost = cost_factor * self.length as f32;
         self.cost_so_far = cost_so_far + self.cost;
-        self.labels = labels;
+        self.labels = *way_labels;
         self
     }
 
@@ -241,8 +244,10 @@ impl Default for TraversalContext {
     }
 }
 
-/// initializes the structures required to traverse this graph, leveraging the guess_neighbors
+/// initializes the structures required to traverse this graph, leveraging the snap_to_graph
 /// function to snap the starting Point into the graph
+/// TODO: be able to create a "virtual" node location _midway_ along a Way, rather than starting
+///       from the clicked `start location
 pub fn initialize_traversal(
     graph: &Graph,
     start: &Point,
@@ -250,7 +255,7 @@ pub fn initialize_traversal(
     heuristic_weight: Option<Weight>,
 ) -> Result<TraversalContext, anyhow::Error> {
     let start_node = Node::new(START_NODE_ID, start);
-    let starting_neighbors = graph.guess_neighbors(*start, None)?;
+    let starting_neighbors = graph.snap_to_graph(*start, None)?;
 
     let mut context = TraversalContext::new(cost_model, heuristic_weight);
 
@@ -283,13 +288,13 @@ pub fn traverse_between(
             return Ok(());
         }
 
-        let adjacent_neighbors = graph.get_neighbors(current.to.id)?;
+        let edges = graph.get_neighbors_with_labels(current.to.id)?;
 
-        for neighbor in adjacent_neighbors {
+        for (neighbor, way_labels) in edges {
             let segment = TraversalSegment::build_to_neighbor(&current.to, &neighbor)
                 .with_depth(current.depth + 1)
                 .with_prev_distance(current.distance_so_far)
-                .calculate_cost(&context.cost_model, graph, current.cost_so_far)
+                .calculate_cost(&context.cost_model, &way_labels, current.cost_so_far)
                 .with_heuristic(end_node)
                 .build();
             context.cost_range.0 = context.cost_range.0.min(segment.cost_factor);
@@ -326,9 +331,9 @@ pub fn traverse_from(
             return Ok(());
         }
 
-        let adjacent_neighbors = graph.get_neighbors(current.to.id)?;
+        let edges = graph.get_neighbors_with_labels(current.to.id)?;
 
-        for neighbor in adjacent_neighbors {
+        for (neighbor, way_labels) in edges {
             context
                 .came_from
                 .entry(neighbor.node.id)
@@ -336,7 +341,7 @@ pub fn traverse_from(
                     let segment = TraversalSegment::build_to_neighbor(&current.to, &neighbor)
                         .with_depth(current.depth + 1)
                         .with_prev_distance(current.distance_so_far)
-                        .calculate_cost(&context.cost_model, graph, current.cost_so_far)
+                        .calculate_cost(&context.cost_model, &way_labels, current.cost_so_far)
                         .build();
                     context.cost_range.0 = context.cost_range.0.min(segment.cost_factor);
                     context.cost_range.1 = context.cost_range.1.max(segment.cost_factor);

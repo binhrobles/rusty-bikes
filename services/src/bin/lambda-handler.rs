@@ -106,7 +106,7 @@ struct RouteParams {
 struct RouteResponse {
     route: Value,
     traversal: Option<Value>,
-    meta: RouteMetadata
+    meta: RouteMetadata,
 }
 
 fn route_handler(graph: &Graph, event: Request) -> Result<String, anyhow::Error> {
@@ -145,7 +145,11 @@ fn route_handler(graph: &Graph, event: Request) -> Result<String, anyhow::Error>
         })
         .transpose()?;
 
-    let response = RouteResponse { route, traversal, meta };
+    let response = RouteResponse {
+        route,
+        traversal,
+        meta,
+    };
 
     // TODO: vec -> string -> json::Value -> string ?
     Ok(serde_json::to_string(&response)?)

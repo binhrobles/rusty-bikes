@@ -1,8 +1,6 @@
-use super::Graph;
-use crate::osm::{Cycleway, Road, WayId, WayLabels};
+use crate::osm::{Cycleway, Road, WayLabels};
 use serde::{Deserialize, Serializer};
 use std::collections::HashMap;
-use tracing::error;
 
 pub type Cost = f32;
 pub type Weight = f32;
@@ -49,26 +47,18 @@ impl Default for CostModel {
 }
 
 impl CostModel {
-    pub fn calculate_cost(&self, graph: &Graph, way: WayId) -> (Cost, WayLabels) {
-        match graph.get_way_labels(way) {
-            Err(e) => {
-                // shouldn't error...but if we do just return an absurd cost
-                error!("cost function: could not fetch way #{way}");
-                error!("{e}");
-                (1000.0, (Cycleway::Shared, Road::Arterial, true))
-            }
-            Ok(labels) => {
-                let (ref cycleway, ref road, salmon) = labels;
+    pub fn calculate_cost(&self, way_labels: &WayLabels) -> Cost {
+        let (cycleway, road, salmon) = way_labels;
 
-                let cycleway_cost =
-                    self.cycleway_coefficient * self.cycleway_weights.get(cycleway).unwrap();
-                let road_cost = self.road_coefficient * self.road_weights.get(road).unwrap();
-                let salmon_cost = if salmon { self.salmon_coefficient } else { 1.0 };
+        let cycleway_cost =
+            self.cycleway_coefficient * self.cycleway_weights.get(cycleway).unwrap();
+        let road_cost = self.road_coefficient * self.road_weights.get(road).unwrap();
+        let salmon_cost = if *salmon {
+            self.salmon_coefficient
+        } else {
+            1.0
+        };
 
-                let cost = (cycleway_cost + road_cost) * salmon_cost;
-
-                (cost, labels)
-            }
-        }
+        (cycleway_cost + road_cost) * salmon_cost
     }
 }
