@@ -9,7 +9,7 @@ service-test: db.db3
 	cd services && DB_PATH=../db.db3 cargo test
 
 service-bench: db.db3
-	cd services && DB_PATH=../db.db3 cargo test --bench basic-benchmarking -- --show-output
+	cd services && DB_PATH=../db.db3 cargo test --bench basic-benchmarking -- --show-output | tee benches/current.out
 
 
 ## ------------ Deploying ------------ ##
