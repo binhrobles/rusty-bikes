@@ -40,9 +40,13 @@
 </script>
 
 <style>
-  #map {
-    height: 88vh;
-    width: 100%;
+  header {
+    font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+    padding-bottom: 1rem;
+    font-size: 0.9rem;
+    display: flex;
+    justify-content: space-between;
+    margin-inline: 1vw;
   }
 
   .title {
@@ -52,24 +56,25 @@
     padding-right: 0.5rem;
   }
 
-  header {
-    font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
-    padding-bottom: 1rem;
-    font-size: 0.9rem;
+  .github-icon {
   }
 
-  footer {
-    position: absolute;
-    bottom: 0;
-    width: 100%;
-    display: flex;
-    justify-content: center;
+  #map {
+    height: 90vh;
+    width: 98vw;
+    margin: 0 auto;
   }
+
 </style>
 
 <header>
-  <span class="title">Rusty Bikes 🚲</span>
-  <span><i>An urban bike route explorer</i></span>
+  <div>
+    <span class="title">Rusty Bikes 🚲</span>
+    <span><i>An urban bike route explorer</i></span>
+  </div>
+  <div class="github-icon">
+    <a href="https://github.com/binhrobles/rusty-bikes"><svg fill="none" stroke="#000000" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" shape-rendering="geometricPrecision" viewBox="0 0 24 24" height="24" width="24" style="color: currentcolor;"><path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 00-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0020 4.77 5.07 5.07 0 0019.91 1S18.73.65 16 2.48a13.38 13.38 0 00-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 005 4.77a5.44 5.44 0 00-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 009 18.13V22"></path></svg></a>
+  </div>
 </header>
 
 {#if lambdaReady}
@@ -77,6 +82,3 @@
 {:else}
 <span>Waiting on a lambda cold start... 🤖</span>
 {/if}
-<footer>
-  <a href="https://github.com/binhrobles/rusty-bikes"><svg fill="none" stroke="#000000" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" shape-rendering="geometricPrecision" viewBox="0 0 24 24" height="24" width="24" style="color: currentcolor;"><path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 00-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0020 4.77 5.07 5.07 0 0019.91 1S18.73.65 16 2.48a13.38 13.38 0 00-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 005 4.77a5.44 5.44 0 00-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 009 18.13V22"></path></svg></a>
-</footer>
