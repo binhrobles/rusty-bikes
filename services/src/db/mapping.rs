@@ -107,7 +107,7 @@ impl OSMMapper {
     fn get_cycleway_from_tag(&self, val: &str) -> Cycleway {
         match val {
             "track" | "separate" => Cycleway::Track,
-            "lane" => Cycleway::Lane,
+            "lane" | "shoulder" | "opposite_lane" => Cycleway::Lane,
             "shared_lane" | "share_busway" | "no" | "none" => Cycleway::Shared,
             _ => {
                 eprintln!("{}: Unexpected cycleway value: {val}", self.way);
@@ -203,6 +203,7 @@ impl OSMMapper {
     }
 
     fn get_cycleway_if_contraflow(&self, oneway_tag: &str, cycleway_tag: &str) -> Option<Cycleway> {
+        // https://wiki.openstreetmap.org/wiki/Key:cycleway:right:oneway
         if oneway_tag == "-1" {
             Some(self.get_cycleway_from_tag(cycleway_tag))
         } else {
