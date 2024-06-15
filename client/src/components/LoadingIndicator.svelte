@@ -15,6 +15,6 @@
   {#if $isSuccess}
   <span>✅</span>
   {:else}
-  <span>⚠️</span>
+  <span>❌ 🤷</span>
   {/if}
 {/if}
