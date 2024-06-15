@@ -40,10 +40,28 @@
   font: 14px/16px "Helvetica Neue", Arial, sans-serif;
   font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
   background: white;
-  background: rgba(255,255,255);
   box-shadow: 0 0 15px rgba(0,0,0,0.2);
   border-radius: 10px;
 }
+
+.tooltip .tooltip-text {
+  visibility: hidden;
+
+  text-align: center;
+  padding: 8px;
+  background: white;
+  box-shadow: 0 0 15px rgba(0,0,0,0.2);
+  border-radius: 10px;
+
+  position: absolute;
+  left: 50%;
+  z-index: 1;
+}
+
+.tooltip:hover .tooltip-text {
+  visibility: visible;
+}
+
 </style>
 
 <div class="control">
@@ -67,8 +85,9 @@
   <details>
     <summary>Customize pathfinding algorithm</summary>
       <br />
-      <span>Algorithm Directness</span>
-      <br />
+      <div class="tooltip">Algorithm Greediness:
+        <div class="tooltip-text"><i>A less greedy algorithm will explore more routes before making its decision <b>based on the given config<b></i></div>
+      </div>
       <input
         class="slider"
         id={HtmlElementId.HeuristicWeightRange}
@@ -79,8 +98,9 @@
         bind:value={$hw}>
       <br />
 
-      <span>Prefer Bike Lanes:</span>
-      <br />
+      <div class="tooltip">Prefer Bike Lanes:
+        <span class="tooltip-text"><i>Will prefer protected and dedicated bikes lanes over sharrows or shared roads</i></span>
+      </div>
       <input
         class="slider"
         id={HtmlElementId.CyclewayCoefficientRange}
@@ -92,8 +112,9 @@
         value={cycleway_coefficient}>
       <br />
 
-      <span>Prefer Quiet Streets:</span>
-      <br />
+      <div class="tooltip">Prefer Quiet Streets:
+        <span class="tooltip-text"><i>Will prefer dedicated bike infra and residential roads over secondary and major roads</i></span>
+      </div>
       <input
         class="slider"
         id={HtmlElementId.RoadCoefficientRange}
@@ -105,8 +126,9 @@
         value={road_coefficient}>
       <br />
 
-      <span>I follow rules:</span>
-      <br />
+      <div class="tooltip">I follow rules:
+        <span class="tooltip-text"><i>Will greatly penalize going the opposite way on a one-way road</i></span>
+      </div>
       <input
         class="slider"
         id={HtmlElementId.SalmonCoefficientRange}
