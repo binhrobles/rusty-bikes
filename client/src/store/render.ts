@@ -35,7 +35,8 @@ const getRouteDepthAndSteps = () => {
   const raw = $raw.get();
   if (!raw) return {};
 
-  const properties = raw?.route?.features[raw?.route?.features.length - 1].properties;
+  const properties =
+    raw?.route?.features[raw?.route?.features.length - 1].properties;
 
   if (!properties) return {};
   const depth: number = raw.meta.max_depth;
@@ -51,8 +52,9 @@ const $routeStyle = computed($withTraversal, (withTraversal) => {
       return {};
     }
 
-    let className = `route-depth-${feature.properties[PropKey.Depth]} step-${feature.properties[PropKey.Index]
-      }`;
+    let className = `route-depth-${feature.properties[PropKey.Depth]} step-${
+      feature.properties[PropKey.Index]
+    }`;
     if (withTraversal) className += ' svg-path';
 
     return {
@@ -90,11 +92,9 @@ const getTraversalStyleFunc = (meta: RouteMetadata) => {
   let color = (_properties: Record<string, number>): string => '#F26F75';
 
   rainbow.setNumberRange(cost_range[0], cost_range[1]);
-  rainbow.setSpectrum('#2BEA01', '#A9A9A9', '#A9A9A9', 'red');
+  rainbow.setSpectrum('#2BEA01', '#A9A9A9', 'red');
   color = (properties) =>
-    `#${rainbow.colourAt(
-      properties[PropKey.Cost] / properties[PropKey.Length]
-    )}`;
+    `#${rainbow.colourAt(properties[PropKey.CostFactor])}`;
 
   ensureDepthAnimationClassesExist(max_depth);
 

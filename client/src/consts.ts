@@ -10,6 +10,7 @@ export enum PropKey {
   DistanceRemaining = 'distance_remaining',
   Length = 'length',
   Cost = 'cost',
+  CostFactor = 'cost_factor',
   CostSoFar = 'cost_so_far',
   Index = 'idx',
 }

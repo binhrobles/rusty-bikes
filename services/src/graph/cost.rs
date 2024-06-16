@@ -5,12 +5,20 @@ use std::collections::HashMap;
 pub type Cost = f32;
 pub type Weight = f32;
 
-/// simple serialization of a Node to just its ID
-pub fn serialize_cost_simple<S>(cost: &Cost, serializer: S) -> Result<S::Ok, S::Error>
+/// simple serialization of an f32 to just an int
+pub fn serialize_as_int<S>(float: &f32, serializer: S) -> Result<S::Ok, S::Error>
 where
     S: Serializer,
 {
-    serializer.serialize_i64(cost.ceil() as i64)
+    serializer.serialize_i64(float.ceil() as i64)
+}
+
+/// truncates a float to 2 decimal places when serializing
+pub fn serialize_float_rounded<S>(float: &f32, serializer: S) -> Result<S::Ok, S::Error>
+where
+    S: Serializer,
+{
+    serializer.serialize_f64((*float as f64 * 100.0).trunc() / 100.0)
 }
 
 #[derive(Debug, Deserialize)]

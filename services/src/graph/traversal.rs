@@ -1,19 +1,13 @@
-use super::{serialize_cost_simple, Cost, CostModel, Graph, Weight};
+use super::{serialize_float_rounded, serialize_as_int, Cost, CostModel, Graph, Weight};
 use crate::osm::{
     serialize_node_simple, Cycleway, Distance, Neighbor, Node, NodeId, Road, WayId, WayLabels,
 };
 use anyhow::anyhow;
 use geo::{HaversineDistance, Line, Point};
 use serde::Serialize;
-use std::cell::RefCell;
 use std::cmp::Ordering;
 use std::collections::{BinaryHeap, HashMap};
 use std::f32::{MAX, MIN};
-
-// define a thread local variable to reference during traversal ordering
-thread_local! {
-    static HEURISTIC_WEIGHT: RefCell<f32> = const { RefCell::new(0.75) };
-}
 
 pub const START_NODE_ID: NodeId = -1;
 pub const END_NODE_ID: NodeId = -2;
@@ -39,14 +33,15 @@ pub struct TraversalSegment {
     pub distance_so_far: Distance,
     pub labels: WayLabels,
 
-    #[serde(serialize_with = "serialize_cost_simple")]
+    #[serde(serialize_with = "serialize_float_rounded")]
     pub cost: Cost,
-    #[serde(serialize_with = "serialize_cost_simple")]
+    #[serde(serialize_with = "serialize_float_rounded")]
     pub cost_factor: Cost,
-    #[serde(serialize_with = "serialize_cost_simple")]
+    #[serde(serialize_with = "serialize_as_int")]
     pub cost_so_far: Cost,
 
-    pub distance_remaining: Distance,
+    #[serde(serialize_with = "serialize_as_int")]
+    pub heuristic: Weight,
 }
 
 /// TraversalSegments are equivalent when they connect the same points along the same way
@@ -76,10 +71,7 @@ impl PartialOrd for TraversalSegment {
 impl Ord for TraversalSegment {
     #[inline]
     fn cmp(&self, other: &Self) -> Ordering {
-        let heuristic_weight = TraversalContext::get_heuristic_weight();
-        let other_total = other.cost_so_far + (other.distance_remaining as f32 * heuristic_weight);
-        let self_total = self.cost_so_far + (self.distance_remaining as f32 * heuristic_weight);
-        other_total.total_cmp(&self_total)
+        (other.cost + other.heuristic).total_cmp(&(self.cost + self.heuristic))
     }
 }
 
@@ -104,10 +96,9 @@ pub struct TraversalSegmentBuilder {
     length: Distance,
     distance_so_far: Distance,
     labels: WayLabels,
-    cost: Cost,
     cost_factor: Cost,
     cost_so_far: Cost,
-    distance_remaining: Distance,
+    heuristic: Weight,
 }
 
 impl TraversalSegmentBuilder {
@@ -123,10 +114,9 @@ impl TraversalSegmentBuilder {
             length: to.distance,
             distance_so_far: to.distance,
             labels: (Cycleway::Shared, Road::Collector, false),
-            cost: 0.0,
             cost_factor: 0.0,
             cost_so_far: 0.0,
-            distance_remaining: 0,
+            heuristic: 0.0,
         }
     }
 
@@ -143,10 +133,9 @@ impl TraversalSegmentBuilder {
             length,
             distance_so_far: length,
             labels: (Cycleway::Shared, Road::Collector, false),
-            cost: 0.0,
             cost_factor: 0.0,
             cost_so_far: 0.0,
-            distance_remaining: 0,
+            heuristic: 0.0,
         }
     }
 
@@ -161,28 +150,30 @@ impl TraversalSegmentBuilder {
         self
     }
 
-    pub fn calculate_cost(
+    pub fn with_cost(
         mut self,
         cost_model: &CostModel,
         way_labels: &WayLabels,
         cost_so_far: Cost,
     ) -> Self {
-        let cost_factor = cost_model.calculate_cost(way_labels);
-        self.cost_factor = cost_factor;
-        self.cost = cost_factor * self.length as f32;
-        self.cost_so_far = cost_so_far + self.cost;
+        self.cost_factor = cost_model.calculate_cost(way_labels);
+        self.cost_so_far = cost_so_far;
         self.labels = *way_labels;
         self
     }
 
     /// add the distance to end node heuristic
-    fn with_heuristic(mut self, end_node: &Node) -> Self {
-        self.distance_remaining =
-            self.to.geometry.haversine_distance(&end_node.geometry) as Distance;
+    fn with_heuristic(mut self, end_node: &Node, heuristic_weight: &Weight) -> Self {
+        self.heuristic = heuristic_weight * self.to.geometry.haversine_distance(&end_node.geometry) as f32;
         self
     }
 
     pub fn build(self) -> TraversalSegment {
+        // generates "true segment cost" at build time, incorporating the cost factor, length of
+        // the segment, the accumulated cost to get here
+        // these should 0 out if any of these haven't been built into the segment
+        let cost = self.cost_factor * self.length as f32 + self.cost_so_far;
+
         TraversalSegment {
             from: self.from,
             to: self.to,
@@ -194,10 +185,10 @@ impl TraversalSegmentBuilder {
             depth: self.depth,
             distance_so_far: self.distance_so_far,
             labels: self.labels,
-            cost: self.cost,
             cost_factor: self.cost_factor,
             cost_so_far: self.cost_so_far,
-            distance_remaining: self.distance_remaining,
+            heuristic: self.heuristic,
+            cost,
         }
     }
 }
@@ -206,35 +197,23 @@ pub struct TraversalContext {
     pub queue: BinaryHeap<TraversalSegment>,
     pub came_from: HashMap<NodeId, TraversalSegment>,
     pub cost_model: CostModel,
+    pub heuristic_weight: Weight,
 
     pub max_depth: Depth,
     pub cost_range: (Cost, Cost),
 }
 
 impl TraversalContext {
-    pub fn new(cost_model: Option<CostModel>, heuristic_weight: Option<f32>) -> Self {
-        if let Some(weight) = heuristic_weight {
-            TraversalContext::set_heuristic_weight(weight);
-        }
-
+    pub fn new(cost_model: Option<CostModel>, heuristic_weight: Option<Weight>) -> Self {
         Self {
             queue: BinaryHeap::new(),
             came_from: HashMap::new(),
             cost_model: cost_model.unwrap_or_default(),
+            heuristic_weight: heuristic_weight.unwrap_or(0.75),
+
             max_depth: 0,
             cost_range: (MAX, MIN),
         }
-    }
-
-    fn set_heuristic_weight(weight: f32) {
-        HEURISTIC_WEIGHT.with(|w| {
-            *w.borrow_mut() = weight;
-        });
-    }
-
-    #[inline]
-    fn get_heuristic_weight() -> f32 {
-        HEURISTIC_WEIGHT.with(|w| *w.borrow())
     }
 }
 
@@ -294,8 +273,8 @@ pub fn traverse_between(
             let segment = TraversalSegment::build_to_neighbor(&current.to, &neighbor)
                 .with_depth(current.depth + 1)
                 .with_prev_distance(current.distance_so_far)
-                .calculate_cost(&context.cost_model, &way_labels, current.cost_so_far)
-                .with_heuristic(end_node)
+                .with_cost(&context.cost_model, &way_labels, current.cost)
+                .with_heuristic(end_node, &context.heuristic_weight)
                 .build();
             context.cost_range.0 = context.cost_range.0.min(segment.cost_factor);
             context.cost_range.1 = context.cost_range.1.max(segment.cost_factor);
@@ -304,7 +283,7 @@ pub fn traverse_between(
             if let Some(existing_segment) = context.came_from.get(&neighbor.node.id) {
                 // if we already have a path to this neighbor, compare costs, take the cheaper
                 // also queue up this neighbor, so a possibly better route can be identified
-                if segment.cost_so_far < existing_segment.cost_so_far {
+                if segment.cost < existing_segment.cost {
                     context.queue.push(segment.clone());
                     context.came_from.insert(neighbor.node.id, segment);
                 }
@@ -341,7 +320,7 @@ pub fn traverse_from(
                     let segment = TraversalSegment::build_to_neighbor(&current.to, &neighbor)
                         .with_depth(current.depth + 1)
                         .with_prev_distance(current.distance_so_far)
-                        .calculate_cost(&context.cost_model, &way_labels, current.cost_so_far)
+                        .with_cost(&context.cost_model, &way_labels, current.cost)
                         .build();
                     context.cost_range.0 = context.cost_range.0.min(segment.cost_factor);
                     context.cost_range.1 = context.cost_range.1.max(segment.cost_factor);
