@@ -10,54 +10,61 @@
 </script>
 
 <h4>Segment</h4>
-<hr>
+<hr />
 <table>
   <tr>
     <td><strong>from</strong></td>
     <td>
-    {#if isStartNode }
-      <span>Start</span>
-    {:else}
-      <a
-        href="https://www.openstreetmap.org/node/{properties[PropKey.From]}"
-        target="_blank"
-        rel="noopener noreferrer">
-        {properties[PropKey.From]}
-      </a>
-    {/if}
+      {#if isStartNode}
+        <span>Start</span>
+      {:else}
+        <a
+          href="https://www.openstreetmap.org/node/{properties[PropKey.From]}"
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          {properties[PropKey.From]}
+        </a>
+      {/if}
     </td>
   </tr>
 
   <tr>
     <td><strong>to</strong></td>
     <td>
-    {#if isEndNode }
-      <span>End</span>
-    {:else}
-      <a
-        href="https://www.openstreetmap.org/node/{properties[PropKey.To]}"
-        target="_blank"
-        rel="noopener noreferrer">
-        {properties[PropKey.To]}
-      </a>
-    {/if}
-  </tr>
+      {#if isEndNode}
+        <span>End</span>
+      {:else}
+        <a
+          href="https://www.openstreetmap.org/node/{properties[PropKey.To]}"
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          {properties[PropKey.To]}
+        </a>
+      {/if}
+    </td></tr
+  >
 
   <tr>
     <td><strong>way</strong></td>
-    <td><a
-      href="https://www.openstreetmap.org/way/{Math.abs(properties[PropKey.Way])}"
-      target="_blank"
-      rel="noopener noreferrer"
-    >{properties[PropKey.Way]}</td>
+    <td
+      ><a
+        href="https://www.openstreetmap.org/way/{Math.abs(
+          properties[PropKey.Way]
+        )}"
+        target="_blank"
+        rel="noopener noreferrer">{properties[PropKey.Way]}</a
+      ></td
+    >
   </tr>
 
   {#each Object.keys(properties) as key}
-  {#if isNotOSMKey(key)}
+    {#if isNotOSMKey(key)}
       <tr>
         <td><strong>{key}</strong></td>
         <td>{properties[key]}</td>
       </tr>
-  {/if}
+    {/if}
   {/each}
 </table>
