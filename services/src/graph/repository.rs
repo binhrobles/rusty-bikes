@@ -1,4 +1,4 @@
-use super::Graph;
+use crate::db::{self, DBConnection};
 use crate::osm::{Distance, Neighbor, Node, NodeId, WayId, WayLabels};
 use anyhow::anyhow;
 use geo::prelude::*;
@@ -23,7 +23,19 @@ pub trait GraphRepository {
     fn get_way_labels(&self, way: WayId) -> Result<WayLabels, anyhow::Error>;
 }
 
-impl GraphRepository for Graph {
+pub struct SqliteGraphRepository {
+    conn: DBConnection,
+}
+
+impl SqliteGraphRepository {
+    pub fn new() -> Result<Self, anyhow::Error> {
+        Ok(Self {
+            conn: db::get_conn()?,
+        })
+    }
+}
+
+impl GraphRepository for SqliteGraphRepository {
     /// Returns the closest Node(s) to the location provided
     /// Creates a buffer around the location and searches a small square area
     ///

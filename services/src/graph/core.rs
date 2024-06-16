@@ -1,17 +1,16 @@
 use super::traversal::{
     Route, Traversable, Traversal, TraversalSegment, END_NODE_ID, START_NODE_ID,
 };
+use super::SqliteGraphRepository;
 use super::{repository::GraphRepository, Cost, CostModel, Depth, Weight};
-use crate::db;
 use crate::osm::{Node, NodeId};
 use geo::Point;
 use serde::Serialize;
 use std::collections::VecDeque;
 
 /// The Graph "service object", through which routing interfaces are exposed
-#[derive(Debug)]
 pub struct Graph {
-    pub conn: db::DBConnection,
+    pub db: Box<dyn GraphRepository>,
 }
 
 #[derive(Serialize)]
@@ -23,7 +22,7 @@ pub struct RouteMetadata {
 impl Graph {
     pub fn new() -> Result<Self, anyhow::Error> {
         Ok(Self {
-            conn: db::get_conn()?,
+            db: Box::new(SqliteGraphRepository::new()?),
         })
     }
 
@@ -37,7 +36,7 @@ impl Graph {
         heuristic_weight: Option<Weight>,
     ) -> Result<(Route, Option<Traversal>, RouteMetadata), anyhow::Error> {
         let end_node = Node::new(END_NODE_ID, &end);
-        let target_neighbors = self.get_snapped_neighbors(end, None)?;
+        let target_neighbors = self.db.get_snapped_neighbors(end, None)?;
         let target_neighbor_node_ids: Vec<NodeId> =
             target_neighbors.iter().map(|n| n.node.id).collect();
 

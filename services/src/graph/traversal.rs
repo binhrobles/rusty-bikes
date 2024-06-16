@@ -1,6 +1,4 @@
-use super::{
-    serialize_as_int, serialize_float_rounded, Cost, CostModel, Graph, GraphRepository, Weight,
-};
+use super::{serialize_as_int, serialize_float_rounded, Cost, CostModel, Graph, Weight};
 use crate::osm::{
     serialize_node_simple, Cycleway, Distance, Neighbor, Node, NodeId, Road, WayId, WayLabels,
 };
@@ -246,7 +244,7 @@ impl Traversable for Graph {
         heuristic_weight: Option<Weight>,
     ) -> Result<TraversalContext, anyhow::Error> {
         let start_node = Node::new(START_NODE_ID, start);
-        let starting_neighbors = self.get_snapped_neighbors(*start, None)?;
+        let starting_neighbors = self.db.get_snapped_neighbors(*start, None)?;
 
         let mut context = TraversalContext::new(cost_model, heuristic_weight);
 
@@ -279,7 +277,7 @@ impl Traversable for Graph {
                 return Ok(());
             }
 
-            let edges = self.get_neighbors_with_labels(current.to.id)?;
+            let edges = self.db.get_neighbors_with_labels(current.to.id)?;
 
             for (neighbor, way_labels) in edges {
                 let segment = TraversalSegment::build_to_neighbor(&current.to, &neighbor)
@@ -322,7 +320,7 @@ impl Traversable for Graph {
                 return Ok(());
             }
 
-            let edges = self.get_neighbors_with_labels(current.to.id)?;
+            let edges = self.db.get_neighbors_with_labels(current.to.id)?;
 
             for (neighbor, way_labels) in edges {
                 context
