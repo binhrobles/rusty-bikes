@@ -1,4 +1,6 @@
-use super::{serialize_float_rounded, serialize_as_int, Cost, CostModel, Graph, Weight};
+use super::{
+    serialize_as_int, serialize_float_rounded, Cost, CostModel, Graph, GraphRepository, Weight,
+};
 use crate::osm::{
     serialize_node_simple, Cycleway, Distance, Neighbor, Node, NodeId, Road, WayId, WayLabels,
 };
@@ -7,7 +9,6 @@ use geo::{HaversineDistance, Line, Point};
 use serde::Serialize;
 use std::cmp::Ordering;
 use std::collections::{BinaryHeap, HashMap};
-use std::f32::{MAX, MIN};
 
 pub const START_NODE_ID: NodeId = -1;
 pub const END_NODE_ID: NodeId = -2;
@@ -15,6 +16,26 @@ pub const END_NODE_ID: NodeId = -2;
 pub type Depth = usize;
 pub type Route = Vec<TraversalSegment>;
 pub type Traversal = Vec<TraversalSegment>;
+
+pub trait Traversable {
+    fn initialize_traversal(
+        &self,
+        start: &Point,
+        cost_model: Option<CostModel>,
+        heuristic_weight: Option<Weight>,
+    ) -> Result<TraversalContext, anyhow::Error>;
+    fn traverse_from(
+        &self,
+        context: &mut TraversalContext,
+        max_depth: usize,
+    ) -> Result<(), anyhow::Error>;
+    fn traverse_between(
+        &self,
+        context: &mut TraversalContext,
+        target_neighbor_node_ids: &[NodeId],
+        end_node: &Node,
+    ) -> Result<(), anyhow::Error>;
+}
 
 #[derive(Clone, Debug, Serialize)]
 pub struct TraversalSegment {
@@ -46,7 +67,6 @@ pub struct TraversalSegment {
 
 /// TraversalSegments are equivalent when they connect the same points along the same way
 impl PartialEq for TraversalSegment {
-    #[inline]
     fn eq(&self, other: &Self) -> bool {
         self.from == other.from && self.to == other.to && self.way == other.way
     }
@@ -57,7 +77,6 @@ impl PartialEq for TraversalSegment {
 impl Eq for TraversalSegment {}
 
 impl PartialOrd for TraversalSegment {
-    #[inline]
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         Some(self.cmp(other))
     }
@@ -65,11 +84,7 @@ impl PartialOrd for TraversalSegment {
 
 /// TraversalSegment comparisons make use of cost_so_far from traversal start and a factor of the distance
 /// remaining to the end node
-/// TODO: do less in the cmp function and load more into the Segments themselves? this seems like a
-///       lot of work to do inside a cmp which will be called (possibly recursively?) on each
-///       PriorityQueue insert
 impl Ord for TraversalSegment {
-    #[inline]
     fn cmp(&self, other: &Self) -> Ordering {
         (other.cost + other.heuristic).total_cmp(&(self.cost + self.heuristic))
     }
@@ -150,6 +165,7 @@ impl TraversalSegmentBuilder {
         self
     }
 
+    /// generates and attaches the "true" cost factor and accumulated cost
     pub fn with_cost(
         mut self,
         cost_model: &CostModel,
@@ -164,7 +180,8 @@ impl TraversalSegmentBuilder {
 
     /// add the distance to end node heuristic
     fn with_heuristic(mut self, end_node: &Node, heuristic_weight: &Weight) -> Self {
-        self.heuristic = heuristic_weight * self.to.geometry.haversine_distance(&end_node.geometry) as f32;
+        self.heuristic =
+            heuristic_weight * self.to.geometry.haversine_distance(&end_node.geometry) as f32;
         self
     }
 
@@ -193,6 +210,7 @@ impl TraversalSegmentBuilder {
     }
 }
 
+/// Context object representing the state of a single routing or traversal operation
 pub struct TraversalContext {
     pub queue: BinaryHeap<TraversalSegment>,
     pub came_from: HashMap<NodeId, TraversalSegment>,
@@ -212,123 +230,118 @@ impl TraversalContext {
             heuristic_weight: heuristic_weight.unwrap_or(0.75),
 
             max_depth: 0,
-            cost_range: (MAX, MIN),
+            cost_range: (f32::MAX, f32::MIN),
         }
     }
 }
 
-impl Default for TraversalContext {
-    fn default() -> Self {
-        Self::new(None, None)
-    }
-}
+impl Traversable for Graph {
+    /// initializes the context and structures required to perform a traversal
+    /// TODO: be able to create a "virtual" node location _midway_ along a Way, rather than starting
+    ///       from the clicked `start location
+    fn initialize_traversal(
+        &self,
+        start: &Point,
+        cost_model: Option<CostModel>,
+        heuristic_weight: Option<Weight>,
+    ) -> Result<TraversalContext, anyhow::Error> {
+        let start_node = Node::new(START_NODE_ID, start);
+        let starting_neighbors = self.get_snapped_neighbors(*start, None)?;
 
-/// initializes the structures required to traverse this graph, leveraging the snap_to_graph
-/// function to snap the starting Point into the graph
-/// TODO: be able to create a "virtual" node location _midway_ along a Way, rather than starting
-///       from the clicked `start location
-pub fn initialize_traversal(
-    graph: &Graph,
-    start: &Point,
-    cost_model: Option<CostModel>,
-    heuristic_weight: Option<Weight>,
-) -> Result<TraversalContext, anyhow::Error> {
-    let start_node = Node::new(START_NODE_ID, start);
-    let starting_neighbors = graph.snap_to_graph(*start, None)?;
+        let mut context = TraversalContext::new(cost_model, heuristic_weight);
 
-    let mut context = TraversalContext::new(cost_model, heuristic_weight);
-
-    for neighbor in starting_neighbors {
-        let segment = TraversalSegment::build_to_neighbor(&start_node, &neighbor).build();
-        context.queue.push(segment.clone());
-        context.came_from.insert(neighbor.node.id, segment);
-    }
-
-    Ok(context)
-}
-
-/// Generates a collection of all TraversalSegments examined while routing between the start and
-/// end Points. TraversalSegments will be decorated with both the depth of the traversal and
-/// the cost assigned, given the designated cost model
-pub fn traverse_between(
-    graph: &Graph,
-    context: &mut TraversalContext,
-    target_neighbor_node_ids: &[NodeId],
-    end_node: &Node,
-) -> Result<(), anyhow::Error> {
-    while let Some(current) = context.queue.pop() {
-        if target_neighbor_node_ids.contains(&current.to.id) {
-            // on exit, append the final segment to the ending node
-            let segment = TraversalSegment::build_to_node(&current.to, end_node, current.way)
-                .with_depth(current.depth + 1)
-                .with_prev_distance(current.distance_so_far)
-                .build();
-            context.came_from.insert(END_NODE_ID, segment);
-            return Ok(());
+        for neighbor in starting_neighbors {
+            let segment = TraversalSegment::build_to_neighbor(&start_node, &neighbor).build();
+            context.queue.push(segment.clone());
+            context.came_from.insert(neighbor.node.id, segment);
         }
 
-        let edges = graph.get_neighbors_with_labels(current.to.id)?;
+        Ok(context)
+    }
 
-        for (neighbor, way_labels) in edges {
-            let segment = TraversalSegment::build_to_neighbor(&current.to, &neighbor)
-                .with_depth(current.depth + 1)
-                .with_prev_distance(current.distance_so_far)
-                .with_cost(&context.cost_model, &way_labels, current.cost)
-                .with_heuristic(end_node, &context.heuristic_weight)
-                .build();
-            context.cost_range.0 = context.cost_range.0.min(segment.cost_factor);
-            context.cost_range.1 = context.cost_range.1.max(segment.cost_factor);
-            context.max_depth = context.max_depth.max(segment.depth);
+    /// Generates a collection of all TraversalSegments examined while routing between the start and
+    /// end Points. TraversalSegments will be decorated with both the depth of the traversal and
+    /// the cost assigned, given the designated cost model
+    fn traverse_between(
+        &self,
+        context: &mut TraversalContext,
+        target_neighbor_node_ids: &[NodeId],
+        end_node: &Node,
+    ) -> Result<(), anyhow::Error> {
+        while let Some(current) = context.queue.pop() {
+            if target_neighbor_node_ids.contains(&current.to.id) {
+                // on exit, append the final segment to the ending node
+                let segment = TraversalSegment::build_to_node(&current.to, end_node, current.way)
+                    .with_depth(current.depth + 1)
+                    .with_prev_distance(current.distance_so_far)
+                    .build();
+                context.came_from.insert(END_NODE_ID, segment);
+                return Ok(());
+            }
 
-            if let Some(existing_segment) = context.came_from.get(&neighbor.node.id) {
-                // if we already have a path to this neighbor, compare costs, take the cheaper
-                // also queue up this neighbor, so a possibly better route can be identified
-                if segment.cost < existing_segment.cost {
+            let edges = self.get_neighbors_with_labels(current.to.id)?;
+
+            for (neighbor, way_labels) in edges {
+                let segment = TraversalSegment::build_to_neighbor(&current.to, &neighbor)
+                    .with_depth(current.depth + 1)
+                    .with_prev_distance(current.distance_so_far)
+                    .with_cost(&context.cost_model, &way_labels, current.cost)
+                    .with_heuristic(end_node, &context.heuristic_weight)
+                    .build();
+                context.cost_range.0 = context.cost_range.0.min(segment.cost_factor);
+                context.cost_range.1 = context.cost_range.1.max(segment.cost_factor);
+                context.max_depth = context.max_depth.max(segment.depth);
+
+                if let Some(existing_segment) = context.came_from.get(&neighbor.node.id) {
+                    // if we already have a path to this neighbor, compare costs, take the cheaper
+                    // also queue up this neighbor, so a possibly better route can be identified
+                    if segment.cost < existing_segment.cost {
+                        context.queue.push(segment.clone());
+                        context.came_from.insert(neighbor.node.id, segment);
+                    }
+                } else {
                     context.queue.push(segment.clone());
                     context.came_from.insert(neighbor.node.id, segment);
                 }
-            } else {
-                context.queue.push(segment.clone());
-                context.came_from.insert(neighbor.node.id, segment);
             }
         }
+
+        Err(anyhow!("Traversal failed"))
     }
 
-    Err(anyhow!("Traversal failed"))
-}
+    /// Return a collection of TraversalSegments from traversing the Graph from the start point to
+    /// the depth specified
+    fn traverse_from(
+        &self,
+        context: &mut TraversalContext,
+        max_depth: usize,
+    ) -> Result<(), anyhow::Error> {
+        while let Some(current) = context.queue.pop() {
+            if current.depth == max_depth {
+                context.max_depth = max_depth;
+                return Ok(());
+            }
 
-/// Return a collection of TraversalSegments from traversing the Graph from the start point to
-/// the depth specified
-pub fn traverse_from(
-    graph: &Graph,
-    context: &mut TraversalContext,
-    max_depth: usize,
-) -> Result<(), anyhow::Error> {
-    while let Some(current) = context.queue.pop() {
-        if current.depth == max_depth {
-            context.max_depth = max_depth;
-            return Ok(());
+            let edges = self.get_neighbors_with_labels(current.to.id)?;
+
+            for (neighbor, way_labels) in edges {
+                context
+                    .came_from
+                    .entry(neighbor.node.id)
+                    .or_insert_with(|| {
+                        let segment = TraversalSegment::build_to_neighbor(&current.to, &neighbor)
+                            .with_depth(current.depth + 1)
+                            .with_prev_distance(current.distance_so_far)
+                            .with_cost(&context.cost_model, &way_labels, current.cost)
+                            .build();
+                        context.cost_range.0 = context.cost_range.0.min(segment.cost_factor);
+                        context.cost_range.1 = context.cost_range.1.max(segment.cost_factor);
+                        context.queue.push(segment.clone());
+                        segment
+                    });
+            }
         }
 
-        let edges = graph.get_neighbors_with_labels(current.to.id)?;
-
-        for (neighbor, way_labels) in edges {
-            context
-                .came_from
-                .entry(neighbor.node.id)
-                .or_insert_with(|| {
-                    let segment = TraversalSegment::build_to_neighbor(&current.to, &neighbor)
-                        .with_depth(current.depth + 1)
-                        .with_prev_distance(current.distance_so_far)
-                        .with_cost(&context.cost_model, &way_labels, current.cost)
-                        .build();
-                    context.cost_range.0 = context.cost_range.0.min(segment.cost_factor);
-                    context.cost_range.1 = context.cost_range.1.max(segment.cost_factor);
-                    context.queue.push(segment.clone());
-                    segment
-                });
-        }
+        Err(anyhow!("Traversal failed"))
     }
-
-    Err(anyhow!("Traversal failed"))
 }

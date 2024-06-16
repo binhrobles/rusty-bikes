@@ -1,21 +1,17 @@
-/// Exposes OSM data interactions via a Graph interface
-use super::traversal::{Route, Traversal, TraversalSegment, END_NODE_ID, START_NODE_ID};
-use super::{Cost, CostModel, Depth, Weight};
+use super::traversal::{
+    Route, Traversable, Traversal, TraversalSegment, END_NODE_ID, START_NODE_ID,
+};
+use super::{repository::GraphRepository, Cost, CostModel, Depth, Weight};
 use crate::db;
-use crate::osm::{Distance, Neighbor, Node, NodeId, WayId, WayLabels};
-use anyhow::anyhow;
-use geo::prelude::*;
-use geo::{HaversineBearing, Point};
+use crate::osm::{Node, NodeId};
+use geo::Point;
 use serde::Serialize;
 use std::collections::VecDeque;
-use tracing::debug;
 
-const MAX_SNAP_RADIUS: f64 = 0.001;
-const SNAP_INCREMENT: f64 = 0.0002;
-
+/// The Graph "service object", through which routing interfaces are exposed
 #[derive(Debug)]
 pub struct Graph {
-    conn: db::DBConnection,
+    pub conn: db::DBConnection,
 }
 
 #[derive(Serialize)]
@@ -32,7 +28,7 @@ impl Graph {
     }
 
     /// Calculates a Route between the start and end points, optionally attaching the raw underlying traversal
-    pub fn route_between(
+    pub fn calculate_route(
         &self,
         start: Point,
         end: Point,
@@ -41,13 +37,13 @@ impl Graph {
         heuristic_weight: Option<Weight>,
     ) -> Result<(Route, Option<Traversal>, RouteMetadata), anyhow::Error> {
         let end_node = Node::new(END_NODE_ID, &end);
-        let target_neighbors = self.snap_to_graph(end, None)?;
+        let target_neighbors = self.get_snapped_neighbors(end, None)?;
         let target_neighbor_node_ids: Vec<NodeId> =
             target_neighbors.iter().map(|n| n.node.id).collect();
 
-        let mut context = super::initialize_traversal(self, &start, cost_model, heuristic_weight)?;
+        let mut context = self.initialize_traversal(&start, cost_model, heuristic_weight)?;
 
-        super::traverse_between(self, &mut context, &target_neighbor_node_ids, &end_node)?;
+        self.traverse_between(&mut context, &target_neighbor_node_ids, &end_node)?;
 
         // construct route from traversal information, tracing backwards from the end node
         let mut current_segment = context.came_from.get(&END_NODE_ID).unwrap();
@@ -75,182 +71,18 @@ impl Graph {
         Ok((result.make_contiguous().to_vec(), traversal, meta))
     }
 
-    /// returns a traversal map and the relevant geometries from the start point to the depth specified
-    pub fn traverse_from(
+    /// Generates a breadth-first traversal from the start point to the depth specified
+    pub fn calculate_traversal(
         &self,
         start: Point,
         max_depth: usize,
         cost_model: Option<CostModel>,
         heuristic_weight: Option<Weight>,
     ) -> Result<Traversal, anyhow::Error> {
-        let mut context = super::initialize_traversal(self, &start, cost_model, heuristic_weight)?;
+        let mut context = self.initialize_traversal(&start, cost_model, heuristic_weight)?;
 
-        super::traverse_from(self, &mut context, max_depth)?;
+        self.traverse_from(&mut context, max_depth)?;
 
         Ok(context.came_from.values().cloned().collect())
-    }
-
-    /// Returns the closest Node(s) to the location provided
-    /// Creates a buffer around the location and searches a small square area
-    ///
-    /// Implementation notes:
-    /// - We cannot guarantee that the first Way returned from the R*tree query will be
-    /// the closest Way, because of how R*Trees work
-    /// - TODO: this sometimes returns the wrong street (ie: the next one over)
-    /// existing Node
-    /// - TODO: handle no Ways returned, empty case
-    pub fn snap_to_graph(
-        &self,
-        center: Point,
-        snap_radius: Option<f64>,
-    ) -> Result<Vec<Neighbor>, anyhow::Error> {
-        type Bearing = f64;
-        let snap_radius = snap_radius.unwrap_or(SNAP_INCREMENT);
-
-        let mut stmt = self.conn.prepare_cached(
-            "
-            SELECT WayNodes.node, lon, lat, WayNodes.way
-            FROM Ways
-            JOIN WayNodes ON WayNodes.way=Ways.id
-            JOIN Nodes ON WayNodes.node=Nodes.id
-            WHERE minLon <= ?1
-              AND maxLon >= ?2
-              AND minLat <= ?3
-              AND maxLat >= ?4
-        ",
-        )?;
-
-        let center_lon = center.x();
-        let center_lat = center.y();
-        let results = stmt.query_map(
-            [
-                center_lon + snap_radius,
-                center_lon - snap_radius,
-                center_lat + snap_radius,
-                center_lat - snap_radius,
-            ],
-            |row| {
-                let lon = row.get(1)?;
-                let lat = row.get(2)?;
-
-                let loc = Point::new(lon, lat);
-
-                // for each returned Node, calculate the distance from the center point
-                Ok((
-                    Neighbor {
-                        node: Node::new(row.get(0)?, &loc),
-                        way: row.get(3)?,
-                        distance: center.haversine_distance(&loc) as Distance,
-                    },
-                    center.haversine_bearing(loc),
-                ))
-            },
-        )?;
-
-        let mut results: Vec<(Neighbor, Bearing)> = results.map(|r| r.unwrap()).collect();
-
-        // if no results returned w/ this snap radius, expand it by a bit
-        if results.is_empty() {
-            if snap_radius >= MAX_SNAP_RADIUS {
-                return Err(anyhow!("Could not snap coords to graph"));
-            }
-
-            debug!("Could not snap coords to graph, expanding");
-            return self.snap_to_graph(center, Some(snap_radius + SNAP_INCREMENT));
-        }
-
-        // sort these results by the total distance from the center point
-        results.sort_by(|(n1, _), (n2, _)| n1.distance.partial_cmp(&n2.distance).unwrap());
-
-        // at this point we have a sorted list of nodes by distance
-        // the first, closest node is clearly the best candidate
-        let mut results_iter = results.into_iter();
-        let (closest_neighbor, closest_bearing) = results_iter.next().unwrap();
-
-        // then, use the wayId + the bearing relationship to find
-        // the next node on the way on the other side of the center point
-        let mut next_closest: Option<Neighbor> = None;
-        for (neighbor, bearing) in results_iter {
-            // This Node is on the same Way as the `closest`
-            // so find the next segment that had a fairly different bearing than the closest
-            // TODO: better alg here than just more than "normal" to closest bearing
-            if closest_neighbor.way == neighbor.way && ((closest_bearing - bearing).abs() >= 90.) {
-                next_closest = Some(neighbor);
-                break;
-            }
-        }
-
-        let mut results = vec![closest_neighbor];
-
-        if let Some(n) = next_closest {
-            results.push(n)
-        }
-
-        Ok(results)
-    }
-
-    /// given a NodeId, gets the neighbors from the Segments table
-    /// returns a Vec of Edges to the neighbors
-    pub fn get_neighbors(&self, id: NodeId) -> Result<Vec<Neighbor>, anyhow::Error> {
-        let mut stmt = self.conn.prepare_cached(
-            "
-            SELECT way, n2, N2.lon, N2.lat, distance
-            FROM Segments
-            JOIN Nodes as N2 ON n2=N2.id
-            WHERE n1 = ?1
-        ",
-        )?;
-        let result = stmt.query_map([id], |row| {
-            Ok(Neighbor {
-                way: row.get(0)?,
-                node: Node::new(row.get(1)?, &Point::new(row.get(2)?, row.get(3)?)),
-                distance: row.get(4)?,
-            })
-        })?;
-
-        Ok(result.map(|r| r.unwrap()).collect())
-    }
-
-    /// given a NodeId, gets the neighbors from the Segments table and labels from WayLabels table
-    /// returns a Vec of (Neighbor, WayLabels) representing each "edge" out of this Node
-    pub fn get_neighbors_with_labels(
-        &self,
-        id: NodeId,
-    ) -> Result<Vec<(Neighbor, WayLabels)>, anyhow::Error> {
-        let mut stmt = self.conn.prepare_cached(
-            "
-            SELECT way, n2, N2.lon, N2.lat, distance, WL.cycleway, WL.road, WL.salmon
-            FROM Segments
-            JOIN Nodes as N2 ON n2=N2.id
-            JOIN WayLabels as WL ON way=WL.id
-            WHERE n1 = ?1
-        ",
-        )?;
-        let result = stmt.query_map([id], |row| {
-            Ok((
-                Neighbor {
-                    way: row.get(0)?,
-                    node: Node::new(row.get(1)?, &Point::new(row.get(2)?, row.get(3)?)),
-                    distance: row.get(4)?,
-                },
-                (row.get(5)?, row.get(6)?, row.get(7)?),
-            ))
-        })?;
-
-        Ok(result.map(|r| r.unwrap()).collect())
-    }
-
-    pub fn get_way_labels(&self, way: WayId) -> Result<WayLabels, anyhow::Error> {
-        let mut stmt = self.conn.prepare_cached(
-            "
-            SELECT cycleway, road, salmon
-            FROM WayLabels
-            WHERE id = ?1
-        ",
-        )?;
-
-        let results = stmt.query_row([way], |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)))?;
-
-        Ok(results)
     }
 }

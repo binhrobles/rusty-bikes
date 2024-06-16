@@ -1,5 +1,5 @@
 use rusty_router::{
-    graph::Graph,
+    graph::{Graph, GraphRepository},
     osm::{Cycleway, WayLabels},
     osm::{Road, WayId},
 };

@@ -72,7 +72,7 @@ fn traverse_handler(graph: &Graph, event: Request) -> Result<String, anyhow::Err
     }
 
     let traversal = graph
-        .traverse_from(
+        .calculate_traversal(
             starting_coord,
             params.depth,
             params.cost_model,
@@ -120,7 +120,7 @@ fn route_handler(graph: &Graph, event: Request) -> Result<String, anyhow::Error>
     }
 
     let (route, traversal, meta) = graph
-        .route_between(
+        .calculate_route(
             params.start.into(),
             params.end.into(),
             with_traversal,

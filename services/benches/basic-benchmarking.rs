@@ -8,7 +8,7 @@ fn run_a_long_route_lots_of_times() -> Result<(), anyhow::Error> {
     let now = Instant::now();
 
     for _i in 0..20 {
-        graph.route_between(
+        graph.calculate_route(
             Point::new(-73.98949, 40.75376),
             Point::new(-73.92632, 40.64338),
             true,
