@@ -12,16 +12,29 @@
     $roadPreference as roadPreference,
     $salmonCoefficient as salmonCoefficient,
   } from '../store/cost.ts';
+  import type { WritableAtom } from 'nanostores';
+  import type { ChangeEventHandler } from 'svelte/elements';
 
   // when the Routing start / end inputs are clicked,
   // queue them up to be changed on the next map click
-  function createOnClickHandler(
-    elementId: HtmlElementId.StartInput | HtmlElementId.EndInput
-  ) {
-    return () => {
+  const createOnClickHandler =
+    (elementId: HtmlElementId.StartInput | HtmlElementId.EndInput) => () => {
       selected.set(elementId);
     };
-  }
+
+  // creates a debouncer function for the provided store
+  const createRangeUpdateHandler = (
+    store: WritableAtom<number>
+  ): ChangeEventHandler<HTMLInputElement> => {
+    let timer: number;
+
+    return (event) => {
+      clearTimeout(timer);
+      timer = setTimeout(() => {
+        store.set(Number((event.target as HTMLInputElement)?.value));
+      }, 500);
+    };
+  };
 
   let start: string;
   let end: string;
@@ -99,7 +112,8 @@
       min="0.3"
       max="1.5"
       step="0.1"
-      bind:value={$heuristicWeight}
+      on:change={createRangeUpdateHandler(heuristicWeight)}
+      value={heuristicWeight.get()}
     />
     <br />
 
@@ -119,7 +133,8 @@
       min="0"
       max="10"
       step="0.5"
-      bind:value={$cyclewayPreference}
+      on:change={createRangeUpdateHandler(cyclewayPreference)}
+      value={cyclewayPreference.get()}
     />
     <br />
 
@@ -139,7 +154,8 @@
       min="0"
       max="10"
       step="0.5"
-      bind:value={$roadPreference}
+      on:change={createRangeUpdateHandler(roadPreference)}
+      value={roadPreference.get()}
     />
     <br />
 
@@ -157,7 +173,8 @@
       min="1"
       max="2"
       step="0.1"
-      bind:value={$salmonCoefficient}
+      on:change={createRangeUpdateHandler(salmonCoefficient)}
+      value={salmonCoefficient.get()}
     />
   </details>
 </div>
