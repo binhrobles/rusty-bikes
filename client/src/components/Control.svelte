@@ -171,7 +171,7 @@
       id={HtmlElementId.SalmonRange}
       type="range"
       min="1"
-      max="2"
+      max="3"
       step="0.1"
       on:change={createRangeUpdateHandler(salmonCoefficient)}
       value={salmonCoefficient.get()}
