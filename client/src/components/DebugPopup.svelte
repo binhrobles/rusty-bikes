@@ -2,9 +2,9 @@
   import { PropKey } from '../consts.ts';
   export let properties;
 
-  const OSMKeys = [PropKey.From, PropKey.To, PropKey.Way];
+  const OSMKeys: string[] = [PropKey.From, PropKey.To, PropKey.Way];
 
-  const isNotOSMKey = (key) => !OSMKeys.includes(key);
+  const isNotOSMKey = (key: string) => !OSMKeys.includes(key);
   const isStartNode = properties[PropKey.From] === -1;
   const isEndNode = properties[PropKey.To] === -2;
 </script>

@@ -12,28 +12,12 @@ import {
   $withTraversal,
 } from './route.ts';
 import { $clickTime } from './map.ts';
-import { $coefficients, $heuristicWeight, CostModel } from './cost.ts';
+import { $costModel, $heuristicWeight, CostModel } from './cost.ts';
 
 // number of significant figs to truncate our coords to
 // the OSM data only has up to 7 figures precision
 // using more might be making our spatial queries wack
 const COORD_SIG_FIGS = 7;
-
-// maybe make these configurable
-const HARDCODED_WEIGHTS = {
-  cycleway_weights: {
-    Shared: 1.5,
-    Lane: 1.0,
-    Track: 0.5,
-  },
-  road_weights: {
-    Pedestrian: 1.2,
-    Bike: 0.5,
-    Local: 1.2,
-    Collector: 1.4,
-    Arterial: 2,
-  },
-};
 
 export const $isLoading = atom<boolean>(false);
 export const $isSuccess = atom<boolean>(true);
@@ -79,7 +63,6 @@ const fetchRoute = async (
         heuristic_weight: heuristicWeight,
         cost_model: {
           ...costModel,
-          ...HARDCODED_WEIGHTS,
         },
       }),
     });
@@ -103,7 +86,7 @@ export const $raw = batched(
     $startMarkerLatLng,
     $endMarkerLatLng,
     $withTraversal,
-    $coefficients,
+    $costModel,
     $heuristicWeight,
   ],
   (startLatLng, endLatLng, withTraversal, costModel, heuristicWeight) =>

@@ -17,12 +17,12 @@ export enum PropKey {
 
 // typo mitigation
 export enum HtmlElementId {
-  CyclewayCoefficientRange = 'cycleway-coefficient-range',
+  CyclewayRange = 'cycleway-range',
   EndInput = 'end-input',
-  HeuristicWeightRange = 'heuristic-weight-range',
-  RoadCoefficientRange = 'road-coefficient-range',
+  HeuristicRange = 'heuristic-range',
+  RoadRange = 'road-range',
   StartInput = 'start-input',
-  SalmonCoefficientRange = 'salmon-coefficient-range',
+  SalmonRange = 'salmon-range',
 }
 
 export const TraversalDefaults = {

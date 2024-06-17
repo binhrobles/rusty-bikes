@@ -4,29 +4,27 @@
     $startMarkerLatLng as startLatLng,
     $endMarkerLatLng as endLatLng,
     $selectedInput as selected,
-    $withTraversal as wt,
+    $withTraversal as withTraversal,
   } from '../store/route.ts';
   import {
-    $heuristicWeight as hw,
-    $coefficients as cd,
-    updateCycleway,
-    updateRoad,
-    updateSalmon,
+    $heuristicWeight as heuristicWeight,
+    $cyclewayPreference as cyclewayPreference,
+    $roadPreference as roadPreference,
+    $salmonCoefficient as salmonCoefficient,
   } from '../store/cost.ts';
-
-  // one way binding to init value...two way binding using update helpers
-  // did this because I wanted to keep $coefficients as an object
-  const { cycleway_coefficient, road_coefficient, salmon_coefficient } =
-    cd.get();
 
   // when the Routing start / end inputs are clicked,
   // queue them up to be changed on the next map click
-  function onClick(event) {
-    selected.set(event.target.id);
+  function createOnClickHandler(
+    elementId: HtmlElementId.StartInput | HtmlElementId.EndInput
+  ) {
+    return () => {
+      selected.set(elementId);
+    };
   }
 
-  let start;
-  let end;
+  let start: string;
+  let end: string;
 
   // start / end inputs should reflect the latlng of the markers
   startLatLng.subscribe(
@@ -51,7 +49,7 @@
         ><input
           type="text"
           id={HtmlElementId.StartInput}
-          on:click={onClick}
+          on:click={createOnClickHandler(HtmlElementId.StartInput)}
           value={start}
         /></td
       >
@@ -62,7 +60,7 @@
         ><input
           type="text"
           id={HtmlElementId.EndInput}
-          on:click={onClick}
+          on:click={createOnClickHandler(HtmlElementId.EndInput)}
           value={end}
         /></td
       >
@@ -74,7 +72,7 @@
           type="checkbox"
           id="with-traversal"
           name="with-traversal"
-          bind:checked={$wt}
+          bind:checked={$withTraversal}
         /></td
       >
     </tr>
@@ -96,12 +94,12 @@
     </div>
     <input
       class="slider"
-      id={HtmlElementId.HeuristicWeightRange}
+      id={HtmlElementId.HeuristicRange}
       type="range"
       min="0.3"
       max="1.5"
       step="0.1"
-      bind:value={$hw}
+      bind:value={$heuristicWeight}
     />
     <br />
 
@@ -116,13 +114,12 @@
     </div>
     <input
       class="slider"
-      id={HtmlElementId.CyclewayCoefficientRange}
+      id={HtmlElementId.CyclewayRange}
       type="range"
       min="0"
-      max="1"
-      step="0.1"
-      on:change={updateCycleway}
-      value={cycleway_coefficient}
+      max="10"
+      step="0.5"
+      bind:value={$cyclewayPreference}
     />
     <br />
 
@@ -137,13 +134,12 @@
     </div>
     <input
       class="slider"
-      id={HtmlElementId.RoadCoefficientRange}
+      id={HtmlElementId.RoadRange}
       type="range"
       min="0"
-      max="1"
-      step="0.1"
-      on:change={updateRoad}
-      value={road_coefficient}
+      max="10"
+      step="0.5"
+      bind:value={$roadPreference}
     />
     <br />
 
@@ -156,13 +152,12 @@
     </div>
     <input
       class="slider"
-      id={HtmlElementId.SalmonCoefficientRange}
+      id={HtmlElementId.SalmonRange}
       type="range"
       min="1"
       max="2"
       step="0.1"
-      on:change={updateSalmon}
-      value={salmon_coefficient}
+      bind:value={$salmonCoefficient}
     />
   </details>
 </div>
