@@ -1,4 +1,5 @@
 /// Governs interface w/ underlying SQLite db
+use anyhow::anyhow;
 use rusqlite::{Connection, Transaction};
 
 use geo::prelude::*;
@@ -80,10 +81,7 @@ pub fn init_tables(conn: &Connection) -> Result<(), anyhow::Error> {
 pub fn insert_node_element(tx: &Transaction, element: Element) -> anyhow::Result<()> {
     let mut stmt = tx.prepare_cached("INSERT INTO Nodes (id, lon, lat) VALUES (?1, ?2, ?3)")?;
     stmt.execute((&element.id, &element.lon, &element.lat))
-        .unwrap_or_else(|e| {
-            eprintln!("Failed Node:\n{:#?}", element);
-            panic!("{e}");
-        });
+        .map_err(|e| anyhow!("Failed Node:\n{:#?}\n{e}", element))?;
 
     Ok(())
 }
@@ -103,10 +101,7 @@ pub fn insert_way_element(tx: &Transaction, element: Element) -> anyhow::Result<
             &way.min_lon,
             &way.max_lon,
         ))
-        .unwrap_or_else(|e| {
-            eprintln!("Failed Way: {:#?}", way);
-            panic!("{e}");
-        });
+        .map_err(|e| anyhow!("Failed Way:\n{:#?}\n{e}", way))?;
 
     let mut stmt = tx.prepare_cached(
         "INSERT INTO WayLabels (id, cycleway, road, salmon) VALUES (?1, ?2, ?3, ?4)",
@@ -120,16 +115,12 @@ pub fn insert_way_element(tx: &Transaction, element: Element) -> anyhow::Result<
         osm_mapper.get_cycleways_and_directionality();
 
     let params = (&way.id, forward_cycleway as isize, road as isize, false);
-    stmt.execute(params).unwrap_or_else(|e| {
-        eprintln!("Failed WayLabel:\n{:#?}", params);
-        panic!("{e}");
-    });
+    stmt.execute(params)
+        .map_err(|e| anyhow!("Failed WayLabel:\n{:#?}\n{e}", params))?;
 
     let params = (-&way.id, reverse_cycleway as isize, road as isize, salmon);
-    stmt.execute(params).unwrap_or_else(|e| {
-        eprintln!("Failed WayLabel:\n{:#?}", params);
-        panic!("{e}");
-    });
+    stmt.execute(params)
+        .map_err(|e| anyhow!("Failed WayLabel:\n{:#?}\n{e}", params))?;
 
     let mut node_insert_stmt =
         tx.prepare_cached("INSERT OR IGNORE INTO Nodes (id, lon, lat) VALUES (?1, ?2, ?3)")?;
@@ -156,17 +147,15 @@ pub fn insert_way_element(tx: &Transaction, element: Element) -> anyhow::Result<
 
         // ensure each Node exists in Nodes
         let node_params = (n_id, p.x(), p.y());
-        node_insert_stmt.execute(node_params).unwrap_or_else(|e| {
-            eprintln!("Failed implied Node: {:#?}", node_params);
-            panic!("{e}");
-        });
+        node_insert_stmt
+            .execute(node_params)
+            .map_err(|e| anyhow!("Failed implied Node:\n{:#?}\n{e}", node_params))?;
 
         // insert each Node at position in WayNodes
         let wn_params = (&way.id, n_id, pos);
-        wn_insert_stmt.execute(wn_params).unwrap_or_else(|e| {
-            eprintln!("Failed WayNode: {:#?}", wn_params);
-            panic!("{e}");
-        });
+        wn_insert_stmt
+            .execute(wn_params)
+            .map_err(|e| anyhow!("Failed WayNode:\n{:#?}\n{e}", wn_params))?;
 
         // attach this and the previous node as Segments
         if let Some(prev_node) = prev_node {
@@ -175,20 +164,14 @@ pub fn insert_way_element(tx: &Transaction, element: Element) -> anyhow::Result<
             let segment_params = (prev_node.0, n_id, &way.id, distance);
             segment_insert_stmt
                 .execute(segment_params)
-                .unwrap_or_else(|e| {
-                    eprintln!("Failed WayNode: {:#?}", segment_params);
-                    panic!("{e}");
-                });
+                .map_err(|e| anyhow!("Failed WayNode:\n{:#?}\n{e}", segment_params))?;
 
             // also insert the inverse segment, flipping the WayId sign
             // to indicate that the segment will refer to the reverse OSM direction
             let segment_params = (n_id, prev_node.0, -&way.id, distance);
             segment_insert_stmt
                 .execute(segment_params)
-                .unwrap_or_else(|e| {
-                    eprintln!("Failed WayNode: {:#?}", segment_params);
-                    panic!("{e}");
-                });
+                .map_err(|e| anyhow!("Failed WayNode:\n{:#?}\n{e}", segment_params))?;
         }
 
         prev_node = Some((*n_id, p));
