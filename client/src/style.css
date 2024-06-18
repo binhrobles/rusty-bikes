@@ -3,15 +3,33 @@ body {
   background-color: #C4B6A6;
 }
 
-.svg-path {
-  animation-name: fadein;
+.svg-animation {
   animation-duration: 500ms;
 
   /* stay at the `to` CSS once animation complete */
   animation-fill-mode: forwards;
 }
 
-@keyframes fadein {
+.svg-animation-route {
+  animation-name: fadein-route;
+}
+
+@keyframes fadein-route {
+  from {
+    stroke-opacity: 0;
+    stroke-width: 7;
+  }
+  to {
+    stroke-opacity: 1;
+    stroke-width: 5;
+  }
+}
+
+.svg-animation-traversal {
+  animation-name: fadein-traversal;
+}
+
+@keyframes fadein-traversal {
   from {
     stroke-opacity: 0;
     stroke-width: 7;
@@ -21,4 +39,3 @@ body {
     stroke-width: 3;
   }
 }
-

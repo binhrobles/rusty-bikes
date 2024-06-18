@@ -52,14 +52,13 @@ const $routeStyle = computed($withTraversal, (withTraversal) => {
       return {};
     }
 
-    let className = `route-depth-${feature.properties[PropKey.Depth]} step-${
-      feature.properties[PropKey.Index]
-    }`;
-    if (withTraversal) className += ' svg-path';
+    let className = `route-depth-${feature.properties[PropKey.Depth]} step-${feature.properties[PropKey.Index]
+      }`;
+    if (withTraversal) className += ' svg-animation svg-animation-route';
 
     return {
       opacity: withTraversal ? 0 : 1,
-      weight: withTraversal ? 5 : 3,
+      weight: 5,
       className,
     };
   };
@@ -107,7 +106,7 @@ const getTraversalStyleFunc = (meta: RouteMetadata) => {
     return {
       color: color(feature.properties),
       opacity: 0, // start off invisible
-      className: `svg-path depth-${feature.properties[PropKey.Depth]}`,
+      className: `svg-animation svg-animation-traversal depth-${feature.properties[PropKey.Depth]}`,
     };
   };
 };
