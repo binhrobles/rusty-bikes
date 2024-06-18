@@ -18,7 +18,9 @@ pub type Salmoning = bool;
 #[repr(u8)]
 pub enum Cycleway {
     /// There is no bike-specific infra
-    Shared = 0,
+    No = 0,
+    /// There is a sharrow on this road
+    Shared,
     /// The bike lane is designated, but on the road itself
     Lane,
     /// The bike lane is separate from the road / protected

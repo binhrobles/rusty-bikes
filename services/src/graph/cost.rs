@@ -42,6 +42,7 @@ impl Default for CostModel {
                 (Cycleway::Track, 0.5),
                 (Cycleway::Lane, 1.0),
                 (Cycleway::Shared, 1.5),
+                (Cycleway::No, 1.7),
             ]),
             road_weights: HashMap::from([
                 (Road::Bike, 0.5),

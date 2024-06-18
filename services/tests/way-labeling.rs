@@ -22,7 +22,7 @@ fn bidirectional_road_w_one_bike_lane() -> Result<(), anyhow::Error> {
     assert_helper((Cycleway::Lane, Road::Local, false), labels, way);
 
     let labels = db.get_way_labels(-way)?; // https://www.openstreetmap.org/way/654744285
-    assert_helper((Cycleway::Shared, Road::Local, false), labels, -way);
+    assert_helper((Cycleway::No, Road::Local, false), labels, -way);
 
     Ok(())
 }
@@ -75,10 +75,10 @@ fn bidirectional_arterial_w_no_bike_infra() -> Result<(), anyhow::Error> {
     let way = 420880039;
 
     let labels = db.get_way_labels(way)?;
-    assert_helper((Cycleway::Shared, Road::Arterial, false), labels, way);
+    assert_helper((Cycleway::No, Road::Arterial, false), labels, way);
 
     let labels = db.get_way_labels(-way)?;
-    assert_helper((Cycleway::Shared, Road::Arterial, false), labels, -way);
+    assert_helper((Cycleway::No, Road::Arterial, false), labels, -way);
 
     Ok(())
 }
@@ -131,7 +131,7 @@ fn one_way_road_w_single_contraflow_bike_lane() -> Result<(), anyhow::Error> {
     let way = 455014439;
 
     let labels = db.get_way_labels(way)?;
-    assert_helper((Cycleway::Shared, Road::Local, false), labels, way);
+    assert_helper((Cycleway::No, Road::Local, false), labels, way);
 
     let labels = db.get_way_labels(-way)?;
     assert_helper((Cycleway::Track, Road::Local, false), labels, -way);

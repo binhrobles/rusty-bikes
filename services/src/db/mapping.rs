@@ -108,10 +108,11 @@ impl OSMMapper {
         match val {
             "track" | "separate" => Cycleway::Track,
             "lane" | "shoulder" | "opposite_lane" => Cycleway::Lane,
-            "shared_lane" | "share_busway" | "no" | "none" => Cycleway::Shared,
+            "shared_lane" | "share_busway" => Cycleway::Shared,
+            "no" | "none" => Cycleway::No,
             _ => {
                 eprintln!("{}: Unexpected cycleway value: {val}", self.way);
-                Cycleway::Shared
+                Cycleway::No
             }
         }
     }
@@ -160,16 +161,16 @@ impl OSMMapper {
         if let Some(reverse_cycleway) =
             self.get_cycleway_if_contraflow(&self.cycleway_right_oneway, &self.cycleway_right)
         {
-            return (Cycleway::Shared, reverse_cycleway, false);
+            return (Cycleway::No, reverse_cycleway, false);
         }
         if let Some(reverse_cycleway) =
             self.get_cycleway_if_contraflow(&self.cycleway_left_oneway, &self.cycleway_left)
         {
-            return (Cycleway::Shared, reverse_cycleway, false);
+            return (Cycleway::No, reverse_cycleway, false);
         }
 
         // if there are no forward or backward bike lanes on this oneway road, default!
-        (Cycleway::Shared, Cycleway::Shared, true)
+        (Cycleway::No, Cycleway::No, true)
     }
 
     /// For use with oneway roads: if there is non-contraflow bike infra on the specified side, use it

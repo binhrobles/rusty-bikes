@@ -149,13 +149,17 @@ Types:
     [~"^cycleway"~"lane"]
     ```
 
-- **Shared** (default)
+- **Shared**
 
-  - Explicit indications that bikes are welcome to _share_ the road
-  - Given no other indications, this will be the default assumption, since bikes could theoretically salmon up roads / bike lanes
-  - Cost will then depend on how this combines with the Road type and the Directionality
+  - Explicit indications that bikes are welcome to _share_ the road, generally in the form of a ["sharrow"](https://en.wikipedia.org/wiki/Shared_lane_marking)
     ```
     [~"^cycleway"~"shared_lane"]
+    ```
+
+- **No** (default)
+
+  - No bike infra exists here!
+    ```
     [~"^cycleway"~"no"]
     ```
 
@@ -180,7 +184,7 @@ highway = residential
 
 indicate that it is a local road with a designated bike lane on the road going south, but nothing on the road going north. The lack of the `oneway` tag means it is an implicitly bidirectional road.
 
-In this case, we'll label standard direction Way (654744285) to be `Road.Local`, `Cycleway.Lane`, and the reverse direction Way (-654744285) to be `Cycleway.Lane`, `Salmon=true`.
+In this case, we'll label standard direction Way (654744285) to be `Road.Local`, `Cycleway.Lane`, and the reverse direction Way (-654744285) to be `Cycleway.No`, `Salmon=true`.
 
 #### Ex 2: Bidirectional Road w/ Bike Lanes going both ways
 [7th Ave in Park Slope](https://www.openstreetmap.org/way/494221659) is a bidirectional road with bike lanes on both sides, going both ways.
@@ -246,7 +250,7 @@ oneway:bicycle = no
 ```
 indicate that it is a one-way local road going northbound, but with a designated bike lane going south, on the right side.
 
-We'll label the standard direction Way (455014439) to be `Road.Local`, `Cycleway.Shared` (due to lack of bike infra in their direction, a biker would use the road), `Salmon=false`. The reverse (-455014439) will be labeled `Cycleway.Track`, `Salmon=false`.
+We'll label the standard direction Way (455014439) to be `Road.Local`, `Cycleway.No`, `Salmon=false`. The reverse (-455014439) will be labeled `Cycleway.Track`, `Salmon=false`.
 
 ### Routing Cost Function
 

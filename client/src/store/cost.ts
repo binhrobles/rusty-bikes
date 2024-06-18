@@ -5,7 +5,7 @@ enum Cycleway {
   Track = 'Track',
   Lane = 'Lane',
   Shared = 'Shared',
-  // TODO: None
+  No = 'No',
 }
 
 enum Road {
@@ -39,9 +39,10 @@ export const $costModel = computed(
   (salmonCoefficient, cyclewayPreference, roadPreference): CostModel => {
     // preference values affect the "spread" bw different road / cycleway types
     const cyclewayWeights = {
-      [Cycleway.Track]: 1.0 - (cyclewayPreference / 10.0), // TODO: am i ok with this at 0?
+      [Cycleway.Track]: 1.0 - (cyclewayPreference / 10.0),
       [Cycleway.Lane]: 1.0,
-      [Cycleway.Shared]: 1.0 + (cyclewayPreference / 10.0),
+      [Cycleway.Shared]: 1.0 + (cyclewayPreference / 20.0),
+      [Cycleway.No]: 1.0 + (cyclewayPreference / 10.0),
     };
 
     const roadWeights = {
