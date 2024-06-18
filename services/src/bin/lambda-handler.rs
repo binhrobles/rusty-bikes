@@ -6,7 +6,7 @@ use lambda_http::{
 use rusty_router::osm::Location;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use tracing::{error, info};
+use tracing::error;
 
 use rusty_router::geojson;
 use rusty_router::graph::{CostModel, Graph, RouteMetadata, Weight};
@@ -67,9 +67,6 @@ fn traverse_handler(graph: &Graph, event: Request) -> Result<String, anyhow::Err
         .ok_or_else(|| anyhow!("Missing traversal params"))?;
 
     let starting_coord = Point::new(params.lon, params.lat);
-    if let Some(cost_model) = params.cost_model.as_ref() {
-        info!("custom cost model: {:#?}", cost_model);
-    }
 
     let traversal = graph
         .calculate_traversal(
@@ -115,9 +112,6 @@ fn route_handler(graph: &Graph, event: Request) -> Result<String, anyhow::Error>
         .ok_or_else(|| anyhow!("Missing route params"))?;
 
     let with_traversal = params.with_traversal.unwrap_or(false);
-    if let Some(cost_model) = params.cost_model.as_ref() {
-        info!("custom cost model: {:#?}", cost_model);
-    }
 
     let (route, traversal, meta) = graph
         .calculate_route(

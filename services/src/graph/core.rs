@@ -13,7 +13,7 @@ pub struct Graph {
     pub db: Box<dyn GraphRepository>,
 }
 
-#[derive(Serialize)]
+#[derive(Debug, Serialize)]
 pub struct RouteMetadata {
     max_depth: Depth,
     cost_range: (Cost, Cost),
