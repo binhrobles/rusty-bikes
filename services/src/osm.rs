@@ -7,6 +7,7 @@ use serde::{Deserialize, Serialize, Serializer};
 pub type NodeId = i64;
 pub type WayId = i64;
 pub type Distance = i32;
+pub type Elevation = i32;
 
 pub type WayLabels = (Cycleway, Road, Salmoning);
 
