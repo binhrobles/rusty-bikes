@@ -1,6 +1,7 @@
 use super::{serialize_as_int, serialize_float_rounded, Cost, CostModel, Graph, Weight};
 use crate::osm::{
-    serialize_node_simple, Cycleway, Distance, Neighbor, Node, NodeId, Road, WayId, WayLabels,
+    serialize_node_simple, Cycleway, Distance, Grade, Neighbor, Node, NodeId, Road, WayId,
+    WayLabels,
 };
 use anyhow::anyhow;
 use geo::{HaversineDistance, Line, Point};
@@ -49,6 +50,7 @@ pub struct TraversalSegment {
     // segment metadata for weighing / constructing the route
     pub depth: Depth,
     pub length: Distance,
+    pub grade: Grade,
     pub distance_so_far: Distance,
     pub labels: WayLabels,
 
@@ -89,10 +91,14 @@ impl Ord for TraversalSegment {
 }
 
 impl TraversalSegment {
+    /// init a TraversalSegment using a Node and a Neighbor struct
     pub fn build_to_neighbor(from: &Node, to: &Neighbor) -> TraversalSegmentBuilder {
         TraversalSegmentBuilder::new_from_neighbor(from, to)
     }
 
+    /// init a TraversalSegment from two Nodes
+    /// only use for initial snapped neighbors -- prefer using a full Neighbor struct leveraging
+    /// the new_from_neighbor constructor where possible
     pub fn build_to_node(from: &Node, to: &Node, way: WayId) -> TraversalSegmentBuilder {
         TraversalSegmentBuilder::new_from_node(from, to, way)
     }
@@ -107,6 +113,7 @@ pub struct TraversalSegmentBuilder {
 
     depth: Depth,
     length: Distance,
+    grade: Grade,
     distance_so_far: Distance,
     labels: WayLabels,
     cost_factor: Cost,
@@ -125,6 +132,7 @@ impl TraversalSegmentBuilder {
 
             depth: 0,
             length: to.distance,
+            grade: to.grade,
             distance_so_far: to.distance,
             labels: (Cycleway::Shared, Road::Collector, false),
             cost_factor: 0.0,
@@ -144,6 +152,7 @@ impl TraversalSegmentBuilder {
 
             depth: 0,
             length,
+            grade: 0,
             distance_so_far: length,
             labels: (Cycleway::Shared, Road::Collector, false),
             cost_factor: 0.0,
@@ -185,9 +194,11 @@ impl TraversalSegmentBuilder {
 
     pub fn build(self) -> TraversalSegment {
         // generates "true segment cost" at build time, incorporating the cost factor, length of
-        // the segment, the accumulated cost to get here
+        // the segment, the grade, the accumulated cost to get here
         // these should 0 out if any of these haven't been built into the segment
-        let cost = self.cost_factor * self.length as f32 + self.cost_so_far;
+        let cost = (self.cost_factor * self.length as f32)
+            + (self.cost_factor * self.grade as f32) // TODO: add grade configurable coefficient
+            + self.cost_so_far;
 
         TraversalSegment {
             from: self.from,
@@ -198,6 +209,7 @@ impl TraversalSegmentBuilder {
 
             length: self.length,
             depth: self.depth,
+            grade: self.grade,
             distance_so_far: self.distance_so_far,
             labels: self.labels,
             cost_factor: self.cost_factor,

@@ -8,6 +8,7 @@ pub type NodeId = i64;
 pub type WayId = i64;
 pub type Distance = i32;
 pub type Elevation = i32;
+pub type Grade = i32;
 
 pub type WayLabels = (Cycleway, Road, Salmoning);
 
@@ -65,6 +66,7 @@ pub struct Neighbor {
     pub way: WayId,
     pub node: Node,
     pub distance: Distance,
+    pub grade: Grade,
     // TODO: bearing?
 }
 
