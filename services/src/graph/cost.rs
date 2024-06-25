@@ -58,6 +58,7 @@ impl Default for CostModel {
 impl CostModel {
     pub fn calculate_cost(&self, way_labels: &WayLabels) -> Cost {
         let (cycleway, road, salmon) = way_labels;
+        // TODO: have grade passed in, and some coefficient applied
 
         let cycleway_cost =
             self.cycleway_coefficient * self.cycleway_weights.get(cycleway).unwrap();

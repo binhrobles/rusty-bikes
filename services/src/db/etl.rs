@@ -1,5 +1,6 @@
 /// Governs the initial ETL process from the OSM export JSON to SQLite
 use geo::Point;
+use reqwest::blocking::Client;
 use serde::de::{SeqAccess, Visitor};
 use serde::{Deserialize, Deserializer};
 use std::collections::HashMap;
@@ -99,6 +100,7 @@ where
             let mut count = 0;
             let mut conn = super::get_conn().unwrap();
             let tx = conn.transaction().unwrap();
+            let client = Client::new();
 
             while let Some(el) = seq.next_element::<Element>()? {
                 count += 1;
@@ -111,7 +113,7 @@ where
                     }
                     "way" => {
                         // insert to Way table
-                        super::insert_way_element(&tx, el).unwrap();
+                        super::insert_way_element(&tx, &client, el).unwrap();
                     }
                     other => panic!("unsupported type {}\nelement: {:?}", other, el),
                 }
