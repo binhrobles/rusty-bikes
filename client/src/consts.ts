@@ -27,7 +27,7 @@ export enum HtmlElementId {
 
 export const TraversalDefaults = {
   depth: 20,
-  stepDelayMs: 75,
+  stepDelayMs: 50,
 };
 
 export const CostDefaults = {

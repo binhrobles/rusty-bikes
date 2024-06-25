@@ -14,6 +14,8 @@ import { $raw, RouteMetadata } from './fetch.ts';
 import { $withTraversal } from './route.ts';
 
 export const addDebugClick = (feature: Feature, layer: L.Layer) => {
+  // TODO: is there a way to lazily create a debug popup on click?
+  // rather than creating this popup 5000+ times on large traversals
   console.log(`executing debug click for ${feature.id}`);
   const featurePopupDiv = L.DomUtil.create('div', 'feature-popup');
 
