@@ -14,6 +14,7 @@ import { $raw, RouteMetadata } from './fetch.ts';
 import { $withTraversal } from './route.ts';
 
 export const addDebugClick = (feature: Feature, layer: L.Layer) => {
+  console.log(`executing debug click for ${feature.id}`);
   const featurePopupDiv = L.DomUtil.create('div', 'feature-popup');
 
   L.DomEvent.disableClickPropagation(featurePopupDiv).disableScrollPropagation(
@@ -119,7 +120,7 @@ export const $traversalLayer = computed([$raw], (json) => {
   // if traversal exists, paint it
   return L.geoJSON(json.traversal, {
     style: getTraversalStyleFunc(json.meta),
-    onEachFeature: addDebugClick,
+    onEachFeature: import.meta.env.PROD ? undefined : addDebugClick,
     bubblingMouseEvents: false,
   });
 });
@@ -131,7 +132,7 @@ export const $routeLayer = computed([$raw], (json) => {
 
   return L.geoJSON(json.route, {
     style: $routeStyle.get(),
-    onEachFeature: addDebugClick,
+    onEachFeature: import.meta.env.PROD ? undefined : addDebugClick,
     bubblingMouseEvents: false,
   });
 });
