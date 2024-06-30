@@ -5,6 +5,7 @@
 ### Requirements
 
 - [Cargo Lambda](https://github.com/awslabs/aws-lambda-rust-runtime)
+  - Used to deploy into an AWS Lambda. Also provides a local `watch` environment, which I'm using when running locally to provide hot reloading and keep my dev runtime environment basically identical to the deployed environment.
 
 Do it:
 
@@ -19,7 +20,7 @@ curl http://localhost:9000/lambda-url/lambda-handler/traverse?lat=40.68376227690
 ## How it's happening
 
 1. [Leveraging OSM Data](#leveraging-osm-data)
-2. [Labeling Definitions](#labeling-definitions)
+2. [Data Transformation](#data-transformation)
 3. [Labeling Examples](#labeling-examples)
 4. [Cost Function](#routing-cost-function)
 5. [Query Optimization](#query-optimization)
@@ -33,20 +34,51 @@ curl http://localhost:9000/lambda-url/lambda-handler/traverse?lat=40.68376227690
 
 ### Leveraging OSM Data
 
-The underlying data is coming from [OSM's Overpass API](https://wiki.openstreetmap.org/wiki/Overpass_API). The initial data dump is the result of the [OverpassQL query](./scripts/download_osm_data.sh), which gives us all relevant [Way](https://wiki.openstreetmap.org/wiki/Way)'s tagged with the [key "highway"](https://wiki.openstreetmap.org/wiki/Key:highway) in roughly Lower Manhattan + over the bridge BK, along with their geometry data (lat-longs + referenced Node lat-longs).
+The underlying data is coming from [OSM's Overpass API](https://wiki.openstreetmap.org/wiki/Overpass_API). The initial data dump is from this [OverpassQL query](./scripts/download_osm_data.sh), which gives us all relevant [Way](https://wiki.openstreetmap.org/wiki/Way)'s tagged with the [key "highway"](https://wiki.openstreetmap.org/wiki/Key:highway) in a Manhattan-BK-centric view of NYC boroughs, along with their geometry data (lat-longs + referenced Node lat-longs).
 
-### Labeling Definitions
+<details>
 
-Using OSM tags, we can create a consistent data model for understanding the roads in terms of bike-ability. We'll do this _before_ loading the data into our DB, so we can interact with our own data model at runtime rather than the sometimes-inconsistent OSM tag landscape.
+<summary>Considerations</summary>
+The first thought was to use the Overpass API directly while executing pathfinding. Benefits being: I wouldn't have to "own" any data, and could possibly make use of OverpassQL's recursive querying to offload some processing. 
 
-We'll do a lossy translation from that space into our 3 dimensions: Road type, Cycleway type, and Directionality.
 
-See:
+This had a few issues:
+
+- Every pathfinding algorithm invokes a "get neighbors" call in the middle of its nested execution loop, thousands of times. Introducing network fetch latency at that level would make pathfinding unusably slow.
+- OSM data contains a lot of information that isn't relevant to pathfinding (like building and jurisdiction info). Filtering would take up processing for every request to OSM.
+
+To make the problem more manageable, scope was cut to _just_ bike pathfinding in _just_ NYC. This allowed me to apply a set of filters and a bounding box to the Overpass Query resulting in a ~50MB json file. For comparison, the full planet OSM is [1915 GB uncompressed](https://wiki.openstreetmap.org/wiki/Planet.osm) and the NYC bounding box with ALL Ways (not including bike-relevant filtering) is ~300MB.
+
+Although this does mean owning the data layer for this project, at this scale, we have a lot of flexibility. See [Database Design](#database-design)
+</details>
+
+### Data Transformation
+
+Using OSM tags, we can create a consistent data model for understanding the roads in terms of bike-ability. We'll do this _before_ loading the data into our DB, so we can interact with our own data model at runtime rather than the vast OSM tag landscape.
+
+We'll do a lossy translation from that space into 3 dimensions: **Road** type, **Cycleway** type, and **Directionality / Salmoning**.
+
+Because of directionality, we'll save labeling metadata for each **Way** twice, once for the "standard" direction, and once for the "reverse" direction. We'll indicate this by creating 2 Way entries, one with the regular, positive ID, and one with same ID, but _negative_. We can be certain that [no OSM IDs will be negative](https://wiki.openstreetmap.org/wiki/Elements#Common_attributes). The `Road` type will always be the same, but the `Cycleway` and `Salmon` tags may differ.
+
+When assessing the reverse OSM direction, we will check for dedicated infrastructure in this direction, or use the contraflow bike infra, before judging the route as a salmon route.
+
+<details>
+
+<summary>Considerations</summary>
+
+The first naive thought was to dump all the tags into a denormalized table or onto the DB representation of the Ways themselves, and have the pathfinding service make cost function decisions at query-time based on tags. 
+
+However, after learning more about how OSM tagging landscape, it was apparent that the rules engine would be large, with many edge cases. See:
 
 - https://wiki.openstreetmap.org/wiki/Bicycle
 - https://taginfo.openstreetmap.org/keys/cycleway#values
 - https://wiki.openstreetmap.org/wiki/Key:cycleway:right:oneway
 - [https://wiki.openstreetmap.org/wiki/Forward*%26_backward,\_left*%26_right](https://wiki.openstreetmap.org/wiki/Forward_%26_backward,_left_%26_right)
+
+
+Data simplification could happen _before_ pathfinding-time, and, if it was, it made sense to do it as part of an ETL process _before_ the data even made it into the DB itself. This would move this processing out of execution logic and allow us to perform [testing / validation](#labeling-examples) on the resulting dataset.
+
+</details>
 
 #### Road Type
 
@@ -77,7 +109,7 @@ Types:
 
 - **Local**
 
-  - See: [highway=unclassified](https://wiki.openstreetmap.org/wiki/Tag:highway%3Dunclassified)
+  - [highway=unclassified](https://wiki.openstreetmap.org/wiki/Tag:highway%3Dunclassified)
 
   ```
   ["highway"="residential"]
@@ -165,11 +197,13 @@ Types:
 
 ### Labeling Examples
 
-Because of directionality, we'll save labeling metadata for each **Way** twice, once for the "standard" direction, and once for the "reverse" direction. We'll indicate this by creating 2 Way entries, one with the regular, positive ID, and one with a _negative_ id. We can be certain that [no OSM IDs will be negative](https://wiki.openstreetmap.org/wiki/Elements#Common_attributes). The `Road` type will always be the same, but the `Cycleway` and `Salmon` tags may differ.
-
-Bikers going the opposite direction will check first for dedicated infrastructure in their direction, or use the contraflow bike infra.
+One of the joys of this project, and why I wanted to work on it, is that the data is a representation of the built world! Because of this, I was able to think up / find roads around NYC that would act as interesting edge cases for this test suite, and logically assign the labels they should acquire after the ETL process. These first lived as notes, and then were baked into the test suite, which was executed in the ETL development loop, editing the rules engine, processing the OSM JSON, and testing the output SQLite DB.
 
 See [test suite](./tests/way-labeling.rs)
+
+<details>
+
+<summary>Example Test Cases</summary>
 
 #### Ex 1: Bidirectional Road w/ One Bike Lane
 
@@ -252,6 +286,8 @@ indicate that it is a one-way local road going northbound, but with a designated
 
 We'll label the standard direction Way (455014439) to be `Road.Local`, `Cycleway.No`, `Salmon=false`. The reverse (-455014439) will be labeled `Cycleway.Track`, `Salmon=false`.
 
+</details>
+
 ### Routing Cost Function
 
 This piece of the system should use the bike path labels to return high "costs" for undesireable biking paths (like busy streets with no dedicated bike lanes (ie: [Atlantic Ave](https://www.openstreetmap.org/way/1204342261)), and low "costs" for desireable biking paths (like [along Flushing Ave / BK Naval Yards](https://www.openstreetmap.org/way/488161824)).
@@ -268,7 +304,7 @@ To support an efficient A\* implementation:
   - Store Ways in an [R\*Tree](https://sqlite.org/rtree.html) index, easily done due to their min/max coords
   - Given a way and a coordinate, where along the Way is this coordinate?
 
-### Schema Design
+### Database Design
 
 Those considerations point us to a SQLite schema of:
 
