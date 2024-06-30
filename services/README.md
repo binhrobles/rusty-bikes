@@ -292,19 +292,112 @@ We'll label the standard direction Way (455014439) to be `Road.Local`, `Cycleway
 
 This piece of the system should use the bike path labels to return high "costs" for undesireable biking paths (like busy streets with no dedicated bike lanes (ie: [Atlantic Ave](https://www.openstreetmap.org/way/1204342261)), and low "costs" for desireable biking paths (like [along Flushing Ave / BK Naval Yards](https://www.openstreetmap.org/way/488161824)).
 
+<details>
+
+<summary>Considerations</summary>
+I didn't have much prior art to reference for this problem. At a high level, it made sense to me to have: 
+
+- Percentage based contribution
+   - Road type account for some percentage of the cost, the Cycleway type for another percentage, and Salmoning for another.
+- Model Weights
+   - Each Road and Cycleway type would have some inherent weight to them, to numerically differentiate bike lanes from shared lanes.
+   - These could be defined at API invocation time by a client, to customize the pathfinding alg
+- Cost Factor vs "True" Cost
+   - It also made intuitive sense that this cost "factor" would be applied against the length of the Way (so short roads with high cost may be preferable to long, winding, low cost paths) to obtain the "true" cost of choosing this path
+
+I started simple with a function like:
+```
+Road.Bike = 0.5
+Road.Pedestrian = 1.2
+Road.Secondary = 1.5
+... (or user-defined)
+
+Cycleway.Track = 0.5
+Cycleway.Lane = 1.0
+Cycleway.Shared = 1.5
+... (or user-defined)
+
+cost_factor = (road_type * 30%) + (cycleway_type * 40%) + (30% if salmoning)
+
+true_cost = cost_factor * way_length
+```
+
+which worked (to me) surprisingly well.
+
+The next big insight was that salmoning was having a flat, consistent impact on the cost, with no regard to the Road / Cycleway types. This didn't make sense. Salmoning on a major road like Atlantic Ave is different than salmoning on a side residential street. So the contribution percentages were adjusted and salmoning was modified to be a configurable percentage multiplier of the rest of the cost:
+
+```
+salmon_multiplier = 30% (or user-defined)
+
+cost_factor = (road_type * 50%) + (cycleway_type * 50%)
+cost_factor *= (salmon_multiplier if salmoning)
+
+true_cost = cost_factor * way_length
+```
+
+This worked more naturally, and pathfinding began suggesting salmoning at more reasonable locations.
+
+</details>
+
 ### Query Optimization
 
 To support an efficient A\* implementation:
 
 - Looking up Node neighbors must be as fast as possible
-  - adjacency matrix lookup should be quick
 - Costs must be calculated quickly
   - Labels should be quickly available for each Way
-- We must be able to locate the Way that is closest to our start / end points
-  - Store Ways in an [R\*Tree](https://sqlite.org/rtree.html) index, easily done due to their min/max coords
-  - Given a way and a coordinate, where along the Way is this coordinate?
+- We must be able to locate the Nodes that are closest to our start / end points
+  - Geospatial querying of dataset
 
 ### Database Design
+
+<details>
+<summary>Considerations</summary>
+
+Where to put this data. How to query it. Generally, I saw the following options: SQLite, DynamoDB / a NoSQL DB, or Amazon Neptune / Neo4j. 
+
+
+Given the considerations below, decided that the enabled iteration speed, free-ness of deployment, and extremely low barrier to entry provided by SQLite made it my first choice for kicking off this project. The cons of the choice were essentially mitigated by it not needing cross-network calls or separate DB mgmt to be added to the project.
+
+
+When expanding to support multiple cities, I'd be interested in exploring how a Graph DB compares in speed of execution / ergonomics of working w/ the data.
+
+#### SQLite
+Pros:
+- This data is like 50MB, easily served by this tech
+- Easy to get started
+- No extra infra => speed of querying on disk + FREE
+- Access patterns are simple / defined / easily indexable
+- Geospatial querying (!!) w/ [R*Tree module](https://sqlite.org/rtree.html)
+
+Cons:
+- Would need to normalize Labels away from Ways away from Nodes, requiring JOINs for many queries
+
+#### DynamoDB / a NoSQL DB
+Pros:
+- A normalized Node document makes intuitive sense
+  - It would include its neighbor Node IDs, the Labels + IDs for the Ways connecting them
+  - One DB call, no joins, in the middle of the pathfinding execution loop
+- [Geohashing](https://aws.amazon.com/blogs/compute/implementing-geohashing-at-scale-in-serverless-web-applications/) is a generally supported strategy
+- W/ DDB, [DAX](https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/DAX.html) could likely be used to offload subsequent queries into the cache (assuming most of our use case is people playing around w/ different pathfinding configurations on the same route)
+
+Cons:
+- W/ DDB, price / performance / provisioning tradeoffs would be important
+- DAX, though useful for our use case, is not "serverless", and charges by the instance-hour
+- If not DDB, would need to deploy / manage a DB
+
+#### Neo4j
+Pros:
+- A graph db for graph traversals!
+  - Promises of extremely efficient relational queries / pathfinding
+- Never used it before; would be a great learning opportunity
+
+Cons:
+- No officially supported Rust driver (but a [community-written one](https://github.com/neo4j-labs/neo4rs) published recently)
+- Wanted to write A* myself in Rust -- but would likely want to take advantage of any Graph DB optimizations
+- If not Neptune, would need to deploy / manage a DB
+
+</details>
 
 Those considerations point us to a SQLite schema of:
 
@@ -352,6 +445,6 @@ erDiagram
 
 ### Hosting
 
-Since the SQlite DB is ~15MB zipped and the data access is read-only, currently packaging the DB into the lambda artifact. To reduce deploy times (though marginally) and have a more sacred deploy artifact, I'll probably upload the SQLite DB as a separate Lambda Layer that will get updated on some regular basis, w/ a separate Lambda cron. After that, it's just a simple HTTP API Gateway -> Lambda integration to host this real cheap.
+Since the SQlite DB is ~20MB zipped and the data access is read-only, currently uploading the DB as a Lambda Layer. The Rust code is packaged by SAM Toolkit into an AWS Lambda Runtime, and configured to access SQLite in the attached Lambda Layer. After that, it's just a simple HTTP API Gateway -> Lambda integration to host this real ~cheap~ free.
 
-I kinda felt bad about making this choice, because I was a bit excited about getting deep on Tokio concurrency and such, and the AWS Lambda environment brings concurrency to the system-level, but being able to host this simply, for free, outweighed that.
+I kinda felt bad about making this choice, because I was a bit excited about getting deep on Tokio concurrency and such, and the AWS Lambda environment brings API concurrency to the system-level, but being able to host this simply, for free, outweighed that. There are still opportunities to explore concurrency during pathfinding, but that may be somewhat limited due to SQLite's concurrency model.
