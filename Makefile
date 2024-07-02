@@ -3,10 +3,18 @@ BUILD=.aws-sam/build
 ## ------------ Running Locally ------------ ##
 # for running this project locally at localhost:9000
 service-watch: db.db3
+ifdef release
+	cd services && cargo lambda watch --release
+else
 	cd services && cargo lambda watch
+endif
 
 client-watch:
+ifdef release
+	cd client && yarn build && yarn preview
+else
 	cd client && yarn dev
+endif
 
 service-test: db.db3
 	cd services && DB_PATH=../db.db3 cargo test

@@ -33,7 +33,7 @@ async fn handler(event: Request) -> Result<Response<Body>, LambdaError> {
     let body = GRAPH.with(|graph| match event.raw_http_path() {
         "/traverse" => traverse_handler(graph, &event),
         "/route" => route_handler(graph, &event),
-        "/ping" => Ok("ok!".to_owned()),
+        "/ping" => ping_handler(graph),
         _ => Err(anyhow!("invalid path")),
     })?;
 
@@ -64,6 +64,24 @@ async fn handler(event: Request) -> Result<Response<Body>, LambdaError> {
 
     // otherwise, return raw response body
     Ok(response.body(body.into())?)
+}
+
+/// handler for waking up the lambda
+/// ensures that the Graph singleton is instantiated and traversable
+fn ping_handler(graph: &Graph) -> Result<String, anyhow::Error> {
+    graph
+        .calculate_traversal(
+            Point::new(-73.961677, 40.683762),
+            10,
+            None,
+            None,
+        )
+        .map_err(|e| {
+            error!("Routing Error: {e}");
+            e
+        })?;
+
+    Ok("ok!".to_owned())
 }
 
 #[derive(Debug, Deserialize)]
