@@ -5,6 +5,9 @@ BUILD=.aws-sam/build
 service-watch: db.db3
 	cd services && cargo lambda watch
 
+client-watch:
+	cd client && yarn dev
+
 service-test: db.db3
 	cd services && DB_PATH=../db.db3 cargo test
 
