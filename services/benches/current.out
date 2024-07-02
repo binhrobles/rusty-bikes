@@ -5,12 +5,12 @@ test run_a_long_route_lots_of_times ... ok
 successes:
 
 ---- run_a_long_route_lots_of_times stdout ----
-Routing took: 19856
-avg: 198
+Routing took: 29855
+avg: 298
 
 
 successes:
     run_a_long_route_lots_of_times
 
-test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 19.86s
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 29.86s
 

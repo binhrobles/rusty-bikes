@@ -70,7 +70,6 @@ const fetchRoute = async (
     $isSuccess.set(true);
 
     console.log(`raw fetched @ ${Date.now() - $clickTime.get()}`);
-    console.log(await res.text());
     return await res.json();
   } catch (e) {
     $isLoading.set(false);

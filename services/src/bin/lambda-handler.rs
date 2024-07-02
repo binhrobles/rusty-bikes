@@ -8,7 +8,6 @@ use rusty_router::osm::Location;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use tracing::error;
-use base64::{engine::general_purpose, Engine as _};
 
 use rusty_router::api::{compression, geojson};
 use rusty_router::graph::{CostModel, Graph, RouteMetadata, Weight};
@@ -31,7 +30,7 @@ async fn main() {
 }
 
 async fn handler(event: Request) -> Result<Response<Body>, LambdaError> {
-    let mut body = GRAPH.with(|graph| match event.raw_http_path() {
+    let body = GRAPH.with(|graph| match event.raw_http_path() {
         "/traverse" => traverse_handler(graph, &event),
         "/route" => route_handler(graph, &event),
         "/ping" => Ok("ok!".to_owned()),
@@ -51,15 +50,19 @@ async fn handler(event: Request) -> Result<Response<Body>, LambdaError> {
             .to_str()
             .map_err(|_| anyhow!("could not parse Accept-Encoding header"))?;
 
-        let (compression_output, encoding) = compression::compress_with_encoding(&body, accept_encoding)?;
+        let (compression_output, encoding) =
+            compression::compress_with_encoding(&body, accept_encoding).map_err(|e| {
+                error!("Compression Error: {e}");
+                anyhow!(e)
+            })?;
 
         if encoding != Encoding::No {
-            // API Gateway needs binary types to be base64 encoded
-            body = general_purpose::STANDARD.encode(compression_output.unwrap());
             response = response.header("content-encoding", encoding.to_string());
+            return Ok(response.body(compression_output.unwrap().into())?);
         }
     }
 
+    // otherwise, return raw response body
     Ok(response.body(body.into())?)
 }
 
