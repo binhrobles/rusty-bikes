@@ -3,12 +3,13 @@ use geo::Point;
 use lambda_http::{
     run, service_fn, Body, Error as LambdaError, Request, RequestExt, RequestPayloadExt, Response,
 };
+use rusty_router::api::compression::Encoding;
 use rusty_router::osm::Location;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use tracing::error;
 
-use rusty_router::geojson;
+use rusty_router::api::{compression, geojson};
 use rusty_router::graph::{CostModel, Graph, RouteMetadata, Weight};
 
 // create a singleton of the Graph struct on lambda boot
@@ -30,21 +31,39 @@ async fn main() {
 
 async fn handler(event: Request) -> Result<Response<Body>, LambdaError> {
     let body = GRAPH.with(|graph| match event.raw_http_path() {
-        "/traverse" => traverse_handler(graph, event),
-        "/route" => route_handler(graph, event),
+        "/traverse" => traverse_handler(graph, &event),
+        "/route" => route_handler(graph, &event),
         "/ping" => Ok("ok!".to_owned()),
         _ => Err(anyhow!("invalid path")),
     })?;
 
-    let response = Response::builder()
+    let mut response = Response::builder()
         .status(200)
         .header("content-type", "application/json")
         .header("Access-Control-Allow-Headers", "Content-Type")
         .header("Access-Control-Allow-Origin", "*")
-        .header("Access-Control-Allow-Methods", "GET,POST")
-        .body(body.into())?;
+        .header("Access-Control-Allow-Methods", "GET,POST");
 
-    Ok(response)
+    // perform compression, if specified
+    if let Some(accept_encoding) = event.headers().get("Accept-Encoding") {
+        let accept_encoding = accept_encoding
+            .to_str()
+            .map_err(|_| anyhow!("could not parse Accept-Encoding header"))?;
+
+        let (compression_output, encoding) =
+            compression::compress_with_encoding(&body, accept_encoding).map_err(|e| {
+                error!("Compression Error: {e}");
+                anyhow!(e)
+            })?;
+
+        if encoding != Encoding::No {
+            response = response.header("content-encoding", encoding.to_string());
+            return Ok(response.body(compression_output.unwrap().into())?);
+        }
+    }
+
+    // otherwise, return raw response body
+    Ok(response.body(body.into())?)
 }
 
 #[derive(Debug, Deserialize)]
@@ -61,7 +80,7 @@ struct TraversalResponse {
     traversal: Value,
 }
 
-fn traverse_handler(graph: &Graph, event: Request) -> Result<String, anyhow::Error> {
+fn traverse_handler(graph: &Graph, event: &Request) -> Result<String, anyhow::Error> {
     let params = event
         .payload::<TraversalParams>()?
         .ok_or_else(|| anyhow!("Missing traversal params"))?;
@@ -106,7 +125,7 @@ struct RouteResponse {
     meta: RouteMetadata,
 }
 
-fn route_handler(graph: &Graph, event: Request) -> Result<String, anyhow::Error> {
+fn route_handler(graph: &Graph, event: &Request) -> Result<String, anyhow::Error> {
     let params = event
         .payload::<RouteParams>()?
         .ok_or_else(|| anyhow!("Missing route params"))?;
