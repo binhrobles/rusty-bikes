@@ -1,6 +1,5 @@
 /// Governs interface w/ underlying SQLite db
 use anyhow::anyhow;
-use rayon::prelude::*;
 use reqwest::blocking::Client;
 use rusqlite::{Connection, Transaction};
 
@@ -9,12 +8,12 @@ use geo::{point, Point};
 use serde::Deserialize;
 
 use super::{Element, OSMMapper};
-use crate::osm::{Distance, Elevation, Location, NodeId, Way};
+use crate::osm::{Distance, Elevation, Grade, Location, NodeId, Way};
 use std::env;
 
 #[derive(Debug, Deserialize)]
 pub struct ElevationResult {
-    elevation: Option<f32>,
+    elevation: Option<Elevation>,
 }
 #[derive(Debug, Deserialize)]
 pub struct ElevationResponse {
@@ -99,16 +98,12 @@ pub fn insert_node_element(tx: &Transaction, element: Element) -> anyhow::Result
     Ok(())
 }
 
-type SegmentMetadata = (
-    NodeId,
-    NodeId,
-    Distance,
-    Option<Elevation>,
-    Option<Elevation>,
-);
-
 /// Insert a OSM-parsed Way element into the DB, synchronously
-pub fn insert_way_element(tx: &Transaction, client: &Client, element: Element) -> anyhow::Result<()> {
+pub fn insert_way_element(
+    tx: &Transaction,
+    client: &Client,
+    element: Element,
+) -> anyhow::Result<()> {
     let way = Way::from(&element);
 
     let mut way_insert_stmt = tx.prepare_cached(
@@ -158,6 +153,32 @@ pub fn insert_way_element(tx: &Transaction, client: &Client, element: Element) -
         "Ways should always have nodes[] and geometry[] of equal length"
     );
 
+    // get elevation data for all the nodes in this way
+    // first by formatting all the latlngs into a query string
+    let formatted_lat_lngs: Vec<String> = node_ids
+        .iter()
+        .enumerate()
+        .map(|(pos, _)| {
+            let p = get_point_for_way_node(&node_coords, pos);
+            format!("{},{}", p.y(), p.x()).as_str().to_owned()
+        })
+        .collect();
+    let elevation_query =
+        String::from("http://localhost:5001/v1/ned10m?locations=") + &formatted_lat_lngs.join("|");
+
+    // and then by executing the query against the locally running opentopo server
+    let response = client
+        .get(elevation_query)
+        .send()?
+        .json::<ElevationResponse>()?;
+    let elevations: Vec<Elevation> = response
+        .results
+        .iter()
+        .map(|r| r.elevation.unwrap() as Elevation)
+        .collect();
+
+    let mut prev_node: Option<(NodeId, Point)> = None;
+
     // walk the Way's Nodes
     for (pos, current_node_id) in node_ids.iter().enumerate() {
         let p = get_point_for_way_node(&node_coords, pos);
@@ -173,118 +194,42 @@ pub fn insert_way_element(tx: &Transaction, client: &Client, element: Element) -
         wn_insert_stmt
             .execute(wn_params)
             .map_err(|e| anyhow!("Failed WayNode:\n{:#?}\n{e}", wn_params))?;
-    }
 
-    // gather segment metadata, leveraging parallel requests to the elevation HTTP service
-    let segments: Vec<Option<SegmentMetadata>> = node_ids
-        .par_iter()
-        .enumerate()
-        .map(|(pos, n_id)| -> Option<SegmentMetadata> {
-            if pos == 0 {
-                return None;
-            }
+        // attach this and the previous node as Segments
+        if let Some((prev_node_id, prev_point)) = prev_node {
+            let distance = p.haversine_distance(&prev_point).ceil() as i32;
+            let prev_elevation = elevations.get(pos - 1).unwrap();
+            let current_elevation = elevations.get(pos).unwrap();
+            let grade = get_grade(prev_elevation, current_elevation, distance);
 
-            // attach this and the previous node as Segments
-            let p = get_point_for_way_node(&node_coords, pos);
-
-            let prev_node_pos = get_point_for_way_node(&node_coords, pos - 1);
-            let prev_node_id = node_ids.get(pos - 1).unwrap();
-
-            let distance = p.haversine_distance(&prev_node_pos).ceil() as Distance;
-            let elevation_response: Option<ElevationResponse> = match client
-                .get(format!(
-                    "http://localhost:8080/api/v1/lookup?locations={},{}|{},{}",
-                    p.y(),
-                    p.x(),
-                    prev_node_pos.y(),
-                    prev_node_pos.x()
-                ))
-                .send()
-            {
-                Ok(res) => match res.json() {
-                    Ok(res) => Some(res),
-                    Err(e) => {
-                        eprintln!("Elevation JSON Error: {e}");
-                        None
-                    }
-                },
-                Err(e) => {
-                    eprintln!("Elevation Request Error: {e}");
-                    None
-                }
-            };
-
-            let mut current_elevation: Option<Elevation> = None;
-            let mut prev_elevation: Option<Elevation> = None;
-
-            if let Some(elevation_response) = elevation_response {
-                current_elevation = Some(
-                    elevation_response
-                        .results
-                        .first()
-                        .unwrap()
-                        .elevation
-                        .unwrap() as Elevation,
-                );
-                prev_elevation = Some(
-                    elevation_response
-                        .results
-                        .get(1)
-                        .unwrap()
-                        .elevation
-                        .unwrap() as Elevation,
-                );
-            }
-
-            Some((
-                *prev_node_id,
-                *n_id,
+            let segment_params = (
+                prev_node_id,
+                current_node_id,
+                &way.id,
                 distance,
-                prev_elevation,
-                current_elevation,
-            ))
-        })
-        .collect();
+                grade,
+            );
+            segment_insert_stmt
+                .execute(segment_params)
+                .map_err(|e| anyhow!("Failed WayNode:\n{:#?}\n{e}", segment_params))?;
 
-    // now go through the valid segment metadata and add the segments to the Segments table
-    for (prev_node_id, current_node_id, distance, prev_elevation, current_elevation) in
-        segments.iter().flatten()
-    {
-        let segment_params = (
-            prev_node_id,
-            current_node_id,
-            &way.id,
-            distance,
-            get_grade(current_elevation, prev_elevation),
-        );
-        segment_insert_stmt
-            .execute(segment_params)
-            .map_err(|e| anyhow!("Failed WayNode:\n{:#?}\n{e}", segment_params))?;
+            // also insert the inverse segment, flipping the WayId sign
+            // to indicate that the segment will refer to the reverse OSM direction
+            let segment_params = (current_node_id, prev_node_id, -&way.id, distance, -grade);
+            segment_insert_stmt
+                .execute(segment_params)
+                .map_err(|e| anyhow!("Failed WayNode:\n{:#?}\n{e}", segment_params))?;
+        }
 
-        // also insert the inverse segment, flipping the WayId sign
-        // to indicate that the segment will refer to the reverse OSM direction
-        let segment_params = (
-            current_node_id,
-            prev_node_id,
-            -&way.id,
-            distance,
-            get_grade(prev_elevation, current_elevation),
-        );
-        segment_insert_stmt
-            .execute(segment_params)
-            .map_err(|e| anyhow!("Failed WayNode:\n{:#?}\n{e}", segment_params))?;
+        prev_node = Some((*current_node_id, p));
     }
 
     Ok(())
 }
 
-/// gets the grade between two elevations, defaulting to 0 in the case of any Nones
-fn get_grade(current_elevation: &Option<i32>, prev_elevation: &Option<i32>) -> i32 {
-    if current_elevation.is_some() && prev_elevation.is_some() {
-        current_elevation.unwrap() - prev_elevation.unwrap()
-    } else {
-        0
-    }
+/// gets the grade % between two elevations
+fn get_grade(from: &Elevation, to: &Elevation, distance: Distance) -> Grade {
+    (to - from / (distance as f32)) as Grade
 }
 
 fn get_point_for_way_node(node_coords: &[Location], pos: usize) -> Point {
