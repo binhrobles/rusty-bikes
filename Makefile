@@ -50,7 +50,7 @@ ifneq (,$(wildcard db.db3))
 	mv db.db3 db.db3.bak
 endif
 	cd services && DB_PATH=../db.db3 cargo run --bin init-db
-	cd services && DB_PATH=../db.db3 cargo run --bin populate-db ../out.geom.json
+	cd services && time DB_PATH=../db.db3 cargo run --release --bin populate-db ../out.geom.json
 
 ## ------------ DB Lambda Layer ------------ ##
 # build a lambda layer artifact from the sqlite db
