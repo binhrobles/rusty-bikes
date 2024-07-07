@@ -18,6 +18,7 @@ curl --request POST \
       way(40.588061,-74.046498,40.829387,-73.837004)
         ["highway"]
         [!"footway"]
+        ["area"!="yes"]
         ["highway"!="footway"]
         ["highway"!="motorway"]
         ["highway"!="motorway_link"]
