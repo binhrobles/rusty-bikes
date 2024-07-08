@@ -8,7 +8,9 @@ use std::collections::HashMap;
 use std::fmt;
 use std::marker::PhantomData;
 
-use crate::osm::{Location, Node, Way};
+use crate::osm::{Elevation, Location, Node, Way};
+
+pub type ElevationCache = HashMap<String, Elevation>;
 
 #[derive(std::fmt::Debug, Deserialize)]
 pub struct Bounds {
@@ -101,7 +103,10 @@ where
             let mut conn = super::get_conn().unwrap();
             let tx = conn.transaction().unwrap();
             let client = Client::new();
+            let mut elevation_cache: ElevationCache = HashMap::new();
 
+            // TODO: fetch elevations from ways in advance? two passes?
+            // populate node <> elevation index? store in separate sqlite seed db?
             while let Some(el) = seq.next_element::<Element>()? {
                 count += 1;
 
@@ -113,7 +118,7 @@ where
                     }
                     "way" => {
                         // insert to Way table
-                        super::insert_way_element(&tx, &client, el).unwrap();
+                        super::insert_way_element(&tx, &client, &mut elevation_cache, el).unwrap();
                     }
                     other => panic!("unsupported type {}\nelement: {:?}", other, el),
                 }

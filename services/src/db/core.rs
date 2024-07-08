@@ -7,7 +7,7 @@ use geo::prelude::*;
 use geo::{point, Point};
 use serde::Deserialize;
 
-use super::{Element, OSMMapper};
+use super::{Element, ElevationCache, OSMMapper};
 use crate::osm::{Distance, Elevation, Grade, Location, NodeId, Way};
 use std::env;
 
@@ -102,6 +102,7 @@ pub fn insert_node_element(tx: &Transaction, element: Element) -> anyhow::Result
 pub fn insert_way_element(
     tx: &Transaction,
     client: &Client,
+    elevation_cache: &mut ElevationCache,
     element: Element,
 ) -> anyhow::Result<()> {
     let way = Way::from(&element);
@@ -155,27 +156,39 @@ pub fn insert_way_element(
 
     // get elevation data for all the nodes in this way
     // first by formatting all the latlngs into a query string
+    // NOTE: with ~56k Ways, and an avg ~25ms per query,
+    //       we spend ~23 mins just waiting for this service to return
     let formatted_lat_lngs: Vec<String> = node_ids
         .iter()
         .enumerate()
-        .map(|(pos, _)| {
+        .filter_map(|(pos, _)| {
             let p = get_point_for_way_node(&node_coords, pos);
-            format!("{},{}", p.y(), p.x()).as_str().to_owned()
+            let elevation_index = get_elevation_index(p);
+
+            // only queue up for a request if it's not present in the cache
+            if !elevation_cache.contains_key(&elevation_index) {
+                return Some(elevation_index);
+            }
+
+            None
         })
         .collect();
-    let elevation_query =
-        String::from("http://localhost:5001/v1/ned10m?locations=") + &formatted_lat_lngs.join("|");
 
-    // and then by executing the query against the locally running opentopo server
-    let response = client
-        .get(elevation_query)
-        .send()?
-        .json::<ElevationResponse>()?;
-    let elevations: Vec<Elevation> = response
-        .results
-        .iter()
-        .map(|r| r.elevation.unwrap() as Elevation)
-        .collect();
+    if !formatted_lat_lngs.is_empty() {
+        let elevation_query = String::from("http://localhost:5001/v1/ned10m?locations=")
+            + &formatted_lat_lngs.join("|");
+
+        // and then by executing the query against the locally running opentopo server
+        let response = client
+            .get(elevation_query)
+            .send()?
+            .json::<ElevationResponse>()?;
+        // and update the cache
+        for (pos, res) in response.results.iter().enumerate() {
+            let elevation = res.elevation.unwrap() as Elevation;
+            elevation_cache.insert(formatted_lat_lngs.get(pos).unwrap().to_owned(), elevation);
+        }
+    }
 
     let mut prev_node: Option<(NodeId, Point)> = None;
 
@@ -198,17 +211,13 @@ pub fn insert_way_element(
         // attach this and the previous node as Segments
         if let Some((prev_node_id, prev_point)) = prev_node {
             let distance = p.haversine_distance(&prev_point).ceil() as i32;
-            let prev_elevation = elevations.get(pos - 1).unwrap();
-            let current_elevation = elevations.get(pos).unwrap();
+            let prev_elevation = elevation_cache
+                .get(&get_elevation_index(prev_point))
+                .unwrap();
+            let current_elevation = elevation_cache.get(&get_elevation_index(p)).unwrap();
             let grade = get_grade(prev_elevation, current_elevation, distance);
 
-            let segment_params = (
-                prev_node_id,
-                current_node_id,
-                &way.id,
-                distance,
-                grade,
-            );
+            let segment_params = (prev_node_id, current_node_id, &way.id, distance, grade);
             segment_insert_stmt
                 .execute(segment_params)
                 .map_err(|e| anyhow!("Failed WayNode:\n{:#?}\n{e}", segment_params))?;
@@ -227,9 +236,14 @@ pub fn insert_way_element(
     Ok(())
 }
 
+/// returns a String index from a Point
+fn get_elevation_index(p: Point) -> String {
+    format!("{:.5},{:.5}", p.y(), p.x()).as_str().to_owned()
+}
+
 /// gets the grade % between two elevations
 fn get_grade(from: &Elevation, to: &Elevation, distance: Distance) -> Grade {
-    (to - from / (distance as f32)) as Grade
+    ((to - from) / (distance as f32) * 100.0) as Grade
 }
 
 fn get_point_for_way_node(node_coords: &[Location], pos: usize) -> Point {
