@@ -1,5 +1,5 @@
 ors-map-client/
-osm-data/
+data/
 
 .aws-sam
 build
