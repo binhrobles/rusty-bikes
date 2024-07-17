@@ -58,7 +58,9 @@
 {#if lambdaReady}
   <div id="map" use:mapAction></div>
 {:else}
-  <span>Waiting on a lambda cold start... <Icon type="robot" /></span>
+  <div class="waiting">
+    <span>Waiting on a lambda cold start... <Icon type="robot" /></span>
+  </div>
 {/if}
 
 <style>
@@ -76,6 +78,10 @@
     line-height: 1.75rem;
     font-weight: 600;
     padding-right: 0.5rem;
+  }
+
+  .waiting {
+    display: flex;
   }
 
   #map {

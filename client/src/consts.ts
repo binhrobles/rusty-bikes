@@ -15,16 +15,6 @@ export enum PropKey {
   Index = 'idx',
 }
 
-// mapping to public/{name}.svg filenames
-export enum IconType {
-  Bike = 'bike',
-  Check = 'check',
-  Cross = 'cross',
-  Github = 'github',
-  Hourglass = 'hourglass',
-  Shrug = 'shrug',
-}
-
 // typo mitigation
 export enum HtmlElementId {
   CyclewayRange = 'cycleway-range',
