@@ -15,6 +15,16 @@ export enum PropKey {
   Index = 'idx',
 }
 
+// mapping to public/{name}.svg filenames
+export enum IconType {
+  Bike = 'bike',
+  Check = 'check',
+  Cross = 'cross',
+  Github = 'github',
+  Hourglass = 'hourglass',
+  Shrug = 'shrug',
+}
+
 // typo mitigation
 export enum HtmlElementId {
   CyclewayRange = 'cycleway-range',
@@ -36,3 +46,4 @@ export const CostDefaults = {
   SalmonCoefficient: 1.3, // % based (1.3 = 130%)
   HeuristicWeight: 0.75, // % based (0.75 = 75%)
 };
+

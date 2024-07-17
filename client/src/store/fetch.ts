@@ -44,8 +44,9 @@ const fetchRoute = async (
   const { lng: endLon, lat: endLat } = endLatLng;
 
   $isLoading.set(true);
+  let response;
   try {
-    const res = await fetch(`${RUSTY_BASE_URL}/route`, {
+    response = await fetch(`${RUSTY_BASE_URL}/route`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -66,11 +67,6 @@ const fetchRoute = async (
         },
       }),
     });
-    $isLoading.set(false);
-    $isSuccess.set(true);
-
-    console.log(`raw fetched @ ${Date.now() - $clickTime.get()}`);
-    return await res.json();
   } catch (e) {
     $isLoading.set(false);
     $isSuccess.set(false);
@@ -78,6 +74,18 @@ const fetchRoute = async (
     console.error(`failed to fetch ${e}`);
     return undefined;
   }
+
+  $isLoading.set(false);
+
+  if (!response?.ok) {
+    $isSuccess.set(false);
+    console.error(`non success status code returned ${response.status}`);
+    return undefined;
+  }
+
+  $isSuccess.set(true);
+  console.log(`raw fetched @ ${Date.now() - $clickTime.get()}`);
+  return await response.json();
 };
 
 // make a fetch request whenever all conditions have been met

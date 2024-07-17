@@ -1,20 +1,24 @@
 <script lang="ts">
+  import Icon from './Icon.svelte';
   import {
     $isLoading as isLoading,
     $isSuccess as isSuccess,
   } from '../store/fetch.ts';
 </script>
 
-{#if $isLoading}
-  <span>⏳</span>
-{:else if $isSuccess}
-  <span>✅</span>
-{:else}
-  <span>❌ 🤷</span>
-{/if}
+<div>
+  {#if $isLoading}
+    <Icon type="hourglass" />
+  {:else if $isSuccess}
+    <Icon type="check" />
+  {:else}
+    <Icon type="cross" />
+    <Icon type="shrug" />
+  {/if}
+</div>
 
 <style>
-  span {
-    font-size: x-large;
+  div {
+    height: 1.75rem;
   }
 </style>
