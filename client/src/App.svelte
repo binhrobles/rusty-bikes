@@ -50,7 +50,7 @@
 <header>
   <div>
     <span class="title">Rusty Bikes <Icon type="bike" /></span>
-    <span><i>An urban bike route explorer</i></span>
+    <span class="subtitle"><i>An urban bike route explorer</i></span>
   </div>
   <a href="https://github.com/binhrobles/rusty-bikes"><Icon type="github" /></a>
 </header>
@@ -80,13 +80,18 @@
     padding-right: 0.5rem;
   }
 
+  @media only screen and (max-width: 600px) {
+    .subtitle {
+      display: none;
+    }
+  }
+
   .waiting {
     display: flex;
   }
 
   #map {
-    height: 90vh;
-    width: 98vw;
+    height: 88vh;
     margin: 0 auto;
   }
 </style>
