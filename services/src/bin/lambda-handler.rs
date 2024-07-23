@@ -11,6 +11,7 @@ use tracing::error;
 
 use rusty_router::api::{compression, geojson};
 use rusty_router::graph::{CostModel, Graph, RouteMetadata, Weight};
+use rusty_router::search::{self, SearchResult};
 
 // create a singleton of the Graph struct on lambda boot
 thread_local! {
@@ -30,12 +31,18 @@ async fn main() {
 }
 
 async fn handler(event: Request) -> Result<Response<Body>, LambdaError> {
-    let body = GRAPH.with(|graph| match event.raw_http_path() {
-        "/traverse" => traverse_handler(graph, &event),
-        "/route" => route_handler(graph, &event),
-        "/ping" => ping_handler(graph),
-        _ => Err(anyhow!("invalid path")),
-    })?;
+    let body = match event.raw_http_path() {
+        // if it's a search request, invoke async search handler directly
+        "/search" => search_handler(&event).await?,
+
+        // otherwise, use Graph singleton thread_local
+        _ => GRAPH.with(|graph| match event.raw_http_path() {
+            "/traverse" => traverse_handler(graph, &event),
+            "/route" => route_handler(graph, &event),
+            "/ping" => ping_handler(graph),
+            _ => Err(anyhow!("invalid path")),
+        })?,
+    };
 
     let mut response = Response::builder()
         .status(200)
@@ -70,12 +77,7 @@ async fn handler(event: Request) -> Result<Response<Body>, LambdaError> {
 /// ensures that the Graph singleton is instantiated and traversable
 fn ping_handler(graph: &Graph) -> Result<String, anyhow::Error> {
     graph
-        .calculate_traversal(
-            Point::new(-73.961677, 40.683762),
-            10,
-            None,
-            None,
-        )
+        .calculate_traversal(Point::new(-73.961677, 40.683762), 10, None, None)
         .map_err(|e| {
             error!("Routing Error: {e}");
             e
@@ -183,5 +185,27 @@ fn route_handler(graph: &Graph, event: &Request) -> Result<String, anyhow::Error
     };
 
     // TODO: vec -> string -> json::Value -> string ?
+    Ok(serde_json::to_string(&response)?)
+}
+
+#[derive(Debug, Deserialize)]
+struct SearchParams {
+    center: Location,
+    query: String,
+}
+
+#[derive(Serialize)]
+struct SearchResponse {
+    results: Vec<SearchResult>,
+}
+
+async fn search_handler(event: &Request) -> Result<String, anyhow::Error> {
+    let params = event
+        .payload::<SearchParams>()?
+        .ok_or_else(|| anyhow!("Missing search params"))?;
+
+    let results = search::fuzzy_search(params.center, &params.query).await?;
+    let response = SearchResponse { results };
+
     Ok(serde_json::to_string(&response)?)
 }

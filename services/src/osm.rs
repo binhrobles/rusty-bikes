@@ -103,7 +103,7 @@ pub struct Way {
 
 pub type WayNodePosition = usize;
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Serialize)]
 pub struct Location {
     pub lat: f64,
     pub lon: f64,
