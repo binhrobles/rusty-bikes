@@ -4,9 +4,9 @@ BUILD=.aws-sam/build
 # for running this project locally at localhost:9000
 service-watch: db.db3
 ifdef release
-	cd services && cargo lambda watch --release
+	cd services && cargo lambda watch --release --env-file .env
 else
-	cd services && cargo lambda watch
+	cd services && cargo lambda watch --env-file .env
 endif
 
 client-watch:

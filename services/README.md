@@ -6,10 +6,16 @@
 
 - [Cargo Lambda](https://github.com/awslabs/aws-lambda-rust-runtime)
   - Used to deploy into an AWS Lambda. Also provides a local `watch` environment, which I'm using when running locally to provide hot reloading and keep my dev runtime environment basically identical to the deployed environment.
+- [optional] A [Here API key](https://www.here.com/)
+  - Used to provide fuzzy place and address search and suggestions
 
 Do it:
 
 ```bash
+# create the .env file
+# (optional) and add the Here API key to the env file
+cp services/.env.example services/.env
+
 # (at project root) Use Makefile to fetch OSM data, create the db, and start the project
 make service-watch
 
@@ -39,7 +45,7 @@ The underlying data is coming from [OSM's Overpass API](https://wiki.openstreetm
 <details>
 
 <summary>Considerations</summary>
-The first thought was to use the Overpass API directly while executing pathfinding. Benefits being: I wouldn't have to "own" any data, and could possibly make use of OverpassQL's recursive querying to offload some processing. 
+The first thought was to use the Overpass API directly while executing pathfinding. Benefits being: I wouldn't have to "own" any data, and could possibly make use of OverpassQL's recursive querying to offload some processing.
 
 
 This had a few issues:
@@ -66,7 +72,7 @@ When assessing the reverse OSM direction, we will check for dedicated infrastruc
 
 <summary>Considerations</summary>
 
-The first naive thought was to dump all the tags into a denormalized table or onto the DB representation of the Ways themselves, and have the pathfinding service make cost function decisions at query-time based on tags. 
+The first naive thought was to dump all the tags into a denormalized table or onto the DB representation of the Ways themselves, and have the pathfinding service make cost function decisions at query-time based on tags.
 
 However, after learning more about how OSM tagging landscape, it was apparent that the rules engine would be large, with many edge cases. See:
 
@@ -295,7 +301,7 @@ This piece of the system should use the bike path labels to return high "costs" 
 <details>
 
 <summary>Considerations</summary>
-I didn't have much prior art to reference for this problem. At a high level, it made sense to me to have: 
+I didn't have much prior art to reference for this problem. At a high level, it made sense to me to have:
 
 - Percentage based contribution
    - Road type account for some percentage of the cost, the Cycleway type for another percentage, and Salmoning for another.
@@ -354,7 +360,7 @@ To support an efficient A\* implementation:
 <details>
 <summary>Considerations</summary>
 
-Where to put this data. How to query it. Generally, I saw the following options: SQLite, DynamoDB / a NoSQL DB, or Amazon Neptune / Neo4j. 
+Where to put this data. How to query it. Generally, I saw the following options: SQLite, DynamoDB / a NoSQL DB, or Amazon Neptune / Neo4j.
 
 
 Given the considerations below, decided that the enabled iteration speed, free-ness of deployment, and extremely low barrier to entry provided by SQLite made it my first choice for kicking off this project. The cons of the choice were essentially mitigated by it not needing cross-network calls or separate DB mgmt to be added to the project.
