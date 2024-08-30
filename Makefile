@@ -22,6 +22,8 @@ service-test: db.db3
 service-bench: db.db3
 	cd services && DB_PATH=../db.db3 cargo test --bench basic-benchmarking -- --show-output | tee benches/current.out
 
+service-flamegraph: db.db3
+	cd services && CARGO_PROFILE_RELEASE_DEBUG=true DB_PATH=../db.db3 cargo flamegraph --root='--preserve-env' --bin=basic-benchmarking
 
 ## ------------ Deploying ------------ ##
 # deploys services to AWS

@@ -19,6 +19,9 @@ tokio = { version = "1.37.0", features = ["macros"] }
 tracing = "0.1.40"
 tracing-subscriber = "0.3.18"
 
+[profile.bench]
+debug = true
+
 [package.metadata.lambda.env]
 # reference the sqlite db at the project root
 DB_PATH = "../db.db3"

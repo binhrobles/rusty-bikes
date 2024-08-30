@@ -163,6 +163,7 @@ impl GraphRepository for SqliteGraphRepository {
         &self,
         id: NodeId,
     ) -> Result<Vec<(Neighbor, WayLabels)>, anyhow::Error> {
+        // flamegraphs show we spend 95%+ of our time in this query
         let mut stmt = self.conn.prepare_cached(
             "
             SELECT way, n2, N2.lon, N2.lat, distance, WL.cycleway, WL.road, WL.salmon
