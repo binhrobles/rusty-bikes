@@ -1,7 +1,7 @@
 use super::traversal::{
     Route, Traversable, Traversal, TraversalSegment, END_NODE_ID, START_NODE_ID,
 };
-use super::SqliteGraphRepository;
+use super::InMemoryGraphRepository;
 use super::{repository::GraphRepository, Cost, CostModel, Depth, Weight};
 use crate::osm::{Node, NodeId};
 use geo::Point;
@@ -22,7 +22,7 @@ pub struct RouteMetadata {
 impl Graph {
     pub fn new() -> Result<Self, anyhow::Error> {
         Ok(Self {
-            db: Box::new(SqliteGraphRepository::new()?),
+            db: Box::new(InMemoryGraphRepository::new()?),
         })
     }
 
