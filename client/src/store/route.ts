@@ -2,12 +2,9 @@
  * All config concerning the Routing
  */
 import { atom } from 'nanostores';
-import { Marker, LeafletMouseEvent } from 'leaflet';
 import Radar from 'radar-sdk-js';
 import { HtmlElementId } from '../consts.ts';
 import { StoredMarker } from './marker.ts';
-
-import { $click } from './map.ts';
 
 export const $withTraversal = atom<boolean>(false);
 export const { $marker: $startMarker, $latLng: $startMarkerLatLng } =
