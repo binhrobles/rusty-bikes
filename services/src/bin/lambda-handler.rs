@@ -37,7 +37,9 @@ async fn handler(event: Request) -> Result<Response<Body>, LambdaError> {
         .unwrap_or("")
         .to_owned();
 
-    let allowed = origin == "https://binhrobles.com";
+    let is_prod = std::env::var("STAGE").unwrap_or_default() == "Prod";
+    let allowed = origin == "https://binhrobles.com"
+        || (!is_prod && origin.starts_with("http://localhost"));
     if !allowed {
         return Ok(Response::builder().status(403).body(Body::Empty)?);
     }

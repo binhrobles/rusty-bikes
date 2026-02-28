@@ -42,6 +42,7 @@ Resources:
       Environment:
         Variables:
           DB_PATH: "/opt/lib/db.db3" # unzipped here by lambda layer
+          STAGE: Prod
       Architectures:
       - arm64 # seems to be a free lunch? https://aws.amazon.com/blogs/apn/comparing-aws-lambda-arm-vs-x86-performance-cost-and-analysis-2/
       Events:
