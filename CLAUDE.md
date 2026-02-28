@@ -2,6 +2,19 @@
 
 NYC bike routing app: OSM data → Rust A* pathfinding → Leaflet map UI. Users click two points and get a bike-optimized route with configurable cost preferences.
 
+## Issue Tracking
+
+This project uses **bd (beads)** for issue tracking.
+Run `bd prime` for workflow context, hooks are also installed for auto-injection.
+
+**Quick reference:**
+- `bd ready` - Find unblocked work
+- `bd create "Title" --type task --priority 2` - Create issue
+- `bd close <id>` - Complete work
+- `bd sync` - Sync with git (run at session end)
+
+For full workflow details: `bd prime`
+
 ## Tech Stack
 
 | Layer | Tech |
