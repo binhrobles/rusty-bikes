@@ -46,6 +46,7 @@ Resources:
       StageName: Prod
       Auth:
         DefaultAuthorizer: OriginAuthorizer
+        AddDefaultAuthorizerToCorsPreflight: false
         Authorizers:
           OriginAuthorizer:
             FunctionArn: !GetAtt OriginAuthorizerFunction.Arn
@@ -96,6 +97,26 @@ Resources:
             Path: /ping
             RestApiId: !Ref Api
             Method: get
+
+  # Without these, API Gateway strips CORS headers from authorizer denial responses,
+  # causing the browser to see a CORS error instead of a 403.
+  GatewayResponseAccessDenied:
+    Type: AWS::ApiGateway::GatewayResponse
+    Properties:
+      ResponseType: ACCESS_DENIED
+      RestApiId: !Ref Api
+      ResponseParameters:
+        gatewayresponse.header.Access-Control-Allow-Origin: "'https://binhrobles.com'"
+        gatewayresponse.header.Access-Control-Allow-Headers: "'content-type'"
+
+  GatewayResponseUnauthorized:
+    Type: AWS::ApiGateway::GatewayResponse
+    Properties:
+      ResponseType: UNAUTHORIZED
+      RestApiId: !Ref Api
+      ResponseParameters:
+        gatewayresponse.header.Access-Control-Allow-Origin: "'https://binhrobles.com'"
+        gatewayresponse.header.Access-Control-Allow-Headers: "'content-type'"
 
   NYCSqliteLayer:
     Type: AWS::Serverless::LayerVersion
