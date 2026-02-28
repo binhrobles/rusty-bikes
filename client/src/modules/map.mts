@@ -46,6 +46,16 @@ export const configureBindings = (map: L.Map) => {
   );
 };
 
+export const fitMarkers = (a: L.LatLng, b?: L.LatLng | null) => {
+  if (!mapInstance) return;
+
+  if (b) {
+    mapInstance.fitBounds(L.latLngBounds(a, b), { padding: [50, 50], animate: true });
+  } else {
+    mapInstance.setView(a, 15, { animate: true });
+  }
+};
+
 // allow hiding of traversal / route layers independently
 export const addLayerControl = (map: L.Map) => {
   const layerControl = L.control.layers({}, {}, { position: 'topright', collapsed: false }).addTo(map);

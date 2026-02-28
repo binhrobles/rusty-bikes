@@ -15,13 +15,13 @@ export const StoredMarker = (): StoredMarker => {
   const $latLng = atom<LatLng | null>(null);
 
   // update the latLon and attach a handler to update on the drag event
-  $marker.listen((marker) => {
+  $marker.listen((marker, oldMarker) => {
+    oldMarker?.off('moveend');
     $latLng.set(marker?.getLatLng() || null);
     marker?.on('moveend', async () => {
       console.log(`moveend: ${marker?.getLatLng()}`);
       $latLng.set(marker?.getLatLng());
     });
-
   });
 
   return {

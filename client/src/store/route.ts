@@ -3,6 +3,7 @@
  */
 import { atom } from 'nanostores';
 import { Marker, LeafletMouseEvent } from 'leaflet';
+import Radar from 'radar-sdk-js';
 import { HtmlElementId } from '../consts.ts';
 import { StoredMarker } from './marker.ts';
 
@@ -17,35 +18,29 @@ export const $selectedInput = atom<
   HtmlElementId.StartInput | HtmlElementId.EndInput | null
 >(null);
 
-// tie the route $markers to map $clicks
-$click.listen((event: LeafletMouseEvent | null) => {
-  if (!event) return;
+// Address text atoms — updated by autocomplete selection or reverse geocode
+export const $startAddress = atom<string>('');
+export const $endAddress = atom<string>('');
 
-  // create a new marker at the mouse click location
-  const marker = new Marker(event.latlng, { draggable: true });
-
-  // if one of the inputs were selected, change that one
-  const selectedInput = $selectedInput.get();
-  if (selectedInput) {
-    const $m =
-      selectedInput === HtmlElementId.StartInput ? $startMarker : $endMarker;
-
-    $m.set(marker);
-
-    // clear selected input bookmark
-    $selectedInput.set(null);
-    return;
+// Helper: reverse geocode a lat/lng and return formatted address
+const reverseGeocode = async (lat: number, lng: number): Promise<string> => {
+  try {
+    const result = await Radar.reverseGeocode({ latitude: lat, longitude: lng });
+    return result?.addresses?.[0]?.formattedAddress || `(${lng.toFixed(5)}, ${lat.toFixed(5)})`;
+  } catch (e) {
+    console.error('Reverse geocode failed:', e);
+    return `(${lng.toFixed(5)}, ${lat.toFixed(5)})`;
   }
+};
 
-  // if no start marker, lay that down
-  const start = $startMarker.get();
-  const end = $endMarker.get();
-  if (!start) {
-    $startMarker.set(marker);
-  } else if (!end) {
-    // otherwise if no end marker, move the end marker
-    $endMarker.set(marker);
+// reverse geocode when markers are dragged
+$startMarkerLatLng.listen((latLng) => {
+  if (latLng) {
+    reverseGeocode(latLng.lat, latLng.lng).then((addr) => $startAddress.set(addr));
   }
-
-  // rely on dragging / clicking user input field to change marker location
+});
+$endMarkerLatLng.listen((latLng) => {
+  if (latLng) {
+    reverseGeocode(latLng.lat, latLng.lng).then((addr) => $endAddress.set(addr));
+  }
 });

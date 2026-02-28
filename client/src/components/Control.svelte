@@ -1,8 +1,16 @@
 <script lang="ts">
+  import { onMount } from 'svelte';
+  import Radar from 'radar-sdk-js';
+  import { Marker, LatLng } from 'leaflet';
   import { HtmlElementId } from '../consts.ts';
+  import { NYC_CENTER } from '../config.ts';
   import {
+    $startMarker as startMarker,
+    $endMarker as endMarker,
     $startMarkerLatLng as startLatLng,
     $endMarkerLatLng as endLatLng,
+    $startAddress as startAddress,
+    $endAddress as endAddress,
     $selectedInput as selected,
     $withTraversal as withTraversal,
   } from '../store/route.ts';
@@ -12,15 +20,10 @@
     $roadPreference as roadPreference,
     $salmonCoefficient as salmonCoefficient,
   } from '../store/cost.ts';
+  import { fitMarkers } from '../modules/map.mts';
   import type { WritableAtom } from 'nanostores';
   import type { ChangeEventHandler } from 'svelte/elements';
-
-  // when the Routing start / end inputs are clicked,
-  // queue them up to be changed on the next map click
-  const createOnClickHandler =
-    (elementId: HtmlElementId.StartInput | HtmlElementId.EndInput) => () => {
-      selected.set(elementId);
-    };
+  import type { RadarAutocompleteAddress } from 'radar-sdk-js';
 
   // creates a debouncer function for the provided store
   const createRangeUpdateHandler = (
@@ -36,65 +39,96 @@
     };
   };
 
-  let start: string;
-  let end: string;
+  // Handle autocomplete selection for a given marker
+  const createOnSelection = (
+    markerStore: typeof startMarker,
+    addressStore: typeof startAddress,
+    otherLatLng: typeof startLatLng
+  ) => {
+    return (address: RadarAutocompleteAddress) => {
+      const latLng = new LatLng(address.latitude, address.longitude);
+      const marker = new Marker(latLng, { draggable: true });
+      markerStore.set(marker);
+      addressStore.set(address.formattedAddress || `(${address.longitude.toFixed(5)}, ${address.latitude.toFixed(5)})`);
+      fitMarkers(latLng, otherLatLng.get());
+    };
+  };
 
-  // start / end inputs should reflect the latlng of the markers
-  startLatLng.subscribe(
-    (s, _) =>
-      (start = s?.lng
-        ? `(${s.lng.toFixed(5)}, ${s.lat.toFixed(5)})`
-        : 'Click to place start point')
-  );
-  endLatLng.subscribe(
-    (e, _) =>
-      (end = e?.lng
-        ? `(${e.lng.toFixed(5)}, ${e.lat.toFixed(5)})`
-        : 'Click to place end point')
-  );
+  onMount(() => {
+    const startAutocomplete = Radar.ui.autocomplete({
+      container: 'radar-start-autocomplete',
+      near: NYC_CENTER,
+      countryCode: 'US',
+      placeholder: 'Search for start address...',
+      limit: 5,
+      minCharacters: 3,
+      responsive: true,
+      showMarkers: false,
+      layers: ['address', 'place', 'coarse'],
+      onSelection: createOnSelection(startMarker, startAddress, endLatLng),
+    });
+
+    const endAutocomplete = Radar.ui.autocomplete({
+      container: 'radar-end-autocomplete',
+      near: NYC_CENTER,
+      countryCode: 'US',
+      placeholder: 'Search for end address...',
+      limit: 5,
+      minCharacters: 3,
+      responsive: true,
+      showMarkers: false,
+      layers: ['address', 'place', 'coarse'],
+      onSelection: createOnSelection(endMarker, endAddress, startLatLng),
+    });
+
+    // Set $selectedInput on focus so map clicks go to the focused input
+    startAutocomplete.inputField?.addEventListener('focus', () => {
+      selected.set(HtmlElementId.StartInput);
+    });
+    endAutocomplete.inputField?.addEventListener('focus', () => {
+      selected.set(HtmlElementId.EndInput);
+    });
+
+    // When address atoms change (from map click/drag reverse geocode),
+    // update the widget input text
+    startAddress.subscribe((addr) => {
+      if (startAutocomplete.inputField && addr) {
+        startAutocomplete.inputField.value = addr;
+      }
+    });
+    endAddress.subscribe((addr) => {
+      if (endAutocomplete.inputField && addr) {
+        endAutocomplete.inputField.value = addr;
+      }
+    });
+  });
 </script>
 
 <div class="control">
   <table class="route-table">
     <tr>
-      <td><label for={HtmlElementId.StartInput}>Start:</label></td>
-      <td
-        ><input
-          type="text"
-          id={HtmlElementId.StartInput}
-          on:click={createOnClickHandler(HtmlElementId.StartInput)}
-          value={start}
-        /></td
-      >
+      <td><label>Start:</label></td>
+      <td><div id="radar-start-autocomplete"></div></td>
     </tr>
     <tr>
-      <td><label for={HtmlElementId.EndInput}>End:</label></td>
-      <td
-        ><input
-          type="text"
-          id={HtmlElementId.EndInput}
-          on:click={createOnClickHandler(HtmlElementId.EndInput)}
-          value={end}
-        /></td
-      >
-    </tr>
-    <tr>
-      <td><label for="with-traversal">Render Pathfinding?</label></td>
-      <td
-        ><input
-          type="checkbox"
-          id="with-traversal"
-          name="with-traversal"
-          bind:checked={$withTraversal}
-        /></td
-      >
+      <td><label>End:</label></td>
+      <td><div id="radar-end-autocomplete"></div></td>
     </tr>
   </table>
 
   <hr />
 
   <details>
-    <summary>Customize pathfinding algorithm</summary>
+    <summary>Customize pathfinding</summary>
+    <br />
+    <label for="with-traversal">Render Pathfinding?</label>
+    <input
+      type="checkbox"
+      id="with-traversal"
+      name="with-traversal"
+      bind:checked={$withTraversal}
+    />
+    <br />
     <br />
     <div class="tooltip">
       Algorithm Greediness:
@@ -181,7 +215,7 @@
 
 <style>
   .control {
-    width: 250px;
+    width: 450px;
     padding: 6px 8px;
     margin: 0.5rem;
     font:
@@ -192,6 +226,10 @@
     background: white;
     box-shadow: 0 0 15px rgba(0, 0, 0, 0.2);
     border-radius: 10px;
+  }
+
+  .route-table {
+    width: 100%;
   }
 
   .tooltip .tooltip-text {
@@ -210,5 +248,14 @@
 
   .tooltip:hover .tooltip-text {
     visibility: visible;
+  }
+
+  :global(#radar-start-autocomplete),
+  :global(#radar-end-autocomplete) {
+    width: 100%;
+  }
+
+  :global(.radar-autocomplete-results-list) {
+    z-index: 1000;
   }
 </style>

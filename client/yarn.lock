@@ -239,6 +239,11 @@
   resolved "https://registry.yarnpkg.com/@pkgr/core/-/core-0.1.1.tgz#1ec17e2edbec25c8306d424ecfbf13c7de1aaa31"
   integrity sha512-cq8o4cWH0ibXh9VGi5P20Tu9XF/0fFXl9EUinr9QfTM7a7p0oTA4iJRCQWppXR1Pg8dSM0UCItCkPwsk9qWWYA==
 
+"@radarlabs/plugin-autocomplete@^1.0.0":
+  version "1.0.0"
+  resolved "https://registry.yarnpkg.com/@radarlabs/plugin-autocomplete/-/plugin-autocomplete-1.0.0.tgz#2e0e4f23044c37f14ca3dd292681c61e324c9d8b"
+  integrity sha512-SQFfnwee+iLkMzChb/rBMXXteUexbit5wkuuoyVPGPt/LQlRZppKEePJ1e2nKAcuCXV3uStZm6bjriVGJTeOTg==
+
 "@rollup/pluginutils@^4.2.1":
   version "4.2.1"
   resolved "https://registry.yarnpkg.com/@rollup/pluginutils/-/pluginutils-4.2.1.tgz#e6c6c3aba0744edce3fb2074922d3776c0af2a6d"
@@ -1526,6 +1531,11 @@ queue-microtask@^1.2.2:
   version "1.2.3"
   resolved "https://registry.yarnpkg.com/queue-microtask/-/queue-microtask-1.2.3.tgz#4929228bbc724dfac43e0efb058caf7b6cfb6243"
   integrity sha512-NuaNSa6flKT5JaSYQzJok04JzTL1CA6aGhv5rfLW3PgqA+M2ChpZQnAC8h8i4ZFkBS8X5RqkDBHA7r4hej3K9A==
+
+radar-sdk-js@^5.0.0:
+  version "5.0.0"
+  resolved "https://registry.yarnpkg.com/radar-sdk-js/-/radar-sdk-js-5.0.0.tgz#e8b5e515f11d183d6683ae9ac08d589aad1749cb"
+  integrity sha512-QYA+msmwL9l+6KmqtaDKF/Y6yNWvjUVAUyN8t/9hq+ru/iD54OOAHAYEQZHV86B0mzrq3MFEol4gj7FdHH6vDg==
 
 rainbowvis.js@^1.1.1:
   version "1.1.1"

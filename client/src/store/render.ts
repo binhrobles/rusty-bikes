@@ -48,6 +48,10 @@ const getRouteDepthAndSteps = () => {
   return { depth, steps };
 };
 
+const PINK = '#ff6991';
+const GREEN = '#31b700';
+const BLUE = '#6991ff';
+
 const $routeStyle = computed($withTraversal, (withTraversal) => {
   return (feature: Feature | undefined) => {
     if (!feature?.properties) {
@@ -55,11 +59,15 @@ const $routeStyle = computed($withTraversal, (withTraversal) => {
       return {};
     }
 
+    const [bikeLane, roadType, isSalmon] = feature.properties[PropKey.Labels];
+    const isBikeLane = bikeLane === 'Track' || roadType === 'Bike';
+
     let className = `route-depth-${feature.properties[PropKey.Depth]} step-${feature.properties[PropKey.Index]
       }`;
     if (withTraversal) className += ' svg-animation svg-animation-route';
 
     return {
+      color: isSalmon ? PINK : isBikeLane ? GREEN : BLUE,
       opacity: withTraversal ? 0 : 1,
       weight: 5,
       className,
