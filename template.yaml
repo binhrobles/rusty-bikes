@@ -64,7 +64,7 @@ Resources:
     Type: AWS::Serverless::LayerVersion
     Properties:
       # when a new zip is uploaded, change the name to trigger a new version / association
-      LayerName: nyc-sqlite-db-6-17-distinguish-cycleway-no
+      LayerName: nyc-sqlite-db-2-28-26-four-boroughs
       Description: Layer containing NYC SQLite DB
       ContentUri: s3://rusty-bikes-osm-data/nyc-sqlite-db-layer.zip
       CompatibleRuntimes:

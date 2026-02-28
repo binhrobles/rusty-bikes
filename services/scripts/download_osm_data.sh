@@ -1,21 +1,15 @@
-# Whole Manhattan / BK bbox
-# way(40.588061,-74.046498,40.829387,-73.837004)
-#
-# Manhattan up to Central Park + BK down to Prospect
-# way(40.647941,-74.028837,40.755695,-73.907988)
-#
-# Same dataset, but shaved
-# way(40.647941,-74.028837,40.665695,-73.907988)
-#
-# SF Bay Area
-# way(37.675316,-122.513358,37.964420,-122.061327)
-
 curl --request POST \
   --url https://overpass-api.de/api/interpreter \
   --header 'Content-Type: application/x-www-form-urlencoded' \
   --data '
-      [out:json][timeout:90];
-      way(40.588061,-74.046498,40.829387,-73.837004)
+      [out:json][timeout:600];
+      (
+        area["name"="Manhattan"]["boundary"="administrative"];
+        area["name"="Brooklyn"]["boundary"="administrative"];
+        area["name"="Queens"]["boundary"="administrative"];
+        area["name"="The Bronx"]["boundary"="administrative"];
+      )->.boroughs;
+      way(area.boroughs)
         ["highway"]
         [!"footway"]
         ["highway"!="footway"]
