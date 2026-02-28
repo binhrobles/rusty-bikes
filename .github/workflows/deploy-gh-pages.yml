@@ -48,6 +48,8 @@ jobs:
         run: yarn --frozen-lockfile
       - name: Build
         run: yarn build
+        env:
+          VITE_RADAR_API_KEY: ${{ secrets.VITE_RADAR_API_KEY }}
 
       - name: Setup Pages
         uses: actions/configure-pages@v4
