@@ -13,29 +13,6 @@ Globals:
       LogFormat: JSON
 
 Resources:
-  OriginAuthorizerFunction:
-    Type: AWS::Serverless::Function
-    Properties:
-      Runtime: python3.12
-      Handler: index.handler
-      MemorySize: 512
-      InlineCode: |
-        def handler(event, context):
-            headers = event.get('headers') or {}
-            origin = headers.get('origin') or headers.get('Origin', '')
-            effect = 'Allow' if origin == 'https://binhrobles.com' else 'Deny'
-            return {
-                'principalId': 'user',
-                'policyDocument': {
-                    'Version': '2012-10-17',
-                    'Statement': [{
-                        'Action': 'execute-api:Invoke',
-                        'Effect': effect,
-                        'Resource': event['methodArn']
-                    }]
-                }
-            }
-
   Api:
     Type: AWS::Serverless::Api
     Properties:
@@ -44,16 +21,6 @@ Resources:
         AllowHeaders: "'content-type'"
         AllowOrigin: "'https://binhrobles.com'"
       StageName: Prod
-      Auth:
-        DefaultAuthorizer: OriginAuthorizer
-        AddDefaultAuthorizerToCorsPreflight: false
-        Authorizers:
-          OriginAuthorizer:
-            FunctionArn: !GetAtt OriginAuthorizerFunction.Arn
-            Identity:
-              Headers:
-                - Origin
-            AuthorizerResultTtlInSeconds: 300
       MethodSettings:
         - ResourcePath: '/*'
           HttpMethod: '*'
@@ -97,26 +64,6 @@ Resources:
             Path: /ping
             RestApiId: !Ref Api
             Method: get
-
-  # Without these, API Gateway strips CORS headers from authorizer denial responses,
-  # causing the browser to see a CORS error instead of a 403.
-  GatewayResponseAccessDenied:
-    Type: AWS::ApiGateway::GatewayResponse
-    Properties:
-      ResponseType: ACCESS_DENIED
-      RestApiId: !Ref Api
-      ResponseParameters:
-        gatewayresponse.header.Access-Control-Allow-Origin: "'https://binhrobles.com'"
-        gatewayresponse.header.Access-Control-Allow-Headers: "'content-type'"
-
-  GatewayResponseUnauthorized:
-    Type: AWS::ApiGateway::GatewayResponse
-    Properties:
-      ResponseType: UNAUTHORIZED
-      RestApiId: !Ref Api
-      ResponseParameters:
-        gatewayresponse.header.Access-Control-Allow-Origin: "'https://binhrobles.com'"
-        gatewayresponse.header.Access-Control-Allow-Headers: "'content-type'"
 
   NYCSqliteLayer:
     Type: AWS::Serverless::LayerVersion

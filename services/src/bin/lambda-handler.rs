@@ -30,6 +30,18 @@ async fn main() {
 }
 
 async fn handler(event: Request) -> Result<Response<Body>, LambdaError> {
+    let origin = event
+        .headers()
+        .get("origin")
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("")
+        .to_owned();
+
+    let allowed = origin == "https://binhrobles.com";
+    if !allowed {
+        return Ok(Response::builder().status(403).body(Body::Empty)?);
+    }
+
     let body = GRAPH.with(|graph| match event.raw_http_path() {
         "/traverse" => traverse_handler(graph, &event),
         "/route" => route_handler(graph, &event),
@@ -41,7 +53,7 @@ async fn handler(event: Request) -> Result<Response<Body>, LambdaError> {
         .status(200)
         .header("content-type", "application/json")
         .header("Access-Control-Allow-Headers", "Content-Type")
-        .header("Access-Control-Allow-Origin", "*")
+        .header("Access-Control-Allow-Origin", &origin)
         .header("Access-Control-Allow-Methods", "GET,POST");
 
     // perform compression, if specified
