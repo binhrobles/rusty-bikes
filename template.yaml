@@ -13,14 +13,51 @@ Globals:
       LogFormat: JSON
 
 Resources:
+  OriginAuthorizerFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Runtime: python3.12
+      Handler: index.handler
+      MemorySize: 512
+      InlineCode: |
+        def handler(event, context):
+            headers = event.get('headers') or {}
+            origin = headers.get('origin') or headers.get('Origin', '')
+            effect = 'Allow' if origin == 'https://binhrobles.com' else 'Deny'
+            return {
+                'principalId': 'user',
+                'policyDocument': {
+                    'Version': '2012-10-17',
+                    'Statement': [{
+                        'Action': 'execute-api:Invoke',
+                        'Effect': effect,
+                        'Resource': event['methodArn']
+                    }]
+                }
+            }
+
   Api:
     Type: AWS::Serverless::Api
     Properties:
       Cors:
         AllowMethods: "'OPTIONS, GET, POST'"
         AllowHeaders: "'content-type'"
-        AllowOrigin: "'*'"
+        AllowOrigin: "'https://binhrobles.com'"
       StageName: Prod
+      Auth:
+        DefaultAuthorizer: OriginAuthorizer
+        Authorizers:
+          OriginAuthorizer:
+            FunctionArn: !GetAtt OriginAuthorizerFunction.Arn
+            Identity:
+              Headers:
+                - Origin
+            AuthorizerResultTtlInSeconds: 300
+      MethodSettings:
+        - ResourcePath: '/*'
+          HttpMethod: '*'
+          ThrottlingBurstLimit: 20
+          ThrottlingRateLimit: 10
 
   ApiFunction:
     Type: AWS::Serverless::Function
