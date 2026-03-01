@@ -1,19 +1,43 @@
 <script lang="ts">
-  // TODO rb-1.4: Radar/MapLibre map with route overlay, GPS marker, heading-up rotation
+  import { onMount, onDestroy } from 'svelte';
+  import 'maplibre-gl/dist/maplibre-gl.css';
+  import { createMap, updateRoute, updateGPSMarker, followGPS, fitRoute } from '../modules/map.mts';
+  import { $route as route } from '../store/route.ts';
+  import { $userPosition as userPosition, $userBearing as userBearing } from '../store/gps.ts';
+
+  let container: HTMLDivElement;
+  const unsubs: Array<() => void> = [];
+
+  onMount(() => {
+    const map = createMap(container.id);
+
+    unsubs.push(
+      route.subscribe((r) => {
+        updateRoute(r);
+        if (r) fitRoute(r);
+      }),
+    );
+
+    unsubs.push(
+      userPosition.subscribe((pos) => {
+        if (!pos) return;
+        const { latitude: lat, longitude: lon } = pos.coords;
+        updateGPSMarker(lat, lon);
+        followGPS(lat, lon, userBearing.get());
+      }),
+    );
+
+    return () => map.remove();
+  });
+
+  onDestroy(() => unsubs.forEach((u) => u()));
 </script>
 
-<div id="map-container">
-  <p>Map (rb-1.4)</p>
-</div>
+<div id="map" bind:this={container}></div>
 
 <style>
-  #map-container {
+  div {
     width: 100%;
     height: 100%;
-    background: #1a1a2e;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: #888;
   }
 </style>

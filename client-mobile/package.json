@@ -32,6 +32,7 @@
     "@turf/distance": "^7.1.0",
     "@turf/helpers": "^7.1.0",
     "@turf/nearest-point-on-line": "^7.1.0",
+    "maplibre-gl": "^5.19.0",
     "nanostores": "^0.10.3",
     "radar-sdk-js": "^5.0.0"
   }
