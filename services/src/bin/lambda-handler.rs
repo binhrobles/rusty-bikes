@@ -229,7 +229,19 @@ fn navigate_handler(graph: &Graph, event: &Request) -> Result<String, anyhow::Er
             e
         })?;
 
-    let response = navigation::serialize_navigation(&route_segments).map_err(|e| {
+    // Collect unique way IDs and look up street names
+    let way_ids: Vec<_> = route_segments
+        .iter()
+        .map(|s| s.way)
+        .collect::<std::collections::HashSet<_>>()
+        .into_iter()
+        .collect();
+    let way_names = graph.get_way_names(&way_ids).map_err(|e| {
+        error!("Way names lookup error: {e}");
+        e
+    })?;
+
+    let response = navigation::serialize_navigation(&route_segments, &way_names).map_err(|e| {
         error!("Serialization Error: {e}");
         e
     })?;

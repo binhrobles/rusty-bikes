@@ -1,11 +1,12 @@
 /// Lean response serialization for the /navigate endpoint (mobile-optimized).
-/// Drops from/to/way IDs, adds way_name (empty until rb-1.6 adds DB support).
+/// Drops from/to/way IDs, includes street names from DB.
 use crate::graph::TraversalSegment;
-use crate::osm::{Distance, WayLabels};
+use crate::osm::{Distance, WayId, WayLabels};
 use geo::{Coord, LineString};
 use geojson::ser::serialize_geometry;
 use serde::{Serialize, Serializer};
 use serde_json::Value;
+use std::collections::HashMap;
 
 /// Estimated average cycling speed in m/s (~15 km/h)
 const AVG_CYCLING_SPEED_MPS: f64 = 4.2;
@@ -21,11 +22,14 @@ pub struct NavigationStep {
 }
 
 impl NavigationStep {
-    pub fn new(segment: &TraversalSegment) -> Self {
+    pub fn new(segment: &TraversalSegment, way_names: &HashMap<WayId, String>) -> Self {
         Self {
             geometry: vec![segment.geometry.start, segment.geometry.end],
             distance: segment.length,
-            way_name: String::new(), // TODO rb-1.6: populate from DB
+            way_name: way_names
+                .get(&segment.way)
+                .cloned()
+                .unwrap_or_default(),
             labels: segment.labels,
         }
     }
@@ -58,10 +62,13 @@ pub struct NavigationResponse {
 
 /// Build lean navigation steps from route segments, merging consecutive segments
 /// on the same way into a single step (same logic as Route in geojson.rs).
-pub fn build_navigation_steps(segments: &[TraversalSegment]) -> Vec<NavigationStep> {
+pub fn build_navigation_steps(
+    segments: &[TraversalSegment],
+    way_names: &HashMap<WayId, String>,
+) -> Vec<NavigationStep> {
     let mut iter = segments.iter();
     let first = iter.next().unwrap();
-    let mut steps = vec![NavigationStep::new(first)];
+    let mut steps = vec![NavigationStep::new(first, way_names)];
     let mut last_way = first.way;
 
     for segment in iter {
@@ -69,7 +76,7 @@ pub fn build_navigation_steps(segments: &[TraversalSegment]) -> Vec<NavigationSt
             steps.last_mut().unwrap().extend_with(segment);
         } else {
             last_way = segment.way;
-            steps.push(NavigationStep::new(segment));
+            steps.push(NavigationStep::new(segment, way_names));
         }
     }
 
@@ -77,8 +84,11 @@ pub fn build_navigation_steps(segments: &[TraversalSegment]) -> Vec<NavigationSt
 }
 
 /// Serialize navigation steps into a GeoJSON FeatureCollection and compute meta.
-pub fn serialize_navigation(segments: &[TraversalSegment]) -> Result<NavigationResponse, anyhow::Error> {
-    let steps = build_navigation_steps(segments);
+pub fn serialize_navigation(
+    segments: &[TraversalSegment],
+    way_names: &HashMap<WayId, String>,
+) -> Result<NavigationResponse, anyhow::Error> {
+    let steps = build_navigation_steps(segments, way_names);
 
     let total_distance: Distance = steps.iter().map(|s| s.distance).sum();
     let total_time_estimate = (total_distance as f64 / AVG_CYCLING_SPEED_MPS).round() as u32;

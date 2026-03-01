@@ -24,6 +24,8 @@ pub struct InMemoryGraphRepository {
     snap_db: DBConnection,
     /// Adjacency list: NodeId → outgoing edges (with labels pre-joined)
     adjacency: HashMap<NodeId, Vec<InMemoryEdge>>,
+    /// Way ID → street name, loaded at startup for navigation serialization
+    way_names: HashMap<WayId, String>,
 }
 
 impl InMemoryGraphRepository {
@@ -33,9 +35,18 @@ impl InMemoryGraphRepository {
 
         info!("Loading graph into memory...");
         let adjacency = Self::load_adjacency(&load_conn)?;
-        info!("Graph loaded: {} nodes in adjacency list", adjacency.len());
+        let way_names = Self::load_way_names(&load_conn)?;
+        info!(
+            "Graph loaded: {} nodes in adjacency list, {} way names",
+            adjacency.len(),
+            way_names.len()
+        );
 
-        Ok(Self { snap_db, adjacency })
+        Ok(Self {
+            snap_db,
+            adjacency,
+            way_names,
+        })
     }
 
     /// Bulk-load the full adjacency list from SQLite in a single query.
@@ -65,6 +76,17 @@ impl InMemoryGraphRepository {
         }
 
         Ok(adjacency)
+    }
+
+    /// Load way names from WayLabels table into a HashMap for navigation lookups.
+    fn load_way_names(conn: &DBConnection) -> Result<HashMap<WayId, String>, anyhow::Error> {
+        let mut stmt = conn.prepare("SELECT id, name FROM WayLabels WHERE name != ''")?;
+        let mut names = HashMap::new();
+        let mut rows = stmt.query([])?;
+        while let Some(row) = rows.next()? {
+            names.insert(row.get(0)?, row.get(1)?);
+        }
+        Ok(names)
     }
 }
 
@@ -130,6 +152,13 @@ impl GraphRepository for InMemoryGraphRepository {
             }
         }
         anyhow::bail!("Way {} not found in adjacency list", way)
+    }
+
+    fn get_way_names(&self, way_ids: &[WayId]) -> Result<HashMap<WayId, String>, anyhow::Error> {
+        Ok(way_ids
+            .iter()
+            .filter_map(|id| self.way_names.get(id).map(|name| (*id, name.clone())))
+            .collect())
     }
 }
 

@@ -3,10 +3,10 @@ use super::traversal::{
 };
 use super::InMemoryGraphRepository;
 use super::{repository::GraphRepository, Cost, CostModel, Depth, Weight};
-use crate::osm::{Node, NodeId};
+use crate::osm::{Node, NodeId, WayId};
 use geo::Point;
 use serde::Serialize;
-use std::collections::VecDeque;
+use std::collections::{HashMap, VecDeque};
 
 /// The Graph "service object", through which routing interfaces are exposed
 pub struct Graph {
@@ -68,6 +68,11 @@ impl Graph {
             cost_range: context.cost_range,
         };
         Ok((result.make_contiguous().to_vec(), traversal, meta))
+    }
+
+    /// Look up street names for the given way IDs
+    pub fn get_way_names(&self, way_ids: &[WayId]) -> Result<HashMap<WayId, String>, anyhow::Error> {
+        self.db.get_way_names(way_ids)
     }
 
     /// Generates a breadth-first traversal from the start point to the depth specified

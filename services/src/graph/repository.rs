@@ -3,6 +3,7 @@ use crate::osm::{Distance, Neighbor, Node, NodeId, WayId, WayLabels};
 use anyhow::anyhow;
 use geo::prelude::*;
 use geo::Point;
+use std::collections::HashMap;
 use tracing::debug;
 
 const MAX_SNAP_RADIUS: f64 = 0.001;
@@ -21,6 +22,7 @@ pub trait GraphRepository {
         id: NodeId,
     ) -> Result<Vec<(Neighbor, WayLabels)>, anyhow::Error>;
     fn get_way_labels(&self, way: WayId) -> Result<WayLabels, anyhow::Error>;
+    fn get_way_names(&self, way_ids: &[WayId]) -> Result<HashMap<WayId, String>, anyhow::Error>;
 }
 
 pub struct SqliteGraphRepository {
@@ -199,5 +201,32 @@ impl GraphRepository for SqliteGraphRepository {
         let results = stmt.query_row([way], |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)))?;
 
         Ok(results)
+    }
+
+    fn get_way_names(&self, way_ids: &[WayId]) -> Result<HashMap<WayId, String>, anyhow::Error> {
+        if way_ids.is_empty() {
+            return Ok(HashMap::new());
+        }
+
+        let placeholders: Vec<String> = way_ids.iter().map(|_| "?".to_string()).collect();
+        let sql = format!(
+            "SELECT id, name FROM WayLabels WHERE id IN ({})",
+            placeholders.join(",")
+        );
+        let mut stmt = self.conn.prepare(&sql)?;
+        let params: Vec<&dyn rusqlite::types::ToSql> = way_ids
+            .iter()
+            .map(|id| id as &dyn rusqlite::types::ToSql)
+            .collect();
+        let rows = stmt.query_map(params.as_slice(), |row| {
+            Ok((row.get::<_, WayId>(0)?, row.get::<_, String>(1)?))
+        })?;
+
+        let mut result = HashMap::new();
+        for row in rows {
+            let (id, name) = row?;
+            result.insert(id, name);
+        }
+        Ok(result)
     }
 }

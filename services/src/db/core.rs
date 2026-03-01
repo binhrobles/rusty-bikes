@@ -68,7 +68,8 @@ pub fn init_tables(conn: &Connection) -> Result<(), anyhow::Error> {
             id       INTEGER PRIMARY KEY,
             cycleway INTEGER NOT NULL,
             road     INTEGER NOT NULL,
-            salmon   INTEGER NOT NULL
+            salmon   INTEGER NOT NULL,
+            name     TEXT NOT NULL DEFAULT ''
         );
     ",
     )?;
@@ -104,7 +105,7 @@ pub fn insert_way_element(tx: &Transaction, element: Element) -> anyhow::Result<
         .map_err(|e| anyhow!("Failed Way:\n{:#?}\n{e}", way))?;
 
     let mut stmt = tx.prepare_cached(
-        "INSERT INTO WayLabels (id, cycleway, road, salmon) VALUES (?1, ?2, ?3, ?4)",
+        "INSERT INTO WayLabels (id, cycleway, road, salmon, name) VALUES (?1, ?2, ?3, ?4, ?5)",
     )?;
 
     // OSM tags -> internal labeling
@@ -114,11 +115,17 @@ pub fn insert_way_element(tx: &Transaction, element: Element) -> anyhow::Result<
     let (forward_cycleway, reverse_cycleway, salmon) =
         osm_mapper.get_cycleways_and_directionality();
 
-    let params = (&way.id, forward_cycleway as isize, road as isize, false);
+    let name = element
+        .tags
+        .get("name")
+        .cloned()
+        .unwrap_or_default();
+
+    let params = (&way.id, forward_cycleway as isize, road as isize, false, &name);
     stmt.execute(params)
         .map_err(|e| anyhow!("Failed WayLabel:\n{:#?}\n{e}", params))?;
 
-    let params = (-&way.id, reverse_cycleway as isize, road as isize, salmon);
+    let params = (-&way.id, reverse_cycleway as isize, road as isize, salmon, &name);
     stmt.execute(params)
         .map_err(|e| anyhow!("Failed WayLabel:\n{:#?}\n{e}", params))?;
 
