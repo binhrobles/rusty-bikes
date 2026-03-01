@@ -44,11 +44,26 @@ export interface UserPosition {
   timestamp: number;
 }
 
-// Cost model matching backend CostModel shape
+// Cost model matching the actual backend CostModel shape (same as desktop client)
+export enum Cycleway {
+  Track = 'Track',
+  Lane = 'Lane',
+  Shared = 'Shared',
+  No = 'No',
+}
+
+export enum Road {
+  Bike = 'Bike',
+  Pedestrian = 'Pedestrian',
+  Local = 'Local',
+  Collector = 'Collector',
+  Arterial = 'Arterial',
+}
+
 export interface CostModel {
-  road_weight: number;
-  cycleway_weight: number;
-  road_coeff: number;
-  cycleway_coeff: number;
-  salmon_multiplier: number;
+  cycleway_coefficient: number;
+  road_coefficient: number;
+  salmon_coefficient: number;
+  cycleway_weights: Record<Cycleway, number>;
+  road_weights: Record<Road, number>;
 }
