@@ -31,12 +31,12 @@ impl TryFrom<&str> for Encoding {
     }
 }
 
-impl ToString for Encoding {
-    fn to_string(&self) -> String {
+impl std::fmt::Display for Encoding {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Encoding::Gzip => "gzip".to_string(),
-            Encoding::Zlib => "deflate".to_string(),
-            Encoding::No => "".to_string(),
+            Encoding::Gzip => write!(f, "gzip"),
+            Encoding::Zlib => write!(f, "deflate"),
+            Encoding::No => write!(f, ""),
         }
     }
 }

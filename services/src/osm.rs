@@ -46,14 +46,14 @@ pub enum Road {
 // Allow interpretation of SQLite stored ints as enums again
 impl FromSql for Cycleway {
     fn column_result(value: rusqlite::types::ValueRef<'_>) -> rusqlite::types::FromSqlResult<Self> {
-        Ok(unsafe { ::std::mem::transmute(value.as_i64()? as u8) })
+        Ok(unsafe { ::std::mem::transmute::<u8, Cycleway>(value.as_i64()? as u8) })
     }
 }
 
 // Allow interpretation of SQLite stored ints as enums again
 impl FromSql for Road {
     fn column_result(value: rusqlite::types::ValueRef<'_>) -> rusqlite::types::FromSqlResult<Self> {
-        Ok(unsafe { ::std::mem::transmute(value.as_i64()? as u8) })
+        Ok(unsafe { ::std::mem::transmute::<u8, Road>(value.as_i64()? as u8) })
     }
 }
 

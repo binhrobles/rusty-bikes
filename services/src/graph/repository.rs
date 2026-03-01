@@ -43,9 +43,9 @@ impl GraphRepository for SqliteGraphRepository {
     ///
     /// Implementation notes:
     /// - We cannot guarantee that the first Way returned from the R*tree query will be
-    /// the closest Way, because of how R*Trees work
+    ///   the closest Way, because of how R*Trees work
     /// - TODO: this sometimes returns the wrong street (ie: the next one over)
-    /// existing Node
+    ///   existing Node
     /// - TODO: handle no Ways returned, empty case
     fn get_snapped_neighbors(
         &self,

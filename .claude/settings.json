@@ -1,0 +1,19 @@
+{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "filepath=$(jq -r '.tool_input.file_path // empty') && [[ \"$filepath\" == *.rs ]] && cd services && cargo fmt --quiet 2>&1 || true"
+          },
+          {
+            "type": "command",
+            "command": "filepath=$(jq -r '.tool_input.file_path // empty') && [[ \"$filepath\" == *.rs ]] && cd services && cargo clippy --quiet 2>&1 || true"
+          }
+        ]
+      }
+    ]
+  }
+}
