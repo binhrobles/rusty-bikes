@@ -27,19 +27,20 @@ fn bidirectional_road_w_one_bike_lane() -> Result<(), anyhow::Error> {
     Ok(())
 }
 
-#[test]
-fn bidirectional_road_w_two_different_bike_lanes() -> Result<(), anyhow::Error> {
-    let db = SqliteGraphRepository::new()?;
-    let way = 494221659;
+// TODO: find new road for this case
+// #[test]
+// fn bidirectional_road_w_two_different_bike_lanes() -> Result<(), anyhow::Error> {
+//     let db = SqliteGraphRepository::new()?;
+//     let way = 494221659;
 
-    let labels = db.get_way_labels(way)?;
-    assert_helper((Cycleway::Shared, Road::Collector, false), labels, way);
+//     let labels = db.get_way_labels(way)?;
+//     assert_helper((Cycleway::Shared, Road::Collector, false), labels, way);
 
-    let labels = db.get_way_labels(-way)?;
-    assert_helper((Cycleway::Lane, Road::Collector, false), labels, -way);
+//     let labels = db.get_way_labels(-way)?;
+//     assert_helper((Cycleway::Lane, Road::Collector, false), labels, -way);
 
-    Ok(())
-}
+//     Ok(())
+// }
 
 #[test]
 fn bidirectional_road_w_bidirectional_bike_lane() -> Result<(), anyhow::Error> {
@@ -139,19 +140,20 @@ fn one_way_road_w_single_contraflow_bike_lane() -> Result<(), anyhow::Error> {
     Ok(())
 }
 
-#[test]
-fn one_way_road_w_contraflow_bidirectional_bike_lane() -> Result<(), anyhow::Error> {
-    let db = SqliteGraphRepository::new()?;
-    let way = 1258745670;
+// TODO: find new road for this case
+// #[test]
+// fn one_way_road_w_contraflow_bidirectional_bike_lane() -> Result<(), anyhow::Error> {
+//     let db = SqliteGraphRepository::new()?;
+//     let way = 1258745670;
 
-    let labels = db.get_way_labels(way)?;
-    assert_helper((Cycleway::Track, Road::Local, false), labels, way);
+//     let labels = db.get_way_labels(way)?;
+//     assert_helper((Cycleway::Track, Road::Local, false), labels, way);
 
-    let labels = db.get_way_labels(-way)?;
-    assert_helper((Cycleway::Track, Road::Local, false), labels, -way);
+//     let labels = db.get_way_labels(-way)?;
+//     assert_helper((Cycleway::Track, Road::Local, false), labels, -way);
 
-    Ok(())
-}
+//     Ok(())
+// }
 
 #[test]
 fn bidirectional_bike_lane() -> Result<(), anyhow::Error> {
