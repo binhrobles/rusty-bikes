@@ -7,11 +7,22 @@
   import CostSlider from './components/CostSlider.svelte';
   import SettingsPanel from './components/SettingsPanel.svelte';
   import { startGPS } from './store/gps.ts';
+  import { loadRoute } from './lib/cache.ts';
+  import { $route as route, $routeMeta as routeMeta } from './store/route.ts';
+  // Side-effect import: activates the batched fetch watcher
+  import './store/fetch.ts';
 
   let settingsOpen = false;
 
   onMount(() => {
     startGPS();
+
+    // Restore last route from localStorage so users see it immediately
+    const cached = loadRoute();
+    if (cached) {
+      route.set(cached.route);
+      routeMeta.set(cached.meta);
+    }
   });
 </script>
 

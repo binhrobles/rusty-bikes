@@ -54,8 +54,9 @@ async function fetchNavigate(
   return (await response.json()) as NavigateResponse;
 }
 
-// Auto-fires whenever start, end, and cost model are all set
-export const $raw = batched(
+// Auto-fires whenever start, end, and cost model are all set.
+// batched() is lazy (only runs when subscribed), so .listen() eagerly activates it.
+const $raw = batched(
   [$startLatLng, $endLatLng, $costModel],
   (start, end, costModel) =>
     task(async () => {
@@ -71,3 +72,4 @@ export const $raw = batched(
       return data;
     }),
 );
+$raw.listen(() => {});

@@ -8,6 +8,8 @@ const GPS_SOURCE = 'gps-marker';
 const GPS_LAYER = 'gps-dot';
 
 let map: maplibregl.Map | null = null;
+let sourcesReady = false;
+let pendingRoute: MobileRoute | null = null;
 
 export function createMap(container: string): maplibregl.Map {
   if (map) return map;
@@ -60,16 +62,31 @@ export function createMap(container: string): maplibregl.Map {
         'circle-stroke-color': '#fff',
       },
     });
+
+    sourcesReady = true;
+
+    // Flush any route that arrived before the map was ready
+    if (pendingRoute) {
+      const src = map!.getSource(ROUTE_SOURCE) as maplibregl.GeoJSONSource;
+      src.setData(pendingRoute);
+      pendingRoute = null;
+    }
   });
 
   return map;
 }
 
 export function updateRoute(route: MobileRoute | null): void {
-  if (!map || !map.isStyleLoaded()) return;
+  const data = route ?? { type: 'FeatureCollection', features: [] };
+
+  if (!map || !sourcesReady) {
+    pendingRoute = route;
+    return;
+  }
+
   const src = map.getSource(ROUTE_SOURCE) as maplibregl.GeoJSONSource | undefined;
   if (!src) return;
-  src.setData(route ?? { type: 'FeatureCollection', features: [] });
+  src.setData(data);
 }
 
 export function updateGPSMarker(lat: number, lon: number): void {

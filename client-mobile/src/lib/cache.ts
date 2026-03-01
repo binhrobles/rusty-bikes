@@ -1,4 +1,4 @@
-// LocalStorage helpers for route caching — implemented in rb-1.8
+// LocalStorage helpers for route caching
 import type { MobileRoute, RouteMeta } from '../types/index.ts';
 
 const ROUTE_KEY = 'rusty-mobile-route';
