@@ -208,9 +208,36 @@ impl TraversalSegmentBuilder {
     }
 }
 
+/// Lightweight heap entry: replaces storing full TraversalSegments in the priority queue.
+/// The full segment lives only in `came_from`; the heap just tracks ordering + stale detection.
+#[derive(PartialEq)]
+pub struct HeapEntry {
+    /// cost + heuristic (A* f-value) used for ordering
+    pub priority: Cost,
+    /// which node this entry routes to
+    pub to_node_id: NodeId,
+    /// g-value: total cost to reach to_node_id (used for lazy-deletion stale check)
+    pub cost_at_node: Cost,
+}
+
+impl Eq for HeapEntry {}
+
+impl PartialOrd for HeapEntry {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+/// Min-heap on priority (lower cost = higher priority)
+impl Ord for HeapEntry {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        other.priority.total_cmp(&self.priority)
+    }
+}
+
 /// Context object representing the state of a single routing or traversal operation
 pub struct TraversalContext {
-    pub queue: BinaryHeap<TraversalSegment>,
+    pub queue: BinaryHeap<HeapEntry>,
     pub came_from: HashMap<NodeId, TraversalSegment>,
     pub cost_model: CostModel,
     pub heuristic_weight: Weight,
@@ -223,7 +250,7 @@ impl TraversalContext {
     pub fn new(cost_model: Option<CostModel>, heuristic_weight: Option<Weight>) -> Self {
         Self {
             queue: BinaryHeap::new(),
-            came_from: HashMap::new(),
+            came_from: HashMap::with_capacity(4096),
             cost_model: cost_model.unwrap_or_default(),
             heuristic_weight: heuristic_weight.unwrap_or(0.75),
 
@@ -250,7 +277,11 @@ impl Traversable for Graph {
 
         for neighbor in starting_neighbors {
             let segment = TraversalSegment::build_to_neighbor(&start_node, &neighbor).build();
-            context.queue.push(segment.clone());
+            context.queue.push(HeapEntry {
+                priority: segment.cost + segment.heuristic,
+                to_node_id: neighbor.node.id,
+                cost_at_node: segment.cost,
+            });
             context.came_from.insert(neighbor.node.id, segment);
         }
 
@@ -266,9 +297,20 @@ impl Traversable for Graph {
         target_neighbor_node_ids: &[NodeId],
         end_node: &Node,
     ) -> Result<(), anyhow::Error> {
-        while let Some(current) = context.queue.pop() {
-            if target_neighbor_node_ids.contains(&current.to.id) {
-                // on exit, append the final segment to the ending node
+        while let Some(entry) = context.queue.pop() {
+            // Lazy deletion: skip stale heap entries where we already found a cheaper path
+            let current_cost = context
+                .came_from
+                .get(&entry.to_node_id)
+                .map(|s| s.cost)
+                .unwrap_or(f32::MAX);
+            if current_cost < entry.cost_at_node {
+                continue;
+            }
+
+            if target_neighbor_node_ids.contains(&entry.to_node_id) {
+                // Reached the target — reconstruct the final segment to the virtual end node
+                let current = context.came_from.get(&entry.to_node_id).unwrap();
                 let segment = TraversalSegment::build_to_node(&current.to, end_node, current.way)
                     .with_depth(current.depth + 1)
                     .with_prev_distance(current.distance_so_far)
@@ -277,28 +319,36 @@ impl Traversable for Graph {
                 return Ok(());
             }
 
-            let edges = self.db.get_neighbors_with_labels(current.to.id)?;
+            // Extract what we need before the mutable came_from borrows below
+            let (current_to, current_cost, current_depth, current_distance) = {
+                let seg = context.came_from.get(&entry.to_node_id).unwrap();
+                (seg.to, seg.cost, seg.depth, seg.distance_so_far)
+            };
+
+            let edges = self.db.get_neighbors_with_labels(entry.to_node_id)?;
 
             for (neighbor, way_labels) in edges {
-                let segment = TraversalSegment::build_to_neighbor(&current.to, &neighbor)
-                    .with_depth(current.depth + 1)
-                    .with_prev_distance(current.distance_so_far)
-                    .with_cost(&context.cost_model, &way_labels, current.cost)
+                let segment = TraversalSegment::build_to_neighbor(&current_to, &neighbor)
+                    .with_depth(current_depth + 1)
+                    .with_prev_distance(current_distance)
+                    .with_cost(&context.cost_model, &way_labels, current_cost)
                     .with_heuristic(end_node, &context.heuristic_weight)
                     .build();
                 context.cost_range.0 = context.cost_range.0.min(segment.cost_factor);
                 context.cost_range.1 = context.cost_range.1.max(segment.cost_factor);
                 context.max_depth = context.max_depth.max(segment.depth);
 
-                if let Some(existing_segment) = context.came_from.get(&neighbor.node.id) {
-                    // if we already have a path to this neighbor, compare costs, take the cheaper
-                    // also queue up this neighbor, so a possibly better route can be identified
-                    if segment.cost < existing_segment.cost {
-                        context.queue.push(segment.clone());
-                        context.came_from.insert(neighbor.node.id, segment);
-                    }
-                } else {
-                    context.queue.push(segment.clone());
+                let should_push = context
+                    .came_from
+                    .get(&neighbor.node.id)
+                    .map_or(true, |existing| segment.cost < existing.cost);
+
+                if should_push {
+                    context.queue.push(HeapEntry {
+                        priority: segment.cost + segment.heuristic,
+                        to_node_id: neighbor.node.id,
+                        cost_at_node: segment.cost,
+                    });
                     context.came_from.insert(neighbor.node.id, segment);
                 }
             }
@@ -314,29 +364,37 @@ impl Traversable for Graph {
         context: &mut TraversalContext,
         max_depth: usize,
     ) -> Result<(), anyhow::Error> {
-        while let Some(current) = context.queue.pop() {
-            if current.depth == max_depth {
+        while let Some(entry) = context.queue.pop() {
+            // Extract what we need before any mutable borrows of came_from
+            let (current_depth, current_to, current_cost, current_distance) = {
+                let seg = context.came_from.get(&entry.to_node_id).unwrap();
+                (seg.depth, seg.to, seg.cost, seg.distance_so_far)
+            };
+
+            if current_depth == max_depth {
                 context.max_depth = max_depth;
                 return Ok(());
             }
 
-            let edges = self.db.get_neighbors_with_labels(current.to.id)?;
+            let edges = self.db.get_neighbors_with_labels(entry.to_node_id)?;
 
             for (neighbor, way_labels) in edges {
-                context
-                    .came_from
-                    .entry(neighbor.node.id)
-                    .or_insert_with(|| {
-                        let segment = TraversalSegment::build_to_neighbor(&current.to, &neighbor)
-                            .with_depth(current.depth + 1)
-                            .with_prev_distance(current.distance_so_far)
-                            .with_cost(&context.cost_model, &way_labels, current.cost)
-                            .build();
-                        context.cost_range.0 = context.cost_range.0.min(segment.cost_factor);
-                        context.cost_range.1 = context.cost_range.1.max(segment.cost_factor);
-                        context.queue.push(segment.clone());
-                        segment
-                    });
+                if context.came_from.contains_key(&neighbor.node.id) {
+                    continue;
+                }
+                let segment = TraversalSegment::build_to_neighbor(&current_to, &neighbor)
+                    .with_depth(current_depth + 1)
+                    .with_prev_distance(current_distance)
+                    .with_cost(&context.cost_model, &way_labels, current_cost)
+                    .build();
+                context.cost_range.0 = context.cost_range.0.min(segment.cost_factor);
+                context.cost_range.1 = context.cost_range.1.max(segment.cost_factor);
+                context.queue.push(HeapEntry {
+                    priority: segment.cost,
+                    to_node_id: neighbor.node.id,
+                    cost_at_node: segment.cost,
+                });
+                context.came_from.insert(neighbor.node.id, segment);
             }
         }
 
