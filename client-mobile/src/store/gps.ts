@@ -1,5 +1,6 @@
 import { atom } from 'nanostores';
 import { startGPSTracking } from '../lib/gps.ts';
+import { processGPSUpdate } from './nav.ts';
 import type { UserPosition } from '../types/index.ts';
 
 export const $userPosition = atom<UserPosition | null>(null);
@@ -19,6 +20,7 @@ export function startGPS(): void {
     (pos, bearing) => {
       $userPosition.set(pos);
       $userBearing.set(bearing);
+      processGPSUpdate([pos.coords.latitude, pos.coords.longitude]);
     },
     (err) => {
       $gpsError.set(err);
