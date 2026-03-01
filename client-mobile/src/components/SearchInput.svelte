@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { onMount } from 'svelte';
   import Radar from 'radar-sdk-js';
   import { NYC_CENTER } from '../lib/config.ts';
   import {
@@ -17,6 +18,34 @@
   let endSuggestions: Suggestion[] = [];
   let startFocused = false;
   let endFocused = false;
+
+  // Default start to current location with reverse geocode
+  onMount(() => {
+    // Don't override if start was already restored from cache
+    if (startLatLng.get()) return;
+
+    const unsub = userPosition.subscribe(async (pos) => {
+      if (!pos) return;
+      unsub();
+
+      const lat = pos.coords.latitude;
+      const lon = pos.coords.longitude;
+      startLatLng.set([lat, lon]);
+      startQuery = 'My location';
+
+      try {
+        const res = await Radar.reverseGeocode({ latitude: lat, longitude: lon });
+        const addr = res.addresses?.[0];
+        if (addr) {
+          const label = addr.formattedAddress ?? addr.street ?? 'My location';
+          startAddress.set(label);
+          startQuery = label;
+        }
+      } catch {
+        startAddress.set('My location');
+      }
+    });
+  });
 
   async function suggest(query: string): Promise<Suggestion[]> {
     if (query.length < 2) return [];
