@@ -59,6 +59,12 @@ Resources:
             Path: /route
             RestApiId: !Ref Api
             Method: post
+        Navigate:
+          Type: Api
+          Properties:
+            Path: /navigate
+            RestApiId: !Ref Api
+            Method: post
         Ping:
           Type: Api
           Properties:

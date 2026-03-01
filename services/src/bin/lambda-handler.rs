@@ -9,7 +9,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use tracing::error;
 
-use rusty_router::api::{compression, geojson};
+use rusty_router::api::{compression, geojson, navigation};
 use rusty_router::graph::{CostModel, Graph, RouteMetadata, Weight};
 
 // create a singleton of the Graph struct on lambda boot
@@ -47,6 +47,7 @@ async fn handler(event: Request) -> Result<Response<Body>, LambdaError> {
     let body = GRAPH.with(|graph| match event.raw_http_path() {
         "/traverse" => traverse_handler(graph, &event),
         "/route" => route_handler(graph, &event),
+        "/navigate" => navigate_handler(graph, &event),
         "/ping" => ping_handler(graph),
         _ => Err(anyhow!("invalid path")),
     })?;
@@ -197,5 +198,41 @@ fn route_handler(graph: &Graph, event: &Request) -> Result<String, anyhow::Error
     };
 
     // TODO: vec -> string -> json::Value -> string ?
+    Ok(serde_json::to_string(&response)?)
+}
+
+/// Mobile-optimized /navigate endpoint: lean response (no from/to/way IDs),
+/// merged steps per way, total_distance + total_time_estimate in meta.
+#[derive(Debug, Deserialize)]
+struct NavigateParams {
+    start: Location,
+    end: Location,
+    cost_model: Option<CostModel>,
+    heuristic_weight: Option<Weight>,
+}
+
+fn navigate_handler(graph: &Graph, event: &Request) -> Result<String, anyhow::Error> {
+    let params = event
+        .payload::<NavigateParams>()?
+        .ok_or_else(|| anyhow!("Missing navigate params"))?;
+
+    let (route_segments, _, _) = graph
+        .calculate_route(
+            params.start.into(),
+            params.end.into(),
+            false, // never include traversal for mobile
+            params.cost_model,
+            params.heuristic_weight,
+        )
+        .map_err(|e| {
+            error!("Routing Error: {e}");
+            e
+        })?;
+
+    let response = navigation::serialize_navigation(&route_segments).map_err(|e| {
+        error!("Serialization Error: {e}");
+        e
+    })?;
+
     Ok(serde_json::to_string(&response)?)
 }
