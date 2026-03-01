@@ -8,6 +8,7 @@ use rusty_router::osm::Location;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use tracing::error;
+use itertools::Itertools;
 
 use rusty_router::api::{compression, geojson, navigation};
 use rusty_router::graph::{CostModel, Graph, RouteMetadata, Weight};
@@ -38,8 +39,7 @@ async fn handler(event: Request) -> Result<Response<Body>, LambdaError> {
         .to_owned();
 
     let is_prod = std::env::var("STAGE").unwrap_or_default() == "Prod";
-    let allowed = origin == "https://binhrobles.com"
-        || (!is_prod && origin.starts_with("http://localhost"));
+    let allowed = !is_prod || origin == "https://binhrobles.com";
     if !allowed {
         return Ok(Response::builder().status(403).body(Body::Empty)?);
     }
@@ -230,12 +230,12 @@ fn navigate_handler(graph: &Graph, event: &Request) -> Result<String, anyhow::Er
         })?;
 
     // Collect unique way IDs and look up street names
-    let way_ids: Vec<_> = route_segments
+    let way_ids = route_segments
         .iter()
         .map(|s| s.way)
         .collect::<std::collections::HashSet<_>>()
         .into_iter()
-        .collect();
+        .collect_vec();
     let way_names = graph.get_way_names(&way_ids).map_err(|e| {
         error!("Way names lookup error: {e}");
         e

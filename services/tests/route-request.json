@@ -1,0 +1,24 @@
+{
+  "start": { "lat": 40.6955785, "lon": -73.963711 },
+  "end": { "lat": 40.736004, "lon": -73.990386 },
+  "with_traversal": false,
+  "heuristic_weight": 0.75,
+  "cost_model": {
+    "cycleway_coefficient": 0.5,
+    "road_coefficient": 0.5,
+    "salmon_coefficient": 1.3,
+    "cycleway_weights": {
+      "Track": 0.5,
+      "Lane": 1,
+      "Shared": 1.25,
+      "No": 1.5
+    },
+    "road_weights": {
+      "Bike": 0.5,
+      "Pedestrian": 0.75,
+      "Local": 1,
+      "Collector": 1.25,
+      "Arterial": 1.5
+    }
+  }
+}

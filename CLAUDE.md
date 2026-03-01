@@ -72,6 +72,36 @@ rusty-bikes/
 - **Testing**: Integration tests use real NYC street data for edge cases. See `services/tests/`
 - **No frontend tests**: Client uses ESLint + Prettier only
 
+## Testing Endpoints Locally
+
+Start the backend with `make service-watch`, then use curl to test. Save response to a file and parse with `jq`:
+
+```bash
+# /navigate — mobile-optimized lean response
+curl -s -X POST http://localhost:9000/lambda-url/lambda-handler/navigate \
+    -H "Content-Type: application/json" \
+    -d @services/tests/navigate-request.json \
+    -o /tmp/navigate-response.json
+
+# /route — desktop response with optional traversal
+curl -s -X POST http://localhost:9000/lambda-url/lambda-handler/route \
+    -H "Content-Type: application/json" \
+    -d @services/tests/route-request.json \
+    -o /tmp/route-response.json
+
+# Inline body for shorter routes (useful for quick tests)
+curl -s -X POST http://localhost:9000/lambda-url/lambda-handler/navigate \
+    -H "Content-Type: application/json" \
+    -d '{"start":{"lat":40.6955785,"lon":-73.963711},"end":{"lat":40.736004,"lon":-73.990386}}'
+```
+
+Useful jq queries for `/navigate` responses:
+```bash
+jq '.meta' /tmp/navigate-response.json                                    # total_distance, total_time_estimate
+jq '.route.features[:3][] | {way_name: .properties.way_name, distance: .properties.distance}' /tmp/navigate-response.json  # first 3 steps
+jq '[.route.features[].properties.way_name | select(. == "")] | length' /tmp/navigate-response.json  # count unnamed steps
+```
+
 ## Detailed References
 
 - [Architecture & data flow](.docs/architecture.md)

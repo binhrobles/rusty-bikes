@@ -14,7 +14,14 @@ Do it:
 make service-watch
 
 # hit it
-curl http://localhost:9000/lambda-url/lambda-handler/traverse?lat=40.68376227690408&lon=-73.96167755126955&depth=20
+curl -X POST http://localhost:9000/lambda-url/lambda-handler/route \
+    -H "Content-Type: application/json" \
+    -d @services/tests/route-request.json
+
+# or
+curl -X POST http://localhost:9000/lambda-url/lambda-handler/navigate \
+    -H "Content-Type: application/json" \
+    -d @services/tests/navigate-request.json
 ```
 
 ## How it's happening
