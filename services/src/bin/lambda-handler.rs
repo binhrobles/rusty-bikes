@@ -1,5 +1,6 @@
 use anyhow::anyhow;
 use geo::Point;
+use itertools::Itertools;
 use lambda_http::{
     run, service_fn, Body, Error as LambdaError, Request, RequestExt, RequestPayloadExt, Response,
 };
@@ -8,7 +9,6 @@ use rusty_router::osm::Location;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use tracing::error;
-use itertools::Itertools;
 
 use rusty_router::api::{compression, geojson, navigation};
 use rusty_router::graph::{CostModel, Graph, RouteMetadata, Weight};
@@ -85,12 +85,7 @@ async fn handler(event: Request) -> Result<Response<Body>, LambdaError> {
 /// ensures that the Graph singleton is instantiated and traversable
 fn ping_handler(graph: &Graph) -> Result<String, anyhow::Error> {
     graph
-        .calculate_traversal(
-            Point::new(-73.961677, 40.683762),
-            10,
-            None,
-            None,
-        )
+        .calculate_traversal(Point::new(-73.961677, 40.683762), 10, None, None)
         .map_err(|e| {
             error!("Routing Error: {e}");
             e

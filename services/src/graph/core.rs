@@ -71,7 +71,10 @@ impl Graph {
     }
 
     /// Look up street names for the given way IDs
-    pub fn get_way_names(&self, way_ids: &[WayId]) -> Result<HashMap<WayId, String>, anyhow::Error> {
+    pub fn get_way_names(
+        &self,
+        way_ids: &[WayId],
+    ) -> Result<HashMap<WayId, String>, anyhow::Error> {
         self.db.get_way_names(way_ids)
     }
 

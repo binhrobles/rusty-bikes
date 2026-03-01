@@ -115,17 +115,25 @@ pub fn insert_way_element(tx: &Transaction, element: Element) -> anyhow::Result<
     let (forward_cycleway, reverse_cycleway, salmon) =
         osm_mapper.get_cycleways_and_directionality();
 
-    let name = element
-        .tags
-        .get("name")
-        .cloned()
-        .unwrap_or_default();
+    let name = element.tags.get("name").cloned().unwrap_or_default();
 
-    let params = (&way.id, forward_cycleway as isize, road as isize, false, &name);
+    let params = (
+        &way.id,
+        forward_cycleway as isize,
+        road as isize,
+        false,
+        &name,
+    );
     stmt.execute(params)
         .map_err(|e| anyhow!("Failed WayLabel:\n{:#?}\n{e}", params))?;
 
-    let params = (-&way.id, reverse_cycleway as isize, road as isize, salmon, &name);
+    let params = (
+        -&way.id,
+        reverse_cycleway as isize,
+        road as isize,
+        salmon,
+        &name,
+    );
     stmt.execute(params)
         .map_err(|e| anyhow!("Failed WayLabel:\n{:#?}\n{e}", params))?;
 

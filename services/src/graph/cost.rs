@@ -32,7 +32,6 @@ struct CostModelInput {
     road_weights: HashMap<Road, Cost>,
 }
 
-
 /// Cost model with array-backed weight lookups.
 /// Cycleway and Road are #[repr(u8)] enums, so weights[variant as usize] is a direct
 /// array index — no HashMap overhead in the hot path.
@@ -106,7 +105,11 @@ impl CostModel {
         let (cycleway, road, salmon) = way_labels;
         let cycleway_cost = self.cycleway_coefficient * self.cycleway_weights[*cycleway as usize];
         let road_cost = self.road_coefficient * self.road_weights[*road as usize];
-        let salmon_cost = if *salmon { self.salmon_coefficient } else { 1.0 };
+        let salmon_cost = if *salmon {
+            self.salmon_coefficient
+        } else {
+            1.0
+        };
         (cycleway_cost + road_cost) * salmon_cost
     }
 }

@@ -26,10 +26,7 @@ impl NavigationStep {
         Self {
             geometry: vec![segment.geometry.start, segment.geometry.end],
             distance: segment.length,
-            way_name: way_names
-                .get(&segment.way)
-                .cloned()
-                .unwrap_or_default(),
+            way_name: way_names.get(&segment.way).cloned().unwrap_or_default(),
             labels: segment.labels,
         }
     }
@@ -93,9 +90,7 @@ pub fn serialize_navigation(
     let total_distance: Distance = steps.iter().map(|s| s.distance).sum();
     let total_time_estimate = (total_distance as f64 / AVG_CYCLING_SPEED_MPS).round() as u32;
 
-    let route: Value = serde_json::from_str(
-        &geojson::ser::to_feature_collection_string(&steps)?,
-    )?;
+    let route: Value = serde_json::from_str(&geojson::ser::to_feature_collection_string(&steps)?)?;
 
     Ok(NavigationResponse {
         route,

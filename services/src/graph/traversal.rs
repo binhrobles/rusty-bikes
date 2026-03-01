@@ -341,7 +341,7 @@ impl Traversable for Graph {
                 let should_push = context
                     .came_from
                     .get(&neighbor.node.id)
-                    .map_or(true, |existing| segment.cost < existing.cost);
+                    .is_none_or(|existing| segment.cost < existing.cost);
 
                 if should_push {
                     context.queue.push(HeapEntry {

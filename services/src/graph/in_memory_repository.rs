@@ -51,7 +51,9 @@ impl InMemoryGraphRepository {
 
     /// Bulk-load the full adjacency list from SQLite in a single query.
     /// Each row becomes one InMemoryEdge stored under its source node (n1).
-    fn load_adjacency(conn: &DBConnection) -> Result<HashMap<NodeId, Vec<InMemoryEdge>>, anyhow::Error> {
+    fn load_adjacency(
+        conn: &DBConnection,
+    ) -> Result<HashMap<NodeId, Vec<InMemoryEdge>>, anyhow::Error> {
         let mut stmt = conn.prepare(
             "
             SELECT S.n1, S.way, S.n2, N2.lon, N2.lat, S.distance, WL.cycleway, WL.road, WL.salmon
@@ -98,7 +100,11 @@ impl GraphRepository for InMemoryGraphRepository {
         snap_radius: Option<f64>,
     ) -> Result<Vec<Neighbor>, anyhow::Error> {
         const DEFAULT_SNAP_RADIUS: f64 = 0.0002;
-        snap_snapped_neighbors_from_conn(&self.snap_db, center, snap_radius.unwrap_or(DEFAULT_SNAP_RADIUS))
+        snap_snapped_neighbors_from_conn(
+            &self.snap_db,
+            center,
+            snap_radius.unwrap_or(DEFAULT_SNAP_RADIUS),
+        )
     }
 
     fn get_neighbors(&self, id: NodeId) -> Result<Vec<Neighbor>, anyhow::Error> {
