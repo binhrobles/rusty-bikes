@@ -81,17 +81,8 @@ impl InMemoryGraphRepository {
     }
 
     /// Load way names from WayLabels table into a HashMap for navigation lookups.
-    /// Returns an empty map if the `name` column doesn't exist yet (pre-rb-1.6 DB).
     fn load_way_names(conn: &DBConnection) -> Result<HashMap<WayId, String>, anyhow::Error> {
-        let mut stmt = match conn.prepare("SELECT id, name FROM WayLabels WHERE name != ''") {
-            Ok(s) => s,
-            Err(_) => {
-                info!(
-                    "WayLabels.name column not found — way names disabled (rebuild DB to enable)"
-                );
-                return Ok(HashMap::new());
-            }
-        };
+        let mut stmt = conn.prepare("SELECT id, name FROM WayLabels WHERE name != ''")?;
         let mut names = HashMap::new();
         let mut rows = stmt.query([])?;
         while let Some(row) = rows.next()? {
