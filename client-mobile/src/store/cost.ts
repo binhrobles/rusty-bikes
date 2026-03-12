@@ -7,8 +7,8 @@ import type { CostModel } from '../types/index.ts';
 export const $comfortSlider = atom<number>(0.5);
 export const $speedSlider = atom<number>(0.5);
 
-// false = ignore traffic direction (fastest), true = penalize salmoning
-export const $salmonToggle = atom<boolean>(true);
+// 0 = ignore direction, 1 = moderate penalty, 2 = strict
+export const $salmonSlider = atom<number>(1);
 
 // Fixed weight spreads — only coefficients vary based on sliders
 const CYCLEWAY_WEIGHTS = {
@@ -25,8 +25,10 @@ const ROAD_WEIGHTS = {
   [Road.Arterial]: 2.0,
 };
 
+const SALMON_COEFFICIENTS = [1.0, 1.3, 2.0] as const;
+
 export const $costModel = computed(
-  [$comfortSlider, $speedSlider, $salmonToggle],
+  [$comfortSlider, $speedSlider, $salmonSlider],
   (comfort, speed, salmon): CostModel => {
     // Comfort: how much infrastructure quality matters (floor 0.1 — never fully zeroes out)
     const cycleway_coefficient = 0.1 + comfort * 0.7;
@@ -37,7 +39,7 @@ export const $costModel = computed(
     return {
       cycleway_coefficient,
       road_coefficient,
-      salmon_coefficient: salmon ? 1.5 : 1.1,
+      salmon_coefficient: SALMON_COEFFICIENTS[salmon],
       distance_coefficient,
       cycleway_weights: CYCLEWAY_WEIGHTS,
       road_weights: ROAD_WEIGHTS,

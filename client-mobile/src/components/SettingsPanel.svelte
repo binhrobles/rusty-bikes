@@ -3,7 +3,7 @@
   import {
     $comfortSlider as comfortSlider,
     $speedSlider as speedSlider,
-    $salmonToggle as salmonToggle,
+    $salmonSlider as salmonSlider,
   } from '../store/cost.ts';
   import { createEventDispatcher } from 'svelte';
 
@@ -40,14 +40,22 @@
         on:input={(e) => speedSlider.set(parseFloat(e.currentTarget.value))}
       />
     </label>
-    <label class="row">
-      <span>Respect traffic direction</span>
+    <label class="slider-row">
+      <span class="slider-label">Rules</span>
       <input
-        type="checkbox"
-        checked={$salmonToggle}
-        on:change={(e) => salmonToggle.set(e.currentTarget.checked)}
+        type="range"
+        min="0"
+        max="2"
+        step="1"
+        value={$salmonSlider}
+        on:input={(e) => salmonSlider.set(parseInt(e.currentTarget.value))}
       />
     </label>
+    <div class="slider-ticks">
+      <span>Ignore</span>
+      <span>Sometimes</span>
+      <span>Always</span>
+    </div>
 
     <div class="section-label">Navigation</div>
     <label class="row">
@@ -121,5 +129,11 @@
 
   .slider-row input[type='range'] { flex: 1; accent-color: #2563eb; }
 
-  input[type='checkbox'] { width: 1.25rem; height: 1.25rem; accent-color: #2563eb; }
+  .slider-ticks {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.7rem;
+    color: #64748b;
+    padding: 0 0.25rem 0.25rem;
+  }
 </style>
