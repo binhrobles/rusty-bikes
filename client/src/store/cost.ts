@@ -16,10 +16,12 @@ enum Road {
   Arterial = 'Arterial',
 }
 
+
 export type CostModel = {
   cycleway_coefficient: number;
   road_coefficient: number;
   salmon_coefficient: number;
+  distance_coefficient: number;
   cycleway_weights: Record<Cycleway, number>;
   road_weights: Record<Road, number>;
 };
@@ -57,6 +59,7 @@ export const $costModel = computed(
       cycleway_coefficient: 0.5,
       road_coefficient: 0.5,
       salmon_coefficient: salmonCoefficient,
+      distance_coefficient: 0,
       cycleway_weights: cyclewayWeights,
       road_weights: roadWeights,
     };
@@ -66,3 +69,4 @@ export const $costModel = computed(
     return model;
   }
 );
+

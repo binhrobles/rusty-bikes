@@ -64,6 +64,7 @@ export interface CostModel {
   cycleway_coefficient: number;
   road_coefficient: number;
   salmon_coefficient: number;
+  distance_coefficient: number;
   cycleway_weights: Record<Cycleway, number>;
   road_weights: Record<Road, number>;
 }

@@ -1,6 +1,10 @@
 <script lang="ts">
   import { $autoReroute as autoReroute } from '../store/settings.ts';
-  import { $comfortSlider as comfortSlider, $salmonToggle as salmonToggle } from '../store/cost.ts';
+  import {
+    $comfortSlider as comfortSlider,
+    $speedSlider as speedSlider,
+    $salmonToggle as salmonToggle,
+  } from '../store/cost.ts';
   import { createEventDispatcher } from 'svelte';
 
   const dispatch = createEventDispatcher();
@@ -15,7 +19,7 @@
 
     <div class="section-label">Routing</div>
     <label class="slider-row">
-      <span>⚡</span>
+      <span class="slider-label">Comfort</span>
       <input
         type="range"
         min="0"
@@ -24,7 +28,17 @@
         value={$comfortSlider}
         on:input={(e) => comfortSlider.set(parseFloat(e.currentTarget.value))}
       />
-      <span>🛡</span>
+    </label>
+    <label class="slider-row">
+      <span class="slider-label">Speed</span>
+      <input
+        type="range"
+        min="0"
+        max="1"
+        step="0.05"
+        value={$speedSlider}
+        on:input={(e) => speedSlider.set(parseFloat(e.currentTarget.value))}
+      />
     </label>
     <label class="row">
       <span>Respect traffic direction</span>
@@ -99,9 +113,11 @@
     align-items: center;
     gap: 0.5rem;
     padding: 0.5rem 0;
-    font-size: 1rem;
-    color: #94a3b8;
+    font-size: 0.95rem;
+    color: #f8fafc;
   }
+
+  .slider-label { width: 4rem; flex-shrink: 0; }
 
   .slider-row input[type='range'] { flex: 1; accent-color: #2563eb; }
 

@@ -28,6 +28,8 @@ struct CostModelInput {
     cycleway_coefficient: Cost,
     road_coefficient: Cost,
     salmon_coefficient: Cost,
+    #[serde(default)]
+    distance_coefficient: Cost,
     cycleway_weights: HashMap<Cycleway, Cost>,
     road_weights: HashMap<Road, Cost>,
 }
@@ -40,6 +42,9 @@ pub struct CostModel {
     cycleway_coefficient: Cost,
     road_coefficient: Cost,
     salmon_coefficient: Cost,
+    /// Base per-meter cost added to every segment, independent of road type.
+    /// When non-zero, drives the algorithm toward shorter routes.
+    distance_coefficient: Cost,
     /// Indexed by Cycleway discriminant (No=0, Shared=1, Lane=2, Track=3)
     cycleway_weights: [Cost; 4],
     /// Indexed by Road discriminant (Pedestrian=0, Bike=1, Local=2, Collector=3, Arterial=4)
@@ -62,6 +67,7 @@ impl From<CostModelInput> for CostModel {
             cycleway_coefficient: input.cycleway_coefficient,
             road_coefficient: input.road_coefficient,
             salmon_coefficient: input.salmon_coefficient,
+            distance_coefficient: input.distance_coefficient,
             cycleway_weights,
             road_weights,
         }
@@ -93,6 +99,7 @@ impl Default for CostModel {
             cycleway_coefficient: 0.3,
             road_coefficient: 0.4,
             salmon_coefficient: 1.3,
+            distance_coefficient: 0.0,
             cycleway_weights,
             road_weights,
         }
@@ -110,6 +117,6 @@ impl CostModel {
         } else {
             1.0
         };
-        (cycleway_cost + road_cost) * salmon_cost
+        (cycleway_cost + road_cost + self.distance_coefficient) * salmon_cost
     }
 }
