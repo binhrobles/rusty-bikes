@@ -154,6 +154,10 @@ export function updateEndMarker(lat: number, lon: number): void {
   }
 }
 
+export function resizeMap(): void {
+  map?.resize();
+}
+
 export function fitRoute(route: MobileRoute): void {
   if (!map || route.features.length === 0) return;
   const allCoords = route.features.flatMap((f) => f.geometry.coordinates);

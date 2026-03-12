@@ -15,16 +15,19 @@
     $startAddress as startAddress,
     $endAddress as endAddress,
   } from './store/route.ts';
-  import { fitRoute } from './modules/map.mts';
+  import { fitRoute, resizeMap } from './modules/map.mts';
   // Side-effect import: activates the batched fetch watcher
   import './store/fetch.ts';
+  import { tick } from 'svelte';
 
   let settingsOpen = false;
 
-  function toggleSettings() {
+  async function toggleSettings() {
     settingsOpen = !settingsOpen;
-    // Fit the full route on screen when opening settings
+    // Wait for footer to resize, then tell MapLibre before fitting route
     if (settingsOpen) {
+      await tick();
+      resizeMap();
       const r = route.get();
       if (r) fitRoute(r);
     }
