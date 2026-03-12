@@ -20,6 +20,10 @@
   // Side-effect import: activates the batched fetch watcher
   import './store/fetch.ts';
   import { tick } from 'svelte';
+  import { RUSTY_BASE_URL } from './lib/config.ts';
+
+  let lambdaReady = false;
+  let hasCachedRoute = false;
 
   async function toggleSettings() {
     settingsOpen.set(!settingsOpen.get());
@@ -32,12 +36,13 @@
     }
   }
 
-  onMount(() => {
+  onMount(async () => {
     startGPS();
 
-    // Restore last session from localStorage
+    // Restore last session from localStorage immediately
     const cached = loadRoute();
     if (cached) {
+      hasCachedRoute = true;
       route.set(cached.route);
       routeMeta.set(cached.meta);
     }
@@ -49,15 +54,32 @@
       if (endpoints.startAddress) startAddress.set(endpoints.startAddress);
       if (endpoints.endAddress) endAddress.set(endpoints.endAddress);
     }
+
+    // Ping lambda — if no cached route, user can't do anything until it's ready
+    let retries = 0;
+    while (!lambdaReady && retries < 10) {
+      try {
+        await fetch(`${RUSTY_BASE_URL}/ping`);
+        lambdaReady = true;
+      } catch (e) {
+        retries++;
+        console.error(`received ${e} from /ping`);
+        await new Promise((resolve) => setTimeout(resolve, 2000));
+      }
+    }
   });
 </script>
 
 <div class="app">
   <header>
-    <SearchInput />
-    <button class="settings-btn" on:click={toggleSettings} aria-label="Settings">
-      ⚙️
-    </button>
+    {#if lambdaReady}
+      <SearchInput />
+      <button class="settings-btn" on:click={toggleSettings} aria-label="Settings">
+        ⚙️
+      </button>
+    {:else}
+      <div class="connecting">Connecting...</div>
+    {/if}
   </header>
 
   <main class="map-area">
@@ -76,6 +98,12 @@
 </div>
 
 <style>
+  .connecting {
+    padding: 0.75rem 1rem;
+    color: #94a3b8;
+    font-size: 0.9rem;
+  }
+
   :global(*) { box-sizing: border-box; margin: 0; padding: 0; }
   :global(body) {
     font-family: system-ui, -apple-system, sans-serif;
