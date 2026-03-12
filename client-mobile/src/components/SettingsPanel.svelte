@@ -6,8 +6,17 @@
     $salmonSlider as salmonSlider,
   } from '../store/cost.ts';
   import { createEventDispatcher } from 'svelte';
+  import type { WritableAtom } from 'nanostores';
 
   const dispatch = createEventDispatcher();
+
+  const debounce = (store: WritableAtom<number>, parse: (v: string) => number, ms = 400) => {
+    let timer: ReturnType<typeof setTimeout>;
+    return (e: Event) => {
+      clearTimeout(timer);
+      timer = setTimeout(() => store.set(parse((e.target as HTMLInputElement).value)), ms);
+    };
+  };
 
 </script>
 
@@ -26,7 +35,7 @@
         max="1"
         step="0.05"
         value={$comfortSlider}
-        on:input={(e) => comfortSlider.set(parseFloat(e.currentTarget.value))}
+        on:input={debounce(comfortSlider, parseFloat)}
       />
     </label>
     <label class="slider-row">
@@ -37,7 +46,7 @@
         max="1"
         step="0.05"
         value={$speedSlider}
-        on:input={(e) => speedSlider.set(parseFloat(e.currentTarget.value))}
+        on:input={debounce(speedSlider, parseFloat)}
       />
     </label>
     <label class="slider-row">
@@ -48,7 +57,7 @@
         max="2"
         step="1"
         value={$salmonSlider}
-        on:input={(e) => salmonSlider.set(parseInt(e.currentTarget.value))}
+        on:input={debounce(salmonSlider, parseInt)}
       />
     </label>
     <div class="slider-ticks">
