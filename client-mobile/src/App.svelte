@@ -6,6 +6,7 @@
   import SearchInput from './components/SearchInput.svelte';
   import SettingsPanel from './components/SettingsPanel.svelte';
   import { startGPS } from './store/gps.ts';
+  import { $settingsOpen as settingsOpen } from './store/settings.ts';
   import { loadRoute, loadEndpoints } from './lib/cache.ts';
   import {
     $route as route,
@@ -20,12 +21,10 @@
   import './store/fetch.ts';
   import { tick } from 'svelte';
 
-  let settingsOpen = false;
-
   async function toggleSettings() {
-    settingsOpen = !settingsOpen;
+    settingsOpen.set(!settingsOpen.get());
     // Wait for footer to resize, then tell MapLibre before fitting route
-    if (settingsOpen) {
+    if ($settingsOpen) {
       await tick();
       resizeMap();
       const r = route.get();
@@ -66,8 +65,8 @@
   </main>
 
   <footer>
-    {#if settingsOpen}
-      <SettingsPanel on:close={() => (settingsOpen = false)} />
+    {#if $settingsOpen}
+      <SettingsPanel on:close={() => settingsOpen.set(false)} />
     {:else}
       <InstructionPanel />
     {/if}

@@ -4,6 +4,7 @@
   import { createMap, updateRoute, updateGPSMarker, followGPS, fitRoute, updateEndMarker, setEndMarkerDragHandler } from '../modules/map.mts';
   import { $route as route, $endLatLng as endLatLng, $endAddress as endAddress } from '../store/route.ts';
   import { $userPosition as userPosition, $userBearing as userBearing } from '../store/gps.ts';
+  import { $settingsOpen as settingsOpen } from '../store/settings.ts';
 
   let container: HTMLDivElement;
   const unsubs: Array<() => void> = [];
@@ -35,7 +36,7 @@
         if (!pos) return;
         const { latitude: lat, longitude: lon } = pos.coords;
         updateGPSMarker(lat, lon);
-        followGPS(lat, lon, userBearing.get());
+        if (!settingsOpen.get()) followGPS(lat, lon, userBearing.get());
       }),
     );
 
