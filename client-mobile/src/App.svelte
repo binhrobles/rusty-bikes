@@ -4,24 +4,48 @@
   import InstructionPanel from './components/InstructionPanel.svelte';
   import OffRoutePrompt from './components/OffRoutePrompt.svelte';
   import SearchInput from './components/SearchInput.svelte';
-  import CostSlider from './components/CostSlider.svelte';
   import SettingsPanel from './components/SettingsPanel.svelte';
   import { startGPS } from './store/gps.ts';
-  import { loadRoute } from './lib/cache.ts';
-  import { $route as route, $routeMeta as routeMeta } from './store/route.ts';
+  import { loadRoute, loadEndpoints } from './lib/cache.ts';
+  import {
+    $route as route,
+    $routeMeta as routeMeta,
+    $startLatLng as startLatLng,
+    $endLatLng as endLatLng,
+    $startAddress as startAddress,
+    $endAddress as endAddress,
+  } from './store/route.ts';
+  import { fitRoute } from './modules/map.mts';
   // Side-effect import: activates the batched fetch watcher
   import './store/fetch.ts';
 
   let settingsOpen = false;
 
+  function toggleSettings() {
+    settingsOpen = !settingsOpen;
+    // Fit the full route on screen when opening settings
+    if (settingsOpen) {
+      const r = route.get();
+      if (r) fitRoute(r);
+    }
+  }
+
   onMount(() => {
     startGPS();
 
-    // Restore last route from localStorage so users see it immediately
+    // Restore last session from localStorage
     const cached = loadRoute();
     if (cached) {
       route.set(cached.route);
       routeMeta.set(cached.meta);
+    }
+
+    const endpoints = loadEndpoints();
+    if (endpoints) {
+      if (endpoints.startLatLng) startLatLng.set(endpoints.startLatLng);
+      if (endpoints.endLatLng) endLatLng.set(endpoints.endLatLng);
+      if (endpoints.startAddress) startAddress.set(endpoints.startAddress);
+      if (endpoints.endAddress) endAddress.set(endpoints.endAddress);
     }
   });
 </script>
@@ -29,7 +53,7 @@
 <div class="app">
   <header>
     <SearchInput />
-    <button class="settings-btn" on:click={() => (settingsOpen = !settingsOpen)} aria-label="Settings">
+    <button class="settings-btn" on:click={toggleSettings} aria-label="Settings">
       ⚙️
     </button>
   </header>
@@ -39,12 +63,14 @@
   </main>
 
   <footer>
-    <InstructionPanel />
-    <CostSlider />
+    {#if settingsOpen}
+      <SettingsPanel on:close={() => (settingsOpen = false)} />
+    {:else}
+      <InstructionPanel />
+    {/if}
   </footer>
 
   <OffRoutePrompt />
-  <SettingsPanel bind:open={settingsOpen} />
 </div>
 
 <style>

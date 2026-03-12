@@ -1,8 +1,8 @@
 <script lang="ts">
   import { onMount, onDestroy } from 'svelte';
   import 'maplibre-gl/dist/maplibre-gl.css';
-  import { createMap, updateRoute, updateGPSMarker, followGPS, fitRoute } from '../modules/map.mts';
-  import { $route as route } from '../store/route.ts';
+  import { createMap, updateRoute, updateGPSMarker, followGPS, fitRoute, updateEndMarker, setEndMarkerDragHandler } from '../modules/map.mts';
+  import { $route as route, $endLatLng as endLatLng, $endAddress as endAddress } from '../store/route.ts';
   import { $userPosition as userPosition, $userBearing as userBearing } from '../store/gps.ts';
 
   let container: HTMLDivElement;
@@ -15,6 +15,18 @@
       route.subscribe((r) => {
         updateRoute(r);
         if (r) fitRoute(r);
+      }),
+    );
+
+    // Draggable destination marker
+    setEndMarkerDragHandler((lat, lon) => {
+      endLatLng.set([lat, lon]);
+      endAddress.set('Dropped pin');
+    });
+
+    unsubs.push(
+      endLatLng.subscribe((coords) => {
+        if (coords) updateEndMarker(coords[0], coords[1]);
       }),
     );
 

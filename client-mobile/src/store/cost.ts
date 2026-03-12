@@ -16,7 +16,7 @@ export const $costModel = computed(
     return {
       cycleway_coefficient: 0.5,
       road_coefficient: 0.5,
-      salmon_coefficient: salmon ? 1.3 : 1.0,
+      salmon_coefficient: salmon ? 1.5 : 1.1,
       cycleway_weights: {
         [Cycleway.Track]: 1.0 - pref / 10.0,
         [Cycleway.Lane]: 1.0,

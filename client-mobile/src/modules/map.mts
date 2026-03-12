@@ -10,6 +10,9 @@ const GPS_LAYER = 'gps-dot';
 let map: maplibregl.Map | null = null;
 let sourcesReady = false;
 let pendingRoute: MobileRoute | null = null;
+let pendingGPS: [number, number] | null = null;
+let endMarker: maplibregl.Marker | null = null;
+let onEndMarkerDrag: ((lat: number, lon: number) => void) | null = null;
 
 export function createMap(container: string): maplibregl.Map {
   if (map) return map;
@@ -39,7 +42,20 @@ export function createMap(container: string): maplibregl.Map {
       source: ROUTE_SOURCE,
       layout: { 'line-join': 'round', 'line-cap': 'round' },
       paint: {
-        'line-color': '#2563eb',
+        'line-color': [
+          'case',
+          // salmon segments → pink
+          ['==', ['at', 2, ['get', 'labels']], true],
+          '#e84393',
+          // any bike infra (Shared, Lane, Track) → green
+          ['any',
+            ['==', ['at', 0, ['get', 'labels']], 'Lane'],
+            ['==', ['at', 0, ['get', 'labels']], 'Track'],
+          ],
+          '#00b894',
+          // default → blue
+          '#2563eb',
+        ],
         'line-width': 6,
         'line-opacity': 0.85,
       },
@@ -65,11 +81,15 @@ export function createMap(container: string): maplibregl.Map {
 
     sourcesReady = true;
 
-    // Flush any route that arrived before the map was ready
+    // Flush any data that arrived before the map was ready
     if (pendingRoute) {
       const src = map!.getSource(ROUTE_SOURCE) as maplibregl.GeoJSONSource;
       src.setData(pendingRoute);
       pendingRoute = null;
+    }
+    if (pendingGPS) {
+      updateGPSMarker(pendingGPS[0], pendingGPS[1]);
+      pendingGPS = null;
     }
   });
 
@@ -90,7 +110,10 @@ export function updateRoute(route: MobileRoute | null): void {
 }
 
 export function updateGPSMarker(lat: number, lon: number): void {
-  if (!map || !map.isStyleLoaded()) return;
+  if (!map || !sourcesReady) {
+    pendingGPS = [lat, lon];
+    return;
+  }
   const src = map.getSource(GPS_SOURCE) as maplibregl.GeoJSONSource | undefined;
   if (!src) return;
   src.setData({
@@ -102,6 +125,33 @@ export function updateGPSMarker(lat: number, lon: number): void {
 export function followGPS(lat: number, lon: number, bearing: number): void {
   if (!map) return;
   map.easeTo({ center: [lon, lat], bearing, duration: 500 });
+}
+
+export function setEndMarkerDragHandler(handler: (lat: number, lon: number) => void): void {
+  onEndMarkerDrag = handler;
+}
+
+export function updateEndMarker(lat: number, lon: number): void {
+  if (!map) return;
+
+  if (!endMarker) {
+    const el = document.createElement('div');
+    el.textContent = '📍';
+    el.style.fontSize = '2rem';
+    el.style.lineHeight = '1';
+    el.style.cursor = 'grab';
+
+    endMarker = new maplibregl.Marker({ element: el, draggable: true, anchor: 'bottom' })
+      .setLngLat([lon, lat])
+      .addTo(map);
+
+    endMarker.on('dragend', () => {
+      const lngLat = endMarker!.getLngLat();
+      if (onEndMarkerDrag) onEndMarkerDrag(lngLat.lat, lngLat.lng);
+    });
+  } else {
+    endMarker.setLngLat([lon, lat]);
+  }
 }
 
 export function fitRoute(route: MobileRoute): void {

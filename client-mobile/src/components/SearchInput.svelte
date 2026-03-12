@@ -1,5 +1,4 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
   import Radar from 'radar-sdk-js';
   import { NYC_CENTER } from '../lib/config.ts';
   import {
@@ -12,40 +11,18 @@
 
   type Suggestion = { label: string; lat: number; lon: number };
 
-  let startQuery = startAddress.get();
-  let endQuery = endAddress.get();
+  let startQuery = '';
+  let endQuery = '';
   let startSuggestions: Suggestion[] = [];
   let endSuggestions: Suggestion[] = [];
   let startFocused = false;
   let endFocused = false;
+  let expanded = false;
 
-  // Default start to current location with reverse geocode
-  onMount(() => {
-    // Don't override if start was already restored from cache
-    if (startLatLng.get()) return;
-
-    const unsub = userPosition.subscribe(async (pos) => {
-      if (!pos) return;
-      unsub();
-
-      const lat = pos.coords.latitude;
-      const lon = pos.coords.longitude;
-      startLatLng.set([lat, lon]);
-      startQuery = 'My location';
-
-      try {
-        const res = await Radar.reverseGeocode({ latitude: lat, longitude: lon });
-        const addr = res.addresses?.[0];
-        if (addr) {
-          const label = addr.formattedAddress ?? addr.street ?? 'My location';
-          startAddress.set(label);
-          startQuery = label;
-        }
-      } catch {
-        startAddress.set('My location');
-      }
-    });
-  });
+  // Sync display text from stores (covers both cache restore and programmatic updates)
+  startAddress.subscribe((v) => { startQuery = v; });
+  endAddress.subscribe((v) => { endQuery = v; });
+  endLatLng.subscribe((v) => { if (v) expanded = true; });
 
   async function suggest(query: string): Promise<Suggestion[]> {
     if (query.length < 2) return [];
@@ -79,62 +56,94 @@
     startFocused = false;
   }
 
+  /** Set start to current GPS position, reverse-geocoding for display. */
+  function setStartToCurrentLocation() {
+    startGPS();
+    const pos = userPosition.get();
+    if (pos) {
+      applyCurrentPosition(pos);
+    } else {
+      startQuery = 'Getting location…';
+      const unsub = userPosition.subscribe((p) => {
+        if (!p) return;
+        applyCurrentPosition(p);
+        unsub();
+      });
+    }
+  }
+
+  function applyCurrentPosition(pos: { coords: { latitude: number; longitude: number } }) {
+    const lat = pos.coords.latitude;
+    const lon = pos.coords.longitude;
+    startLatLng.set([lat, lon]);
+    startQuery = 'My location';
+    startAddress.set('My location');
+
+    // Try to get a readable address
+    Radar.reverseGeocode({ latitude: lat, longitude: lon })
+      .then((res) => {
+        const addr = res.addresses?.[0];
+        if (addr) {
+          const label = addr.formattedAddress ?? addr.street ?? 'My location';
+          startAddress.set(label);
+          startQuery = label;
+        }
+      })
+      .catch(() => {});
+  }
+
   function pickEnd(s: Suggestion) {
     endLatLng.set([s.lat, s.lon]);
     endAddress.set(s.label);
     endQuery = s.label;
     endSuggestions = [];
     endFocused = false;
+
+    // First destination pick: auto-set start to current location & expand
+    if (!expanded) {
+      expanded = true;
+      if (!startLatLng.get()) {
+        setStartToCurrentLocation();
+      }
+    }
   }
 
   function useCurrentLocation() {
-    startGPS();
-    const pos = userPosition.get();
-    if (pos) {
-      startLatLng.set([pos.coords.latitude, pos.coords.longitude]);
-      startAddress.set('My location');
-      startQuery = 'My location';
-    } else {
-      startQuery = 'Getting location…';
-      const unsub = userPosition.subscribe((p) => {
-        if (!p) return;
-        startLatLng.set([p.coords.latitude, p.coords.longitude]);
-        startAddress.set('My location');
-        startQuery = 'My location';
-        unsub();
-      });
-    }
+    setStartToCurrentLocation();
   }
+
 </script>
 
 <div class="search-bar">
-  <div class="input-row">
-    <button class="icon-btn" title="Use my location" on:click={useCurrentLocation}>📍</button>
-    <div class="input-wrap">
-      <input
-        type="search"
-        placeholder="Start"
-        bind:value={startQuery}
-        on:input={onStartInput}
-        on:focus={() => (startFocused = true)}
-        on:blur={() => setTimeout(() => (startFocused = false), 150)}
-      />
-      {#if startFocused && startSuggestions.length}
-        <ul class="suggestions">
-          {#each startSuggestions as s}
-            <li><button on:click={() => pickStart(s)}>{s.label}</button></li>
-          {/each}
-        </ul>
-      {/if}
+  {#if expanded}
+    <div class="input-row">
+      <button class="icon-btn" title="Use my location" on:click={useCurrentLocation}>🚴</button>
+      <div class="input-wrap">
+        <input
+          type="search"
+          placeholder="Start"
+          bind:value={startQuery}
+          on:input={onStartInput}
+          on:focus={() => (startFocused = true)}
+          on:blur={() => setTimeout(() => (startFocused = false), 150)}
+        />
+        {#if startFocused && startSuggestions.length}
+          <ul class="suggestions">
+            {#each startSuggestions as s}
+              <li><button on:click={() => pickStart(s)}>{s.label}</button></li>
+            {/each}
+          </ul>
+        {/if}
+      </div>
     </div>
-  </div>
+  {/if}
 
   <div class="input-row">
-    <span class="icon-btn icon-btn--static">🏁</span>
+    <span class="icon-btn icon-btn--static">📍</span>
     <div class="input-wrap">
       <input
         type="search"
-        placeholder="Destination"
+        placeholder={expanded ? 'Destination' : 'Where are you going?'}
         bind:value={endQuery}
         on:input={onEndInput}
         on:focus={() => (endFocused = true)}

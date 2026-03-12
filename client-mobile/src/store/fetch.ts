@@ -1,7 +1,7 @@
 import { atom, batched, task } from 'nanostores';
 import { RUSTY_BASE_URL } from '../lib/config.ts';
-import { saveRoute } from '../lib/cache.ts';
-import { $startLatLng, $endLatLng, $route, $routeMeta } from './route.ts';
+import { saveRoute, saveEndpoints } from '../lib/cache.ts';
+import { $startLatLng, $endLatLng, $startAddress, $endAddress, $route, $routeMeta } from './route.ts';
 import { $costModel } from './cost.ts';
 import type { NavigateResponse } from '../types/index.ts';
 
@@ -68,6 +68,12 @@ const $raw = batched(
       $route.set(data.route);
       $routeMeta.set(data.meta);
       saveRoute(data.route, data.meta);
+      saveEndpoints({
+        startLatLng: start,
+        endLatLng: end,
+        startAddress: $startAddress.get(),
+        endAddress: $endAddress.get(),
+      });
 
       return data;
     }),

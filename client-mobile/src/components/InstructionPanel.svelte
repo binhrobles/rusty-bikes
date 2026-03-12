@@ -56,10 +56,10 @@
     display: flex;
     align-items: center;
     gap: 0.75rem;
-    padding: 0.75rem 1rem;
+    padding: 1rem 1.25rem;
     background: #1e293b;
     color: #f8fafc;
-    min-height: 4rem;
+    min-height: 5rem;
   }
 
   .hud--empty {
@@ -98,7 +98,7 @@
   }
 
   .then {
-    padding: 0.35rem 1rem;
+    padding: 0.5rem 1.25rem;
     background: #0f172a;
     color: #94a3b8;
     font-size: 0.85rem;
