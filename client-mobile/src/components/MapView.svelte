@@ -2,6 +2,7 @@
   import { onMount, onDestroy } from 'svelte';
   import 'maplibre-gl/dist/maplibre-gl.css';
   import { createMap, updateRoute, updateCorridor, updateGPSMarker, followGPS, fitRoute, updateEndMarker, setEndMarkerDragHandler } from '../modules/map.mts';
+  import Radar from 'radar-sdk-js';
   import { $route as route, $corridor as corridor, $endLatLng as endLatLng, $endAddress as endAddress } from '../store/route.ts';
   import { $userPosition as userPosition, $userBearing as userBearing } from '../store/gps.ts';
   import { $settingsOpen as settingsOpen } from '../store/settings.ts';
@@ -27,6 +28,14 @@
     setEndMarkerDragHandler((lat, lon) => {
       endLatLng.set([lat, lon]);
       endAddress.set('Dropped pin');
+      Radar.reverseGeocode({ latitude: lat, longitude: lon })
+        .then((res) => {
+          const addr = res.addresses?.[0];
+          if (addr) {
+            endAddress.set(addr.formattedAddress ?? addr.street ?? 'Dropped pin');
+          }
+        })
+        .catch(() => {});
     });
 
     unsubs.push(

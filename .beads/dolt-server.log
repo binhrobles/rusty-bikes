@@ -82,3 +82,7 @@ time="2026-03-13T00:28:00-04:00" level=info msg=ConnectionClosed connectionID=1
 time="2026-03-13T00:28:00-04:00" level=info msg=ConnectionClosed connectionID=2
 time="2026-03-13T00:28:00-04:00" level=info msg=NewConnection DisableClientMultiStatements=false connectionID=3
 time="2026-03-13T00:28:00-04:00" level=info msg=ConnectionClosed connectionID=3
+time="2026-03-13T00:58:47-04:00" level=info msg=NewConnection DisableClientMultiStatements=false connectionID=4
+time="2026-03-13T00:58:48-04:00" level=info msg=ConnectionClosed connectionID=4
+time="2026-03-13T00:58:48-04:00" level=info msg="Server closing listener. No longer accepting connections."
+time="2026-03-13T00:58:48-04:00" level=info msg="stats stopped: context canceled"

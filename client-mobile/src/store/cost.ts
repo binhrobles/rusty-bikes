@@ -25,7 +25,7 @@ const ROAD_WEIGHTS = {
   [Road.Arterial]: 2.0,
 };
 
-const SALMON_COEFFICIENTS = [1.1, 1.25, 1.75] as const;
+const SALMON_COEFFICIENTS = [1.1, 1.25, 1.5, 1.8] as const;
 
 export const $costModel = computed(
   [$comfortSlider, $speedSlider, $salmonSlider],

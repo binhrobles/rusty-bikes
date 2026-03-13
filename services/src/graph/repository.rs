@@ -255,7 +255,8 @@ impl GraphRepository for SqliteGraphRepository {
         );
         let mut stmt = self.conn.prepare(&sql)?;
 
-        let mut params: Vec<&dyn rusqlite::types::ToSql> = Vec::with_capacity(from_nodes.len() + to_nodes.len());
+        let mut params: Vec<&dyn rusqlite::types::ToSql> =
+            Vec::with_capacity(from_nodes.len() + to_nodes.len());
         for id in from_nodes {
             params.push(id as &dyn rusqlite::types::ToSql);
         }

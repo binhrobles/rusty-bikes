@@ -53,7 +53,7 @@ import {
       <input
         type="range"
         min="0"
-        max="2"
+        max="3"
         step="1"
         value={$salmonSlider}
         on:input={debounce(salmonSlider, parseInt)}
@@ -62,6 +62,7 @@ import {
     <div class="slider-ticks">
       <span>Ignore</span>
       <span>Sometimes</span>
+      <span>Mostly</span>
       <span>Always</span>
     </div>
 
