@@ -11,7 +11,6 @@ export const $currentStepIndex = atom<number>(0);
 export const $instructions = atom<NavigationInstruction[]>([]);
 export const $isOnRoute = atom<boolean>(true);
 export const $distanceOffRoute = atom<number>(0); // meters
-export const $offRoutePromptVisible = atom<boolean>(false);
 
 export const $currentInstruction = computed(
   [$instructions, $currentStepIndex],
@@ -34,7 +33,6 @@ export function resetNav(): void {
   $currentStepIndex.set(0);
   $isOnRoute.set(true);
   $distanceOffRoute.set(0);
-  $offRoutePromptVisible.set(false);
 }
 
 /**
@@ -58,7 +56,6 @@ export function processGPSUpdate(userPosition: [number, number]): void {
 
   if (offRoute) {
     $isOnRoute.set(false);
-    $offRoutePromptVisible.set(true);
     return;
   }
 

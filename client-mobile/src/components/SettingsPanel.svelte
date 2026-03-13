@@ -1,6 +1,5 @@
 <script lang="ts">
-  import { $autoReroute as autoReroute } from '../store/settings.ts';
-  import {
+import {
     $comfortSlider as comfortSlider,
     $speedSlider as speedSlider,
     $salmonSlider as salmonSlider,
@@ -66,15 +65,6 @@
       <span>Always</span>
     </div>
 
-    <div class="section-label">Navigation</div>
-    <label class="row">
-      <span>Auto-reroute when off route</span>
-      <input
-        type="checkbox"
-        checked={$autoReroute}
-        on:change={(e) => autoReroute.set(e.currentTarget.checked)}
-      />
-    </label>
   </div>
 
 <style>

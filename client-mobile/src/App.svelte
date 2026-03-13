@@ -2,8 +2,7 @@
   import { onMount } from 'svelte';
   import MapView from './components/MapView.svelte';
   import InstructionPanel from './components/InstructionPanel.svelte';
-  import OffRoutePrompt from './components/OffRoutePrompt.svelte';
-  import SearchInput from './components/SearchInput.svelte';
+import SearchInput from './components/SearchInput.svelte';
   import SettingsPanel from './components/SettingsPanel.svelte';
   import { startGPS } from './store/gps.ts';
   import { $settingsOpen as settingsOpen } from './store/settings.ts';
@@ -94,7 +93,6 @@
     {/if}
   </footer>
 
-  <OffRoutePrompt />
 </div>
 
 <style>
