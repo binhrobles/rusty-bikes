@@ -1,7 +1,9 @@
 import maplibregl from 'maplibre-gl';
 import { RADAR_API_KEY, NYC_CENTER } from '../lib/config.ts';
-import type { MobileRoute } from '../types/index.ts';
+import type { MobileRoute, CorridorData } from '../types/index.ts';
 
+const CORRIDOR_SOURCE = 'corridor';
+const CORRIDOR_LAYER = 'corridor-line';
 const ROUTE_SOURCE = 'route';
 const ROUTE_LAYER = 'route-line';
 const GPS_SOURCE = 'gps-marker';
@@ -9,6 +11,7 @@ const GPS_LAYER = 'gps-dot';
 
 let map: maplibregl.Map | null = null;
 let sourcesReady = false;
+let pendingCorridor: CorridorData | null = null;
 let pendingRoute: MobileRoute | null = null;
 let pendingGPS: [number, number] | null = null;
 let endMarker: maplibregl.Marker | null = null;
@@ -30,6 +33,34 @@ export function createMap(container: string): maplibregl.Map {
   map.addControl(new maplibregl.AttributionControl({ compact: true }), 'bottom-right');
 
   map.on('load', () => {
+    // Corridor source + layer (added first so it renders beneath route)
+    map!.addSource(CORRIDOR_SOURCE, {
+      type: 'geojson',
+      data: { type: 'FeatureCollection', features: [] },
+    });
+
+    map!.addLayer({
+      id: CORRIDOR_LAYER,
+      type: 'line',
+      source: CORRIDOR_SOURCE,
+      layout: { 'line-join': 'round', 'line-cap': 'round' },
+      paint: {
+        'line-color': [
+          'case',
+          ['==', ['at', 2, ['get', 'labels']], true],
+          '#e84393',
+          ['any',
+            ['==', ['at', 0, ['get', 'labels']], 'Lane'],
+            ['==', ['at', 0, ['get', 'labels']], 'Track'],
+          ],
+          '#00b894',
+          '#2563eb',
+        ],
+        'line-width': 4,
+        'line-opacity': 0.35,
+      },
+    });
+
     // Route line source + layer
     map!.addSource(ROUTE_SOURCE, {
       type: 'geojson',
@@ -82,6 +113,11 @@ export function createMap(container: string): maplibregl.Map {
     sourcesReady = true;
 
     // Flush any data that arrived before the map was ready
+    if (pendingCorridor) {
+      const corridorSrc = map!.getSource(CORRIDOR_SOURCE) as maplibregl.GeoJSONSource;
+      corridorSrc.setData(pendingCorridor);
+      pendingCorridor = null;
+    }
     if (pendingRoute) {
       const src = map!.getSource(ROUTE_SOURCE) as maplibregl.GeoJSONSource;
       src.setData(pendingRoute);
@@ -94,6 +130,19 @@ export function createMap(container: string): maplibregl.Map {
   });
 
   return map;
+}
+
+export function updateCorridor(corridor: CorridorData | null): void {
+  const data: GeoJSON.FeatureCollection = corridor ?? { type: 'FeatureCollection', features: [] };
+
+  if (!map || !sourcesReady) {
+    pendingCorridor = corridor;
+    return;
+  }
+
+  const src = map.getSource(CORRIDOR_SOURCE) as maplibregl.GeoJSONSource | undefined;
+  if (!src) return;
+  src.setData(data);
 }
 
 export function updateRoute(route: MobileRoute | null): void {

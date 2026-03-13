@@ -55,6 +55,8 @@ pub struct NavigationMeta {
 pub struct NavigationResponse {
     pub route: Value,
     pub meta: NavigationMeta,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub corridor: Option<Value>,
 }
 
 /// Build lean navigation steps from route segments, merging consecutive segments
@@ -84,6 +86,7 @@ pub fn build_navigation_steps(
 pub fn serialize_navigation(
     segments: &[TraversalSegment],
     way_names: &HashMap<WayId, String>,
+    corridor: Option<Value>,
 ) -> Result<NavigationResponse, anyhow::Error> {
     let steps = build_navigation_steps(segments, way_names);
 
@@ -98,5 +101,6 @@ pub fn serialize_navigation(
             total_distance,
             total_time_estimate,
         },
+        corridor,
     })
 }

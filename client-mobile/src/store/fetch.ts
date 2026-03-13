@@ -1,7 +1,7 @@
 import { atom, batched, task } from 'nanostores';
 import { RUSTY_BASE_URL } from '../lib/config.ts';
 import { saveRoute, saveEndpoints } from '../lib/cache.ts';
-import { $startLatLng, $endLatLng, $startAddress, $endAddress, $route, $routeMeta } from './route.ts';
+import { $startLatLng, $endLatLng, $startAddress, $endAddress, $route, $routeMeta, $corridor } from './route.ts';
 import { $costModel } from './cost.ts';
 import type { NavigateResponse } from '../types/index.ts';
 
@@ -34,6 +34,7 @@ async function fetchNavigate(
         },
         heuristic_weight: 0.75,
         cost_model: costModel,
+        with_corridor: true,
       }),
     });
   } catch (e) {
@@ -67,6 +68,7 @@ const $raw = batched(
 
       $route.set(data.route);
       $routeMeta.set(data.meta);
+      $corridor.set(data.corridor ?? null);
       saveRoute(data.route, data.meta);
       saveEndpoints({
         startLatLng: start,

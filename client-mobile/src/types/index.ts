@@ -19,9 +19,12 @@ export interface RouteMeta {
   total_time_estimate: number; // seconds
 }
 
+export type CorridorData = GeoJSON.FeatureCollection<GeoJSON.LineString>;
+
 export interface NavigateResponse {
   route: MobileRoute;
   meta: RouteMeta;
+  corridor?: CorridorData;
 }
 
 // Computed turn instruction for UI display

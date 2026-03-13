@@ -2,7 +2,7 @@ use super::repository::GraphRepository;
 use crate::db::{self, DBConnection};
 use crate::osm::{Distance, Neighbor, Node, NodeId, WayId, WayLabels};
 use geo::Point;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use tracing::info;
 
 /// A compact edge in the adjacency list
@@ -165,6 +165,23 @@ impl GraphRepository for InMemoryGraphRepository {
             .iter()
             .filter_map(|id| self.way_names.get(id).map(|name| (*id, name.clone())))
             .collect())
+    }
+
+    fn get_nodes_with_edge_to(
+        &self,
+        from_nodes: &[NodeId],
+        to_nodes: &[NodeId],
+    ) -> Result<HashSet<NodeId>, anyhow::Error> {
+        let to_set: HashSet<NodeId> = to_nodes.iter().copied().collect();
+        let mut result = HashSet::new();
+        for &from_id in from_nodes {
+            if let Some(edges) = self.adjacency.get(&from_id) {
+                if edges.iter().any(|e| to_set.contains(&e.node.id)) {
+                    result.insert(from_id);
+                }
+            }
+        }
+        Ok(result)
     }
 }
 

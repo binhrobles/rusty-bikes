@@ -10,7 +10,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use tracing::error;
 
-use rusty_router::api::{compression, geojson, navigation};
+use rusty_router::api::{compression, corridor, geojson, navigation};
 use rusty_router::graph::{CostModel, Graph, RouteMetadata, Weight};
 
 // create a singleton of the Graph struct on lambda boot
@@ -204,6 +204,7 @@ struct NavigateParams {
     end: Location,
     cost_model: Option<CostModel>,
     heuristic_weight: Option<Weight>,
+    with_corridor: Option<bool>,
 }
 
 fn navigate_handler(graph: &Graph, event: &Request) -> Result<String, anyhow::Error> {
@@ -211,11 +212,13 @@ fn navigate_handler(graph: &Graph, event: &Request) -> Result<String, anyhow::Er
         .payload::<NavigateParams>()?
         .ok_or_else(|| anyhow!("Missing navigate params"))?;
 
-    let (route_segments, _, _) = graph
+    let with_corridor = params.with_corridor.unwrap_or(false);
+
+    let (route_segments, traversal, _) = graph
         .calculate_route(
             params.start.into(),
             params.end.into(),
-            false, // never include traversal for mobile
+            with_corridor, // request traversal when corridor needed
             params.cost_model,
             params.heuristic_weight,
         )
@@ -236,10 +239,33 @@ fn navigate_handler(graph: &Graph, event: &Request) -> Result<String, anyhow::Er
         e
     })?;
 
-    let response = navigation::serialize_navigation(&route_segments, &way_names).map_err(|e| {
-        error!("Serialization Error: {e}");
-        e
-    })?;
+    // Extract corridor from traversal if requested
+    let corridor_value = if let Some(traversal) = &traversal {
+        // Second-to-last segment has the real accumulated cost;
+        // the last segment is the virtual END_NODE with cost=0
+        let optimal_cost = route_segments
+            .iter()
+            .rev()
+            .find(|s| s.cost > 0.0)
+            .map(|s| s.cost)
+            .unwrap_or(0.0);
+        let corridor_segments =
+            corridor::extract_corridor(traversal, &route_segments, optimal_cost, &*graph.db);
+        Some(
+            corridor::serialize_corridor(&corridor_segments).map_err(|e| {
+                error!("Corridor serialization error: {e}");
+                e
+            })?,
+        )
+    } else {
+        None
+    };
+
+    let response = navigation::serialize_navigation(&route_segments, &way_names, corridor_value)
+        .map_err(|e| {
+            error!("Serialization Error: {e}");
+            e
+        })?;
 
     Ok(serde_json::to_string(&response)?)
 }

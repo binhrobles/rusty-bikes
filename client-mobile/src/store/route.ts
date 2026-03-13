@@ -1,10 +1,11 @@
 import { atom } from 'nanostores';
-import type { MobileRoute, RouteMeta } from '../types/index.ts';
+import type { MobileRoute, RouteMeta, CorridorData } from '../types/index.ts';
 import { generateInstruction } from '../lib/navigation.ts';
 import { $instructions, resetNav } from './nav.ts';
 
 export const $route = atom<MobileRoute | null>(null);
 export const $routeMeta = atom<RouteMeta | null>(null);
+export const $corridor = atom<CorridorData | null>(null);
 
 // Geocoded address strings for display
 export const $startAddress = atom<string>('');

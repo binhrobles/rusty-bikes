@@ -1,8 +1,8 @@
 <script lang="ts">
   import { onMount, onDestroy } from 'svelte';
   import 'maplibre-gl/dist/maplibre-gl.css';
-  import { createMap, updateRoute, updateGPSMarker, followGPS, fitRoute, updateEndMarker, setEndMarkerDragHandler } from '../modules/map.mts';
-  import { $route as route, $endLatLng as endLatLng, $endAddress as endAddress } from '../store/route.ts';
+  import { createMap, updateRoute, updateCorridor, updateGPSMarker, followGPS, fitRoute, updateEndMarker, setEndMarkerDragHandler } from '../modules/map.mts';
+  import { $route as route, $corridor as corridor, $endLatLng as endLatLng, $endAddress as endAddress } from '../store/route.ts';
   import { $userPosition as userPosition, $userBearing as userBearing } from '../store/gps.ts';
   import { $settingsOpen as settingsOpen } from '../store/settings.ts';
 
@@ -11,6 +11,10 @@
 
   onMount(() => {
     const map = createMap(container.id);
+
+    unsubs.push(
+      corridor.subscribe((c) => updateCorridor(c)),
+    );
 
     unsubs.push(
       route.subscribe((r) => {
