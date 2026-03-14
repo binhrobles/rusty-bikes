@@ -11,7 +11,8 @@ use serde_json::Value;
 use tracing::error;
 
 use rusty_router::api::{compression, corridor, geojson, navigation};
-use rusty_router::graph::{CostModel, Graph, RouteMetadata, Weight};
+use rusty_router::graph::{CostModel, Graph, RouteMetadata, TraversalSegment, Weight};
+use std::collections::HashMap;
 
 // create a singleton of the Graph struct on lambda boot
 thread_local! {
@@ -213,11 +214,13 @@ fn navigate_handler(graph: &Graph, event: &Request) -> Result<String, anyhow::Er
         .ok_or_else(|| anyhow!("Missing navigate params"))?;
 
     let with_corridor = params.with_corridor.unwrap_or(false);
+    let start_point = Point::new(params.start.lon, params.start.lat);
+    let end_point: Point = params.end.into();
 
     let (route_segments, traversal, _) = graph
         .calculate_route(
-            params.start.into(),
-            params.end.into(),
+            start_point,
+            end_point,
             with_corridor, // request traversal when corridor needed
             params.cost_model,
             params.heuristic_weight,
@@ -240,7 +243,35 @@ fn navigate_handler(graph: &Graph, event: &Request) -> Result<String, anyhow::Er
     })?;
 
     // Extract corridor from traversal if requested
-    let corridor_value = if let Some(traversal) = &traversal {
+    let corridor_value = if with_corridor {
+        // Do a deeper traversal to explore more alternatives, especially near endpoint
+        let exploration_depth = 40;
+        let mut merged_traversal: HashMap<i64, TraversalSegment> = traversal
+            .clone()
+            .unwrap_or_default()
+            .into_iter()
+            .map(|seg| (seg.to.id, seg))
+            .collect();
+
+        if let Ok(deep_traversal) = graph.calculate_traversal(
+            start_point,
+            exploration_depth,
+            None, // Use default cost model for exploration
+            params.heuristic_weight,
+        ) {
+            // Merge deep traversal with route traversal (keep cheapest path to each node)
+            for segment in deep_traversal {
+                merged_traversal
+                    .entry(segment.to.id)
+                    .and_modify(|existing| {
+                        if segment.cost < existing.cost {
+                            *existing = segment.clone();
+                        }
+                    })
+                    .or_insert(segment);
+            }
+        }
+
         // Second-to-last segment has the real accumulated cost;
         // the last segment is the virtual END_NODE with cost=0
         let optimal_cost = route_segments
@@ -249,8 +280,10 @@ fn navigate_handler(graph: &Graph, event: &Request) -> Result<String, anyhow::Er
             .find(|s| s.cost > 0.0)
             .map(|s| s.cost)
             .unwrap_or(0.0);
+
+        let merged_vec: Vec<TraversalSegment> = merged_traversal.values().cloned().collect();
         let corridor_segments =
-            corridor::extract_corridor(traversal, &route_segments, optimal_cost, &*graph.db);
+            corridor::extract_corridor(&merged_vec, &route_segments, optimal_cost, &*graph.db);
         Some(
             corridor::serialize_corridor(&corridor_segments).map_err(|e| {
                 error!("Corridor serialization error: {e}");
