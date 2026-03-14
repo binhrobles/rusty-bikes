@@ -2,6 +2,7 @@ import L, { ControlPosition } from 'leaflet';
 import { ComponentType } from 'svelte';
 
 import Control from '../components/Control.svelte';
+import ElevationProfile from '../components/ElevationProfile.svelte';
 import LoadingIndicator from '../components/LoadingIndicator.svelte';
 
 const createControlComponent = (
@@ -33,5 +34,10 @@ export const addPathfindingControl = (map: L.Map) => {
 
 export const addLoadingIndicator = (map: L.Map) => {
   const control = createControlComponent(LoadingIndicator, 'topright');
+  control.addTo(map);
+};
+
+export const addElevationProfile = (map: L.Map) => {
+  const control = createControlComponent(ElevationProfile, 'bottomright');
   control.addTo(map);
 };

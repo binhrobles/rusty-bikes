@@ -1,5 +1,12 @@
 BUILD=.aws-sam/build
 
+.PHONY: help
+help:
+	@echo "Rusty Bikes Makefile Commands"
+	@echo ""
+	@awk '/^## / {if (NR>1) print ""; section=$$2 " " $$3 " " $$4; gsub(/--+/, "", section); gsub(/^ +| +$$/, "", section); print section; next} /^[a-z-]+.*:/ && !/^\./ {match($$0, /^([a-z-]+)/); print "  make " substr($$0, RSTART, RLENGTH)}' Makefile
+	@echo ""
+
 ## ------------ Running Locally ------------ ##
 # for running this project locally at localhost:9000
 service-watch: db.db3
@@ -14,6 +21,13 @@ ifdef release
 	cd client && yarn build && yarn preview
 else
 	cd client && yarn dev
+endif
+
+client-mobile-watch:
+ifdef release
+	cd client-mobile && yarn build && yarn preview
+else
+	cd client-mobile && yarn dev
 endif
 
 service-test: db.db3
@@ -40,19 +54,28 @@ sam-deploy:
 sam-clean:
 	rm -rf .aws-sam/build/
 
-## ------------ OSM / DB ------------ ##
+## ------------ OSM and DB ------------ ##
 # download you some OSM data
 osm-download out.geom.json:
 	./services/scripts/download_osm_data.sh
 
+# download USGS 3DEP elevation raster for NYC area
+elevation-download elevation.tif:
+	curl -o elevation.tif "https://prd-tnm.s3.amazonaws.com/StagedProducts/Elevation/13/TIFF/current/n41w075/USGS_13_n41w075.tif"
+
 # build you a SQLite DB from the provided geojson
+# if elevation.tif is present, elevation data will be computed per-segment
 db-build db.db3: out.geom.json
 ifneq (,$(wildcard db.db3))
 	echo "first moving db to db.db3.bak..."
 	mv db.db3 db.db3.bak
 endif
 	cd services && DB_PATH=../db.db3 cargo run --bin init-db
+ifneq (,$(wildcard elevation.tif))
+	cd services && DB_PATH=../db.db3 ELEVATION_PATH=../elevation.tif cargo run --features elevation --bin populate-db ../out.geom.json
+else
 	cd services && DB_PATH=../db.db3 cargo run --bin populate-db ../out.geom.json
+endif
 
 ## ------------ DB Lambda Layer ------------ ##
 # build a lambda layer artifact from the sqlite db

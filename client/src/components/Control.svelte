@@ -18,6 +18,7 @@
     $heuristicWeight as heuristicWeight,
     $cyclewayPreference as cyclewayPreference,
     $roadPreference as roadPreference,
+    $elevationPreference as elevationPreference,
     $salmonCoefficient as salmonCoefficient,
   } from '../store/cost.ts';
   import { fitMarkers } from '../modules/map.mts';
@@ -190,6 +191,24 @@
       step="0.5"
       on:change={createRangeUpdateHandler(roadPreference)}
       value={roadPreference.get()}
+    />
+    <br />
+
+    <div class="tooltip">
+      Avoid Hills:
+      <span class="tooltip-text"
+        ><i>Will prefer flatter routes, avoiding steep climbs</i></span
+      >
+    </div>
+    <input
+      class="slider"
+      id={HtmlElementId.ElevationRange}
+      type="range"
+      min="0"
+      max="10"
+      step="0.5"
+      on:change={createRangeUpdateHandler(elevationPreference)}
+      value={elevationPreference.get()}
     />
     <br />
 

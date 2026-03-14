@@ -3,10 +3,15 @@ name = "rusty_router"
 version = "0.1.0"
 edition = "2021"
 
+[features]
+default = []
+elevation = ["dep:gdal"]
+
 [dependencies]
 anyhow = "1.0.82"
 base64 = "0.22.1"
 flate2 = "1.0.30"
+gdal = { version = "0.19", optional = true, features = ["bindgen"] }
 geo = "0.28.0"
 geojson = "0.24.1"
 itertools = "0.14.0"

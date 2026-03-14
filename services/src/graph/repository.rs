@@ -96,6 +96,8 @@ impl GraphRepository for SqliteGraphRepository {
                         node: Node::new(row.get(0)?, &loc),
                         way: row.get(3)?,
                         distance: center.haversine_distance(&loc) as Distance,
+                        elevation_gain: 0,
+                        elevation_loss: 0,
                     },
                     center.haversine_bearing(loc),
                 ))
@@ -149,7 +151,7 @@ impl GraphRepository for SqliteGraphRepository {
     fn get_neighbors(&self, id: NodeId) -> Result<Vec<Neighbor>, anyhow::Error> {
         let mut stmt = self.conn.prepare_cached(
             "
-            SELECT way, n2, N2.lon, N2.lat, distance
+            SELECT way, n2, N2.lon, N2.lat, distance, elevation_gain, elevation_loss
             FROM Segments
             JOIN Nodes as N2 ON n2=N2.id
             WHERE n1 = ?1
@@ -160,6 +162,8 @@ impl GraphRepository for SqliteGraphRepository {
                 way: row.get(0)?,
                 node: Node::new(row.get(1)?, &Point::new(row.get(2)?, row.get(3)?)),
                 distance: row.get(4)?,
+                elevation_gain: row.get(5)?,
+                elevation_loss: row.get(6)?,
             })
         })?;
 
@@ -175,8 +179,8 @@ impl GraphRepository for SqliteGraphRepository {
         // flamegraphs show we spend 95%+ of our time in this query
         let mut stmt = self.conn.prepare_cached(
             "
-            SELECT way, n2, N2.lon, N2.lat, distance, WL.cycleway, WL.road, WL.salmon
-            FROM Segments
+            SELECT way, n2, N2.lon, N2.lat, distance, WL.cycleway, WL.road, WL.salmon, S.elevation_gain, S.elevation_loss
+            FROM Segments S
             JOIN Nodes as N2 ON n2=N2.id
             JOIN WayLabels as WL ON way=WL.id
             WHERE n1 = ?1
@@ -188,6 +192,8 @@ impl GraphRepository for SqliteGraphRepository {
                     way: row.get(0)?,
                     node: Node::new(row.get(1)?, &Point::new(row.get(2)?, row.get(3)?)),
                     distance: row.get(4)?,
+                    elevation_gain: row.get(8)?,
+                    elevation_loss: row.get(9)?,
                 },
                 (row.get(5)?, row.get(6)?, row.get(7)?),
             ))

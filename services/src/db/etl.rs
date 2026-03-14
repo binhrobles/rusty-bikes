@@ -100,6 +100,11 @@ where
             let mut conn = super::get_conn().unwrap();
             let tx = conn.transaction().unwrap();
 
+            #[cfg(feature = "elevation")]
+            let elevation = std::env::var("ELEVATION_PATH").ok().map(|p| {
+                super::elevation::ElevationLookup::new(&p).expect("Failed to open elevation raster")
+            });
+
             while let Some(el) = seq.next_element::<Element>()? {
                 count += 1;
 
@@ -111,7 +116,13 @@ where
                     }
                     "way" => {
                         // insert to Way table
-                        super::insert_way_element(&tx, el).unwrap();
+                        super::insert_way_element(
+                            &tx,
+                            el,
+                            #[cfg(feature = "elevation")]
+                            elevation.as_ref(),
+                        )
+                        .unwrap();
                     }
                     other => panic!("unsupported type {}\nelement: {:?}", other, el),
                 }

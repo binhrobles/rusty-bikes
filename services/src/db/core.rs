@@ -58,6 +58,8 @@ pub fn init_tables(conn: &Connection) -> Result<(), anyhow::Error> {
             n2  INTEGER NOT NULL,
             way INTEGER NOT NULL,
             distance INTEGER NOT NULL,
+            elevation_gain INTEGER NOT NULL DEFAULT 0,
+            elevation_loss INTEGER NOT NULL DEFAULT 0,
             PRIMARY KEY (n1, n2, way),
             FOREIGN KEY (n1) REFERENCES Nodes(id),
             FOREIGN KEY (n2) REFERENCES Nodes(id)
@@ -87,8 +89,14 @@ pub fn insert_node_element(tx: &Transaction, element: Element) -> anyhow::Result
     Ok(())
 }
 
-/// Insert a OSM-parsed Way element into the DB, synchronously
-pub fn insert_way_element(tx: &Transaction, element: Element) -> anyhow::Result<()> {
+/// Insert a OSM-parsed Way element into the DB, synchronously.
+/// When the `elevation` feature is enabled, accepts an optional ElevationLookup
+/// to compute per-segment elevation gain/loss.
+pub fn insert_way_element(
+    tx: &Transaction,
+    element: Element,
+    #[cfg(feature = "elevation")] elevation: Option<&super::elevation::ElevationLookup>,
+) -> anyhow::Result<()> {
     let way = Way::from(&element);
 
     let mut way_insert_stmt = tx.prepare_cached(
@@ -141,8 +149,9 @@ pub fn insert_way_element(tx: &Transaction, element: Element) -> anyhow::Result<
         tx.prepare_cached("INSERT OR IGNORE INTO Nodes (id, lon, lat) VALUES (?1, ?2, ?3)")?;
     let mut wn_insert_stmt =
         tx.prepare_cached("INSERT INTO WayNodes (way, node, pos) VALUES (?1, ?2, ?3)")?;
-    let mut segment_insert_stmt =
-        tx.prepare_cached("INSERT INTO Segments (n1, n2, way, distance) VALUES (?1, ?2, ?3, ?4)")?;
+    let mut segment_insert_stmt = tx.prepare_cached(
+        "INSERT INTO Segments (n1, n2, way, distance, elevation_gain, elevation_loss) VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+    )?;
 
     let node_ids = element.nodes.unwrap_or_default();
     let node_coords = element.geometry.unwrap_or_default();
@@ -176,17 +185,33 @@ pub fn insert_way_element(tx: &Transaction, element: Element) -> anyhow::Result<
         if let Some(prev_node) = prev_node {
             let distance = p.haversine_distance(&prev_node.1).ceil() as i32;
 
-            let segment_params = (prev_node.0, n_id, &way.id, distance);
-            segment_insert_stmt
-                .execute(segment_params)
-                .map_err(|e| anyhow!("Failed WayNode:\n{:#?}\n{e}", segment_params))?;
+            // Compute elevation gain/loss if elevation data is available
+            #[cfg(feature = "elevation")]
+            let (elev_gain, elev_loss) = elevation
+                .map(|e| {
+                    e.compute_segment_elevation(
+                        prev_node.1.x(),
+                        prev_node.1.y(),
+                        p.x(),
+                        p.y(),
+                        distance,
+                    )
+                })
+                .unwrap_or((0, 0));
+            #[cfg(not(feature = "elevation"))]
+            let (elev_gain, elev_loss): (i16, i16) = (0, 0);
 
-            // also insert the inverse segment, flipping the WayId sign
-            // to indicate that the segment will refer to the reverse OSM direction
-            let segment_params = (n_id, prev_node.0, -&way.id, distance);
+            // Forward segment: gain/loss as computed
+            let segment_params = (prev_node.0, n_id, &way.id, distance, elev_gain, elev_loss);
             segment_insert_stmt
                 .execute(segment_params)
-                .map_err(|e| anyhow!("Failed WayNode:\n{:#?}\n{e}", segment_params))?;
+                .map_err(|e| anyhow!("Failed Segment:\n{:#?}\n{e}", segment_params))?;
+
+            // Inverse segment: swap gain↔loss (uphill forward = downhill backward)
+            let segment_params = (n_id, prev_node.0, -&way.id, distance, elev_loss, elev_gain);
+            segment_insert_stmt
+                .execute(segment_params)
+                .map_err(|e| anyhow!("Failed Segment:\n{:#?}\n{e}", segment_params))?;
         }
 
         prev_node = Some((*n_id, p));

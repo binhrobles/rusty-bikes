@@ -64,6 +64,8 @@ pub struct Neighbor {
     pub way: WayId,
     pub node: Node,
     pub distance: Distance,
+    pub elevation_gain: i16,
+    pub elevation_loss: i16,
     // TODO: bearing?
 }
 

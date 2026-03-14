@@ -12,6 +12,8 @@ struct InMemoryEdge {
     node: Node,
     distance: Distance,
     labels: WayLabels,
+    elevation_gain: i16,
+    elevation_loss: i16,
 }
 
 /// In-memory graph repository: loads Segments + Nodes + WayLabels into a HashMap at startup,
@@ -56,7 +58,7 @@ impl InMemoryGraphRepository {
     ) -> Result<HashMap<NodeId, Vec<InMemoryEdge>>, anyhow::Error> {
         let mut stmt = conn.prepare(
             "
-            SELECT S.n1, S.way, S.n2, N2.lon, N2.lat, S.distance, WL.cycleway, WL.road, WL.salmon
+            SELECT S.n1, S.way, S.n2, N2.lon, N2.lat, S.distance, WL.cycleway, WL.road, WL.salmon, S.elevation_gain, S.elevation_loss
             FROM Segments S
             JOIN Nodes N2 ON S.n2 = N2.id
             JOIN WayLabels WL ON S.way = WL.id
@@ -73,6 +75,8 @@ impl InMemoryGraphRepository {
                 node: Node::new(row.get(2)?, &Point::new(row.get(3)?, row.get(4)?)),
                 distance: row.get(5)?,
                 labels: (row.get(6)?, row.get(7)?, row.get(8)?),
+                elevation_gain: row.get(9)?,
+                elevation_loss: row.get(10)?,
             };
             adjacency.entry(n1).or_default().push(edge);
         }
@@ -118,6 +122,8 @@ impl GraphRepository for InMemoryGraphRepository {
                         way: e.way,
                         node: e.node,
                         distance: e.distance,
+                        elevation_gain: e.elevation_gain,
+                        elevation_loss: e.elevation_loss,
                     })
                     .collect()
             })
@@ -140,6 +146,8 @@ impl GraphRepository for InMemoryGraphRepository {
                                 way: e.way,
                                 node: e.node,
                                 distance: e.distance,
+                                elevation_gain: e.elevation_gain,
+                                elevation_loss: e.elevation_loss,
                             },
                             e.labels,
                         )
@@ -232,6 +240,8 @@ fn snap_snapped_neighbors_from_conn(
                     node: Node::new(row.get(0)?, &loc),
                     way: row.get(3)?,
                     distance: center.haversine_distance(&loc) as Distance,
+                    elevation_gain: 0,
+                    elevation_loss: 0,
                 },
                 center.haversine_bearing(loc),
             ))

@@ -1,4 +1,5 @@
 mod core;
+pub mod elevation;
 mod etl;
 mod mapping;
 

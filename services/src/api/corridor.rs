@@ -5,11 +5,11 @@
 /// paths never literally rejoin route nodes via stored edges. We query the actual
 /// graph DB to find which candidate nodes have edges back to route nodes.
 use crate::graph::{Cost, GraphRepository, TraversalSegment};
-use tracing::debug;
 use crate::osm::NodeId;
 use geo::{HaversineDistance, Point};
 use serde_json::Value;
 use std::collections::{HashMap, HashSet, VecDeque};
+use tracing::debug;
 
 use crate::graph::{END_NODE_ID, START_NODE_ID};
 
@@ -112,19 +112,33 @@ pub fn extract_corridor<'a>(
         .unwrap_or_default();
 
     // In a grid, reconnection can be 1-3 hops: parallel street → cross street → route.
-    // Iteratively expand reconnection nodes.
+    // Iteratively expand reconnection nodes through intermediate nodes.
     let mut all_reconnection: HashSet<NodeId> = reconnection_1hop.clone();
-    let mut prev_hop: Vec<NodeId> = reconnection_1hop.into_iter().collect();
+    let mut prev_intermediate: Vec<NodeId> = route_node_ids_vec.clone();
 
     for hop in 2..=3 {
-        let next_hop = db
-            .get_nodes_with_edge_to(&candidate_to_nodes, &prev_hop)
+        // Find nodes that connect to our current intermediate nodes
+        let next_intermediate = db
+            .get_nodes_with_edge_to(&prev_intermediate, &route_node_ids_vec)
             .unwrap_or_default();
-        debug!("corridor phase2: {}-hop reconnection: {} nodes", hop, next_hop.len());
+
+        let next_intermediate_vec: Vec<NodeId> = next_intermediate.iter().copied().collect();
+
+        // Find candidates that can reach these intermediate nodes
+        let next_hop = db
+            .get_nodes_with_edge_to(&candidate_to_nodes, &next_intermediate_vec)
+            .unwrap_or_default();
+
+        debug!(
+            "corridor phase2: {}-hop reconnection: {} intermediate nodes, {} candidates",
+            hop,
+            next_intermediate.len(),
+            next_hop.len()
+        );
         if next_hop.is_empty() {
             break;
         }
-        prev_hop = next_hop.iter().copied().collect();
+        prev_intermediate = next_intermediate_vec;
         all_reconnection.extend(next_hop);
     }
 
@@ -165,7 +179,10 @@ pub fn extract_corridor<'a>(
         })
         .collect();
 
-    debug!("corridor result: {} segments after connectivity filter", result.len());
+    debug!(
+        "corridor result: {} segments after connectivity filter",
+        result.len()
+    );
 
     result
 }

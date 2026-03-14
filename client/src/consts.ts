@@ -19,6 +19,7 @@ export enum PropKey {
 // typo mitigation
 export enum HtmlElementId {
   CyclewayRange = 'cycleway-range',
+  ElevationRange = 'elevation-range',
   EndInput = 'end-input',
   HeuristicRange = 'heuristic-range',
   RoadRange = 'road-range',
@@ -34,6 +35,7 @@ export const TraversalDefaults = {
 export const CostDefaults = {
   CyclewayPreference: 5, // scale based (1..10)
   RoadPreference: 5, // scale based (1..10)
+  ElevationPreference: 0, // scale based (0..10), 0 = ignore hills
   SalmonCoefficient: 1.3, // % based (1.3 = 130%)
   HeuristicWeight: 0.75, // % based (0.75 = 75%)
 };

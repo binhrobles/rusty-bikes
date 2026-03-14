@@ -61,6 +61,9 @@ pub struct TraversalSegment {
 
     #[serde(serialize_with = "serialize_as_int")]
     pub heuristic: Weight,
+
+    pub elevation_gain: i16,
+    pub elevation_loss: i16,
 }
 
 /// TraversalSegments are equivalent when they connect the same points along the same way
@@ -110,8 +113,11 @@ pub struct TraversalSegmentBuilder {
     distance_so_far: Distance,
     labels: WayLabels,
     cost_factor: Cost,
+    elevation_cost: Cost,
     cost_so_far: Cost,
     heuristic: Weight,
+    elevation_gain: i16,
+    elevation_loss: i16,
 }
 
 impl TraversalSegmentBuilder {
@@ -128,8 +134,11 @@ impl TraversalSegmentBuilder {
             distance_so_far: to.distance,
             labels: (Cycleway::Shared, Road::Collector, false),
             cost_factor: 0.0,
+            elevation_cost: 0.0,
             cost_so_far: 0.0,
             heuristic: 0.0,
+            elevation_gain: 0,
+            elevation_loss: 0,
         }
     }
 
@@ -147,8 +156,11 @@ impl TraversalSegmentBuilder {
             distance_so_far: length,
             labels: (Cycleway::Shared, Road::Collector, false),
             cost_factor: 0.0,
+            elevation_cost: 0.0,
             cost_so_far: 0.0,
             heuristic: 0.0,
+            elevation_gain: 0,
+            elevation_loss: 0,
         }
     }
 
@@ -168,11 +180,17 @@ impl TraversalSegmentBuilder {
         mut self,
         cost_model: &CostModel,
         way_labels: &WayLabels,
+        elevation_gain: i16,
+        elevation_loss: i16,
         cost_so_far: Cost,
     ) -> Self {
         self.cost_factor = cost_model.calculate_cost(way_labels);
+        self.elevation_cost =
+            cost_model.calculate_elevation_cost(elevation_gain, elevation_loss, self.length);
         self.cost_so_far = cost_so_far;
         self.labels = *way_labels;
+        self.elevation_gain = elevation_gain;
+        self.elevation_loss = elevation_loss;
         self
     }
 
@@ -185,9 +203,9 @@ impl TraversalSegmentBuilder {
 
     pub fn build(self) -> TraversalSegment {
         // generates "true segment cost" at build time, incorporating the cost factor, length of
-        // the segment, the accumulated cost to get here
+        // the segment, elevation cost, and the accumulated cost to get here
         // these should 0 out if any of these haven't been built into the segment
-        let cost = self.cost_factor * self.length as f32 + self.cost_so_far;
+        let cost = self.cost_factor * self.length as f32 + self.elevation_cost + self.cost_so_far;
 
         TraversalSegment {
             from: self.from,
@@ -204,6 +222,8 @@ impl TraversalSegmentBuilder {
             cost_so_far: self.cost_so_far,
             heuristic: self.heuristic,
             cost,
+            elevation_gain: self.elevation_gain,
+            elevation_loss: self.elevation_loss,
         }
     }
 }
@@ -331,7 +351,13 @@ impl Traversable for Graph {
                 let segment = TraversalSegment::build_to_neighbor(&current_to, &neighbor)
                     .with_depth(current_depth + 1)
                     .with_prev_distance(current_distance)
-                    .with_cost(&context.cost_model, &way_labels, current_cost)
+                    .with_cost(
+                        &context.cost_model,
+                        &way_labels,
+                        neighbor.elevation_gain,
+                        neighbor.elevation_loss,
+                        current_cost,
+                    )
                     .with_heuristic(end_node, &context.heuristic_weight)
                     .build();
                 context.cost_range.0 = context.cost_range.0.min(segment.cost_factor);
@@ -385,7 +411,13 @@ impl Traversable for Graph {
                 let segment = TraversalSegment::build_to_neighbor(&current_to, &neighbor)
                     .with_depth(current_depth + 1)
                     .with_prev_distance(current_distance)
-                    .with_cost(&context.cost_model, &way_labels, current_cost)
+                    .with_cost(
+                        &context.cost_model,
+                        &way_labels,
+                        neighbor.elevation_gain,
+                        neighbor.elevation_loss,
+                        current_cost,
+                    )
                     .build();
                 context.cost_range.0 = context.cost_range.0.min(segment.cost_factor);
                 context.cost_range.1 = context.cost_range.1.max(segment.cost_factor);

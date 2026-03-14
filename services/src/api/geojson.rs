@@ -64,6 +64,8 @@ pub struct RouteStep {
     pub to: NodeId,
     pub way: WayId,
     pub distance: Distance,
+    pub elevation_gain: i32,
+    pub elevation_loss: i32,
     pub depth: Depth,
     pub labels: WayLabels,
     pub idx: usize,
@@ -75,6 +77,8 @@ impl RouteStep {
             geometry: vec![segment.geometry.start, segment.geometry.end],
 
             distance: segment.length,
+            elevation_gain: segment.elevation_gain.max(0) as i32,
+            elevation_loss: segment.elevation_loss.max(0) as i32,
             from: segment.from.id,
             to: segment.to.id,
             way: segment.way,
@@ -87,6 +91,8 @@ impl RouteStep {
     pub fn extend_with(&mut self, segment: &TraversalSegment) {
         self.geometry.push(segment.geometry.end);
         self.distance += segment.length;
+        self.elevation_gain += segment.elevation_gain.max(0) as i32;
+        self.elevation_loss += segment.elevation_loss.max(0) as i32;
         self.to = segment.to.id;
         self.depth = segment.depth; // takes the depth of the last segment appended
     }

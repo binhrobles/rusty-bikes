@@ -2,6 +2,7 @@
 import {
     $comfortSlider as comfortSlider,
     $speedSlider as speedSlider,
+    $hillSlider as hillSlider,
     $salmonSlider as salmonSlider,
   } from '../store/cost.ts';
   import { createEventDispatcher } from 'svelte';
@@ -46,6 +47,17 @@ import {
         step="0.05"
         value={$speedSlider}
         on:input={debounce(speedSlider, parseFloat)}
+      />
+    </label>
+    <label class="slider-row">
+      <span class="slider-label">Avoid Hills</span>
+      <input
+        type="range"
+        min="0"
+        max="1"
+        step="0.05"
+        value={$hillSlider}
+        on:input={debounce(hillSlider, parseFloat)}
       />
     </label>
     <label class="slider-row">

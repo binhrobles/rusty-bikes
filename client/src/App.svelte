@@ -10,6 +10,7 @@
   import {
     addPathfindingControl,
     addLoadingIndicator,
+    addElevationProfile,
   } from './modules/control.mts';
   import { RUSTY_BASE_URL } from './config.ts';
 
@@ -21,6 +22,7 @@
     addPathfindingControl(map);
     addLayerControl(map);
     addLoadingIndicator(map);
+    addElevationProfile(map);
 
     return {
       destroy: () => {

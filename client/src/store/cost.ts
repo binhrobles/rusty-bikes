@@ -22,6 +22,7 @@ export type CostModel = {
   road_coefficient: number;
   salmon_coefficient: number;
   distance_coefficient: number;
+  elevation_coefficient: number;
   cycleway_weights: Record<Cycleway, number>;
   road_weights: Record<Road, number>;
 };
@@ -35,10 +36,13 @@ export const $cyclewayPreference = atom<number>(
   CostDefaults.CyclewayPreference
 );
 export const $roadPreference = atom<number>(CostDefaults.RoadPreference);
+export const $elevationPreference = atom<number>(
+  CostDefaults.ElevationPreference
+);
 
 export const $costModel = computed(
-  [$salmonCoefficient, $cyclewayPreference, $roadPreference],
-  (salmonCoefficient, cyclewayPreference, roadPreference): CostModel => {
+  [$salmonCoefficient, $cyclewayPreference, $roadPreference, $elevationPreference],
+  (salmonCoefficient, cyclewayPreference, roadPreference, elevationPreference): CostModel => {
     // preference values affect the "spread" bw different road / cycleway types
     const cyclewayWeights = {
       [Cycleway.Track]: 1.0 - (cyclewayPreference / 10.0),
@@ -55,11 +59,15 @@ export const $costModel = computed(
       [Road.Arterial]: 1.0 + (roadPreference / 10.0),
     };
 
+    // Map 0..10 preference to a coefficient the backend uses (0..2)
+    const elevationCoefficient = (elevationPreference / 10) * 2;
+
     const model = {
       cycleway_coefficient: 0.5,
       road_coefficient: 0.5,
       salmon_coefficient: salmonCoefficient,
       distance_coefficient: 0,
+      elevation_coefficient: elevationCoefficient,
       cycleway_weights: cyclewayWeights,
       road_weights: roadWeights,
     };
