@@ -59,9 +59,13 @@ sam-clean:
 osm-download out.geom.json:
 	./services/scripts/download_osm_data.sh
 
-# download USGS 3DEP elevation raster for NYC area
-elevation-download elevation.tif:
-	curl -o elevation.tif "https://prd-tnm.s3.amazonaws.com/StagedProducts/Elevation/13/TIFF/current/n41w075/USGS_13_n41w075.tif"
+# download USGS 3DEP elevation rasters for NYC area
+# n41w074 covers most of NYC (74°W-73°W), n41w075 covers western edge (75°W-74°W)
+elevation-download:
+	curl -o elevation_east.tif "https://prd-tnm.s3.amazonaws.com/StagedProducts/Elevation/13/TIFF/current/n41w074/USGS_13_n41w074.tif"
+	curl -o elevation_west.tif "https://prd-tnm.s3.amazonaws.com/StagedProducts/Elevation/13/TIFF/current/n41w075/USGS_13_n41w075.tif"
+	gdal_merge.py -o elevation.tif elevation_east.tif elevation_west.tif
+	rm elevation_east.tif elevation_west.tif
 
 # build you a SQLite DB from the provided geojson
 # if elevation.tif is present, elevation data will be computed per-segment

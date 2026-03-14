@@ -1,6 +1,6 @@
 <script lang="ts">
-  import { onDestroy } from 'svelte';
-  import { $elevationProfile as profileStore } from '../store/elevation.ts';
+  import { onMount, onDestroy } from 'svelte';
+  import { $raw as rawStore } from '../store/fetch.ts';
 
   let hasData = false;
   let totalGain = 0;
@@ -15,20 +15,41 @@
   const plotW = WIDTH - PADDING.left - PADDING.right;
   const plotH = HEIGHT - PADDING.top - PADDING.bottom;
 
-  const unsub = profileStore.subscribe((profile) => {
-    hasData = profile.hasData;
-    totalGain = profile.totalGain;
-    totalLoss = profile.totalLoss;
-
-    if (!profile.hasData) {
+  function refresh() {
+    const raw = rawStore.get() as any;
+    if (!raw?.route?.features) {
+      hasData = false;
       linePath = '';
       areaPath = '';
       yTicks = [];
       return;
     }
 
-    const { elevations, totalDistance } = profile;
-    const dist = totalDistance || 1;
+    let cumDistance = 0;
+    let gain = 0;
+    let loss = 0;
+    let elev = 0;
+    const elevations = [{ distance: 0, elevation: 0 }];
+
+    for (const feature of raw.route.features) {
+      const props = feature.properties;
+      if (!props) continue;
+      cumDistance += props.distance || 0;
+      const g = props.elevation_gain ?? 0;
+      const l = props.elevation_loss ?? 0;
+      gain += g;
+      loss += l;
+      elev += g - l;
+      elevations.push({ distance: cumDistance, elevation: elev });
+    }
+
+    totalGain = gain;
+    totalLoss = loss;
+    hasData = elevations.length > 1 && (gain > 0 || loss > 0);
+
+    if (!hasData) return;
+
+    const dist = cumDistance || 1;
     const minE = Math.min(...elevations.map((e) => e.elevation));
     const maxE = Math.max(...elevations.map((e) => e.elevation));
     const range = Math.max(maxE - minE, 1);
@@ -47,8 +68,13 @@
       label: `${Math.round(v)}`,
       y: yPos(v),
     }));
+  }
+
+  let pollInterval: ReturnType<typeof setInterval>;
+  onMount(() => {
+    pollInterval = setInterval(refresh, 1000);
   });
-  onDestroy(unsub);
+  onDestroy(() => clearInterval(pollInterval));
 </script>
 
 {#if hasData}
