@@ -3,6 +3,8 @@ import type { NavigationInstruction } from '../types/index.ts';
 import { checkOffRoute, getStepProgress } from '../lib/navigation.ts';
 import { $route } from './route.ts';
 import { OFF_ROUTE_THRESHOLD_METERS } from '../lib/config.ts';
+import { bearing as turfBearing } from '@turf/bearing';
+import { point } from '@turf/helpers';
 
 // How close to a step's end (meters) before advancing to the next step
 const STEP_ADVANCE_THRESHOLD = 20;
@@ -21,6 +23,27 @@ export const $nextInstruction = computed(
   [$instructions, $currentStepIndex],
   (instructions, idx) => instructions[idx + 1] ?? null,
 );
+
+/** Next 3 instructions after the current one (for navigation footer) */
+export const $upcomingInstructions = computed(
+  [$instructions, $currentStepIndex],
+  (instructions, idx) => instructions.slice(idx + 1, idx + 4),
+);
+
+/**
+ * Returns bearing of the current route step's first segment.
+ * Used as fallback camera bearing when user is stationary (no GPS heading).
+ */
+export function getRouteStepBearing(): number {
+  const route = $route.get();
+  const idx = $currentStepIndex.get();
+  if (!route || idx >= route.features.length) return 0;
+
+  const coords = route.features[idx].geometry.coordinates;
+  if (coords.length < 2) return 0;
+
+  return turfBearing(point(coords[0]), point(coords[1]));
+}
 
 export function advanceStep(): void {
   const next = $currentStepIndex.get() + 1;
