@@ -216,3 +216,31 @@ export function fitRoute(route: MobileRoute): void {
   );
   map.fitBounds(bounds, { padding: 60, duration: 600 });
 }
+
+/**
+ * Navigation-mode camera: pitched, bearing-rotated, user at bottom-center.
+ * Padding pushes the logical center upward so the user dot sits in the lower third.
+ */
+export function followGPSNavMode(lat: number, lon: number, bearing: number): void {
+  if (!map) return;
+  map.easeTo({
+    center: [lon, lat],
+    bearing,
+    pitch: 45,
+    padding: { top: Math.round(map.getContainer().clientHeight * 0.55), bottom: 0, left: 0, right: 0 },
+    duration: 500,
+  });
+}
+
+/**
+ * Reset camera to top-down planning mode: no pitch, north-up.
+ */
+export function resetCamera(): void {
+  if (!map) return;
+  map.easeTo({
+    pitch: 0,
+    bearing: 0,
+    padding: { top: 0, bottom: 0, left: 0, right: 0 },
+    duration: 400,
+  });
+}
