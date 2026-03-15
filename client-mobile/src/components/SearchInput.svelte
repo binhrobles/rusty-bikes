@@ -27,7 +27,15 @@
   async function suggest(query: string): Promise<Suggestion[]> {
     if (query.length < 2) return [];
     try {
-      const res = await Radar.autocomplete({ query, near: NYC_CENTER, limit: 5 });
+      const res = await Radar.autocomplete({
+        query,
+        near: NYC_CENTER,
+        limit: 5,
+        countryCode: 'US',
+        minCharacters: 3,
+        responsive: true,
+        layers: ['address', 'place', 'coarse'],
+      });
       return (res.addresses ?? []).map((a) => ({
         label: a.formattedAddress ?? a.street ?? query,
         lat: a.latitude,

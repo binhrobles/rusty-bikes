@@ -171,11 +171,6 @@ export function updateGPSMarker(lat: number, lon: number): void {
   });
 }
 
-export function followGPS(lat: number, lon: number, bearing: number): void {
-  if (!map) return;
-  map.easeTo({ center: [lon, lat], bearing, duration: 500 });
-}
-
 export function setEndMarkerDragHandler(handler: (lat: number, lon: number) => void): void {
   onEndMarkerDrag = handler;
 }
