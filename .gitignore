@@ -9,3 +9,7 @@ samconfig.toml
 *.db3*
 *.tif
 TODO
+
+# Dolt database files (added by bd init)
+.dolt/
+*.db
