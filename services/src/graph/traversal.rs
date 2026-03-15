@@ -431,6 +431,6 @@ impl Traversable for Graph {
             }
         }
 
-        Err(anyhow!("Traversal failed"))
+        Ok(())
     }
 }
