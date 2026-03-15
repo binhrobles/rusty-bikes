@@ -19,7 +19,7 @@ Run two forward explorations and intersect them:
 
 `cost_from_finish[C]` ≠ `cost_to_finish[C]` due to elevation asymmetry, salmon (wrong-way) penalties, and one-way streets. For NYC's flat, mostly-bidirectional grid this is a good approximation. The corridor is a visual hint, not a navigation instruction — precision isn't critical.
 
-**Known bias**: salmon penalties make `cost_from_finish[C]` **underestimate** `cost_to_finish[C]` for nodes that require traveling against one-way streets to reach the finish. A one-way street explored "the right way" from finish has salmon=1.0, but the cyclist going toward finish would pay the salmon penalty. This means the corridor filter is slightly too permissive near one-way clusters — acceptable for a visual hint.
+**Salmon correction**: One-way streets are common in NYC. The backward exploration inverts the salmon flag via `CostModel.reverse_salmon = true` — so segments explored "the right way" from finish are penalized as if the cyclist were going the opposite direction (toward finish). This corrects the main source of cost asymmetry. Elevation asymmetry (gain/loss swap) remains uncorrected but is a smaller effect in flat NYC.
 
 ## Architecture
 
@@ -61,10 +61,12 @@ After:
 ```rust
 // Forward traversal from route A* + backward exploration from finish
 let forward_traversal = traversal.clone().unwrap_or_default();
+let mut backward_cost_model = cost_model.clone().unwrap_or_default();
+backward_cost_model.reverse_salmon = true;  // invert salmon for backward direction
 let backward_traversal = graph.calculate_traversal(
     end_point,
     40,
-    cost_model,   // same cost model as the route — keeps cost spaces comparable
+    Some(backward_cost_model),
     params.heuristic_weight,
 ).unwrap_or_default();
 
@@ -75,6 +77,10 @@ let corridor_segments = corridor::extract_corridor(
     optimal_cost,
 );
 ```
+
+**`services/src/graph/cost.rs` — CostModel**
+
+Add `reverse_salmon: bool` field (default false, `#[serde(default)]`). In `calculate_cost`, invert the salmon flag when `reverse_salmon` is true before applying the salmon coefficient. This corrects the main directional cost asymmetry for the backward exploration.
 
 **`services/src/api/corridor.rs` — extract_corridor**
 
@@ -155,6 +161,6 @@ Use `make service-watch` + curl to visually compare corridor output for known ro
 | Risk | Likelihood | Mitigation |
 |------|-----------|------------|
 | Backward exploration from finish explores irrelevant areas (away from route) | Medium | Proximity filter (1000m) already handles this; depth=40 limits exploration budget |
-| Cost asymmetry causes poor corridor quality near one-way clusters | Low | Acceptable per design; one-way streets are rare on NYC's cycling grid |
+| Residual cost asymmetry from elevation (not salmon) | Low | Elevation effect is small in flat NYC; salmon — the dominant asymmetry — is corrected via `reverse_salmon` |
 | Two traversals slower than one + reconnection BFS | Low | DB is in-memory; traversal is fast. Reconnection BFS did multiple DB queries anyway. Net performance likely similar or better. |
 | Forward A* traversal is narrower than current merged approach | Medium | The current code runs a separate depth=40 exploration from start and merges it. The new approach drops that, using only the A* `came_from` tree for the forward side. Start-side corridor coverage may be thinner. If this is a problem, we can add back a merged start exploration later — but try the simpler approach first. |
