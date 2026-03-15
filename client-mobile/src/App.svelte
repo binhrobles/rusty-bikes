@@ -1,11 +1,12 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import MapView from './components/MapView.svelte';
-  import InstructionPanel from './components/InstructionPanel.svelte';
-import SearchInput from './components/SearchInput.svelte';
+  import SearchInput from './components/SearchInput.svelte';
   import SettingsPanel from './components/SettingsPanel.svelte';
+  import NavigationHeader from './components/NavigationHeader.svelte';
+  import NavigationFooter from './components/NavigationFooter.svelte';
   import { startGPS } from './store/gps.ts';
-  import { $settingsOpen as settingsOpen } from './store/settings.ts';
+  import { $appView as appView } from './store/settings.ts';
   import { loadRoute, loadEndpoints } from './lib/cache.ts';
   import {
     $route as route,
@@ -22,26 +23,13 @@ import SearchInput from './components/SearchInput.svelte';
   import { RUSTY_BASE_URL } from './lib/config.ts';
 
   let lambdaReady = false;
-  let hasCachedRoute = false;
-
-  async function toggleSettings() {
-    settingsOpen.set(!settingsOpen.get());
-    // Wait for footer to resize, then tell MapLibre before fitting route
-    if ($settingsOpen) {
-      await tick();
-      resizeMap();
-      const r = route.get();
-      if (r) fitRoute(r);
-    }
-  }
 
   onMount(async () => {
     startGPS();
 
-    // Restore last session from localStorage immediately
+    // Restore last session from localStorage
     const cached = loadRoute();
     if (cached) {
-      hasCachedRoute = true;
       route.set(cached.route);
       routeMeta.set(cached.meta);
     }
@@ -54,7 +42,7 @@ import SearchInput from './components/SearchInput.svelte';
       if (endpoints.endAddress) endAddress.set(endpoints.endAddress);
     }
 
-    // Ping lambda — if no cached route, user can't do anything until it's ready
+    // Ping lambda
     let retries = 0;
     while (!lambdaReady && retries < 10) {
       try {
@@ -67,17 +55,28 @@ import SearchInput from './components/SearchInput.svelte';
       }
     }
   });
+
+  // When switching back to planning, resize map and fit route
+  appView.listen(async (view) => {
+    if (view === 'planning') {
+      await tick();
+      resizeMap();
+      const r = route.get();
+      if (r) fitRoute(r);
+    }
+  });
 </script>
 
 <div class="app">
   <header>
-    {#if lambdaReady}
-      <SearchInput />
-      <button class="settings-btn" on:click={toggleSettings} aria-label="Settings">
-        ⚙️
-      </button>
+    {#if $appView === 'planning'}
+      {#if lambdaReady}
+        <SearchInput />
+      {:else}
+        <div class="connecting">Connecting...</div>
+      {/if}
     {:else}
-      <div class="connecting">Connecting...</div>
+      <NavigationHeader />
     {/if}
   </header>
 
@@ -86,13 +85,12 @@ import SearchInput from './components/SearchInput.svelte';
   </main>
 
   <footer>
-    {#if $settingsOpen}
-      <SettingsPanel on:close={() => settingsOpen.set(false)} />
+    {#if $appView === 'planning'}
+      <SettingsPanel />
     {:else}
-      <InstructionPanel />
+      <NavigationFooter />
     {/if}
   </footer>
-
 </div>
 
 <style>
@@ -122,16 +120,6 @@ import SearchInput from './components/SearchInput.svelte';
     z-index: 10;
     display: flex;
     align-items: flex-start;
-  }
-
-  .settings-btn {
-    background: none;
-    border: none;
-    font-size: 1.4rem;
-    padding: 0.6rem;
-    cursor: pointer;
-    align-self: center;
-    flex-shrink: 0;
   }
 
   .map-area {

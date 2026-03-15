@@ -1,6 +1,6 @@
 <script lang="ts">
   import { $upcomingInstructions as upcomingInstructions } from '../store/nav.ts';
-  import { $appView } from '../store/settings.ts';
+  import { $appView as appView } from '../store/settings.ts';
   import { resetCamera } from '../modules/map.mts';
 
   const ARROW: Record<string, string> = {
@@ -12,7 +12,7 @@
   }
 
   function exitNavigation() {
-    $appView.set('planning');
+    appView.set('planning');
     resetCamera();
     // App.svelte's appView.listen() handles resizeMap + fitRoute
   }
