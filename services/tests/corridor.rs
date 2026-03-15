@@ -14,10 +14,12 @@ fn corridor_has_segments_and_no_route_overlap() -> Result<(), anyhow::Error> {
     let (route, traversal, _meta) = graph.calculate_route(start, end, true, None, None)?;
     let forward_traversal = traversal.unwrap();
 
-    // 2. Backward exploration from finish with inverted salmon
+    // 2. Backward A* from finish→start with inverted salmon
     let mut backward_cost_model = CostModel::default();
     backward_cost_model.reverse_salmon = true;
-    let backward_traversal = graph.calculate_traversal(end, 40, Some(backward_cost_model), None)?;
+    let (_, backward_trav, _) =
+        graph.calculate_route(end, start, true, Some(backward_cost_model), None)?;
+    let backward_traversal = backward_trav.unwrap();
 
     // 3. Extract corridor
     let optimal_cost = route

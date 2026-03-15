@@ -258,16 +258,20 @@ fn navigate_handler(graph: &Graph, event: &Request) -> Result<String, anyhow::Er
     let corridor_value = if with_corridor {
         let forward_traversal = traversal.unwrap_or_default();
 
-        // Backward exploration from finish with inverted salmon
+        // Backward A* from finish→start with inverted salmon.
+        // This tree is broad near the finish and narrows toward the start,
+        // complementing the forward A* tree which is broad near the start.
         let mut backward_cost_model = cost_model_for_corridor.unwrap_or_default();
         backward_cost_model.reverse_salmon = true;
         let backward_traversal = graph
-            .calculate_traversal(
+            .calculate_route(
                 end_point,
-                40,
+                start_point,
+                true, // request traversal
                 Some(backward_cost_model),
                 params.heuristic_weight,
             )
+            .map(|(_, traversal, _)| traversal.unwrap_or_default())
             .unwrap_or_default();
 
         // Second-to-last segment has the real accumulated cost;
