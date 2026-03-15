@@ -53,7 +53,7 @@ struct CostModelInput {
 /// Cost model with array-backed weight lookups.
 /// Cycleway and Road are #[repr(u8)] enums, so weights[variant as usize] is a direct
 /// array index — no HashMap overhead in the hot path.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct CostModel {
     cycleway_coefficient: Cost,
     road_coefficient: Cost,
@@ -67,6 +67,10 @@ pub struct CostModel {
     cycleway_weights: [Cost; 4],
     /// Indexed by Road discriminant (Pedestrian=0, Bike=1, Local=2, Collector=3, Arterial=4)
     road_weights: [Cost; 5],
+    /// When true, invert the salmon flag during cost calculation.
+    /// Used for backward exploration where the traversal direction is
+    /// opposite to the cyclist's actual direction of travel.
+    pub reverse_salmon: bool,
 }
 
 impl From<CostModelInput> for CostModel {
@@ -89,6 +93,7 @@ impl From<CostModelInput> for CostModel {
             elevation_coefficient: input.elevation_coefficient,
             cycleway_weights,
             road_weights,
+            reverse_salmon: false,
         }
     }
 }
@@ -122,6 +127,7 @@ impl Default for CostModel {
             elevation_coefficient: 0.0,
             cycleway_weights,
             road_weights,
+            reverse_salmon: false,
         }
     }
 }
@@ -130,9 +136,14 @@ impl CostModel {
     #[inline]
     pub fn calculate_cost(&self, way_labels: &WayLabels) -> Cost {
         let (cycleway, road, salmon) = way_labels;
+        let salmon_flag = if self.reverse_salmon {
+            !*salmon
+        } else {
+            *salmon
+        };
         let cycleway_cost = self.cycleway_coefficient * self.cycleway_weights[*cycleway as usize];
         let road_cost = self.road_coefficient * self.road_weights[*road as usize];
-        let salmon_cost = if *salmon {
+        let salmon_cost = if salmon_flag {
             self.salmon_coefficient
         } else {
             1.0
@@ -294,6 +305,7 @@ impl MobileCostModel {
             elevation_coefficient,
             cycleway_weights,
             road_weights,
+            reverse_salmon: false,
         }
     }
 }
