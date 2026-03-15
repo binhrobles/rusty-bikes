@@ -11,7 +11,9 @@ use serde_json::Value;
 use tracing::error;
 
 use rusty_router::api::{compression, corridor, geojson, navigation};
-use rusty_router::graph::{CostModel, Graph, RouteMetadata, TraversalSegment, Weight};
+use rusty_router::graph::{
+    CostModel, Graph, MobileCostModel, RouteMetadata, TraversalSegment, Weight,
+};
 use std::collections::HashMap;
 
 // create a singleton of the Graph struct on lambda boot
@@ -203,6 +205,9 @@ fn route_handler(graph: &Graph, event: &Request) -> Result<String, anyhow::Error
 struct NavigateParams {
     start: Location,
     end: Location,
+    /// High-level mobile cost model (preferred). Resolved to CostModel internally.
+    mobile_cost_model: Option<MobileCostModel>,
+    /// Raw cost model (desktop-style, backward compat). Used if mobile_cost_model is absent.
     cost_model: Option<CostModel>,
     heuristic_weight: Option<Weight>,
     with_corridor: Option<bool>,
@@ -217,12 +222,19 @@ fn navigate_handler(graph: &Graph, event: &Request) -> Result<String, anyhow::Er
     let start_point = Point::new(params.start.lon, params.start.lat);
     let end_point: Point = params.end.into();
 
+    // Prefer mobile_cost_model (high-level) → resolve to CostModel.
+    // Fall back to raw cost_model for backward compat, then Default.
+    let cost_model = params
+        .mobile_cost_model
+        .map(|m| m.resolve())
+        .or(params.cost_model);
+
     let (route_segments, traversal, _) = graph
         .calculate_route(
             start_point,
             end_point,
             with_corridor, // request traversal when corridor needed
-            params.cost_model,
+            cost_model,
             params.heuristic_weight,
         )
         .map_err(|e| {

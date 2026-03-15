@@ -75,7 +75,7 @@ rusty-bikes/
 ## Key Conventions
 
 - **Directional Way IDs**: positive = OSM-normal direction, negative = reverse. See `.docs/services.md`
-- **Cost function**: `(road_coeff * road_weight + cycleway_coeff * cycleway_weight) * salmon_multiplier * way_length`. All weights are client-configurable. See `services/src/graph/cost.rs`
+- **Cost function**: `(road_coeff * road_weight + cycleway_coeff * cycleway_weight + distance_coeff) * salmon_multiplier * (1 + elevation_multiplier) * way_length`. Desktop sends raw `CostModel` with all knobs; mobile sends `MobileCostModel` (priority/hill/salmon/avoid-roads) which resolves to `CostModel` on the backend via profile interpolation. See `services/src/graph/cost.rs`
 - **State management**: Nanostores atoms → computed stores → batched tasks. See `.docs/client.md`
 - **OSM tag mapping**: Lossy ETL from OSM tags → {Road, Cycleway, Salmon} labels at DB build time, not runtime. See `services/src/db/mapping.rs`
 - **Testing**: Integration tests use real NYC street data for edge cases. See `services/tests/`

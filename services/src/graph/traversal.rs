@@ -186,7 +186,7 @@ impl TraversalSegmentBuilder {
     ) -> Self {
         self.cost_factor = cost_model.calculate_cost(way_labels);
         self.elevation_cost =
-            cost_model.calculate_elevation_cost(elevation_gain, elevation_loss, self.length);
+            cost_model.calculate_elevation_multiplier(elevation_gain, elevation_loss, self.length);
         self.cost_so_far = cost_so_far;
         self.labels = *way_labels;
         self.elevation_gain = elevation_gain;
@@ -202,10 +202,11 @@ impl TraversalSegmentBuilder {
     }
 
     pub fn build(self) -> TraversalSegment {
-        // generates "true segment cost" at build time, incorporating the cost factor, length of
-        // the segment, elevation cost, and the accumulated cost to get here
-        // these should 0 out if any of these haven't been built into the segment
-        let cost = self.cost_factor * self.length as f32 + self.elevation_cost + self.cost_so_far;
+        // Segment cost = base road/cycleway cost × elevation multiplier + accumulated cost.
+        // elevation_cost here is a dimensionless multiplier offset (0.0 when flat/disabled),
+        // so hills amplify the existing road preference rather than competing with it.
+        let cost =
+            self.cost_factor * self.length as f32 * (1.0 + self.elevation_cost) + self.cost_so_far;
 
         TraversalSegment {
             from: self.from,

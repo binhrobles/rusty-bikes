@@ -22,7 +22,7 @@
   // Sync display text from stores (covers both cache restore and programmatic updates)
   startAddress.subscribe((v) => { startQuery = v; });
   endAddress.subscribe((v) => { endQuery = v; });
-  endLatLng.subscribe((v) => { if (v) expanded = true; });
+  endLatLng.subscribe((v) => { expanded = !!v; });
 
   async function suggest(query: string): Promise<Suggestion[]> {
     if (query.length < 2) return [];
@@ -101,18 +101,18 @@
   }
 
   function pickEnd(s: Suggestion) {
+    // Check before setting endLatLng, since the subscription expands the panel
+    const needsStart = !startLatLng.get();
+
     endLatLng.set([s.lat, s.lon]);
     endAddress.set(s.label);
     endQuery = s.label;
     endSuggestions = [];
     endFocused = false;
 
-    // First destination pick: auto-set start to current location & expand
-    if (!expanded) {
-      expanded = true;
-      if (!startLatLng.get()) {
-        setStartToCurrentLocation();
-      }
+    // First destination pick: auto-set start to current location
+    if (needsStart) {
+      setStartToCurrentLocation();
     }
   }
 

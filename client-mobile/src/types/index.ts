@@ -47,28 +47,10 @@ export interface UserPosition {
   timestamp: number;
 }
 
-// Cost model matching the actual backend CostModel shape (same as desktop client)
-export enum Cycleway {
-  Track = 'Track',
-  Lane = 'Lane',
-  Shared = 'Shared',
-  No = 'No',
-}
-
-export enum Road {
-  Bike = 'Bike',
-  Pedestrian = 'Pedestrian',
-  Local = 'Local',
-  Collector = 'Collector',
-  Arterial = 'Arterial',
-}
-
-export interface CostModel {
-  cycleway_coefficient: number;
-  road_coefficient: number;
-  salmon_coefficient: number;
-  distance_coefficient: number;
-  elevation_coefficient: number;
-  cycleway_weights: Record<Cycleway, number>;
-  road_weights: Record<Road, number>;
+/// High-level mobile cost model — resolved to full CostModel on the backend.
+export interface MobileCostModel {
+  priority: number;        // 0 = speed, 1 = comfort
+  hill_penalty: number;    // 0 = ignore, 1 = avoid, 2 = strongly avoid
+  salmon_penalty: number;  // 0 = ignore, 1 = avoid, 2 = strongly avoid
+  avoid_major_roads: boolean;
 }

@@ -1,24 +1,24 @@
 <script lang="ts">
   import {
-    $comfortSlider as comfortSlider,
-    $speedSlider as speedSlider,
-    $hillSlider as hillSlider,
-    $salmonSlider as salmonSlider,
+    $routePriority as routePriority,
+    $hillPenalty as hillPenalty,
+    $salmonPenalty as salmonPenalty,
+    $avoidMajorRoads as avoidMajorRoads,
   } from '../store/cost.ts';
   import { $route as route, $startLatLng as startLatLng, $endLatLng as endLatLng, $startAddress as startAddress, $endAddress as endAddress, $corridor as corridor, $routeMeta as routeMeta } from '../store/route.ts';
   import { $appView as appView } from '../store/settings.ts';
   import { resetNav } from '../store/nav.ts';
   import { removeEndMarker } from '../modules/map.mts';
   import { clearRoute } from '../lib/cache.ts';
-  import type { WritableAtom } from 'nanostores';
 
-  const debounce = (store: WritableAtom<number>, parse: (v: string) => number, ms = 400) => {
-    let timer: ReturnType<typeof setTimeout>;
-    return (e: Event) => {
-      clearTimeout(timer);
-      timer = setTimeout(() => store.set(parse((e.target as HTMLInputElement).value)), ms);
-    };
-  };
+  const HILL_LABELS = ['None', 'Standard', 'Strong'] as const;
+  const SALMON_LABELS = ['Never', 'Sometimes', 'Often'] as const;
+
+  let debounceTimer: ReturnType<typeof setTimeout>;
+  function debouncedSet(value: number) {
+    clearTimeout(debounceTimer);
+    debounceTimer = setTimeout(() => routePriority.set(value), 400);
+  }
 
   function startNavigation() {
     resetNav();
@@ -40,32 +40,42 @@
 </script>
 
 <div class="panel">
-  <div class="section-label">Routing</div>
+  <div class="section-label">Route Priority</div>
   <label class="slider-row">
-    <span class="slider-label">Comfort</span>
-    <input type="range" min="0" max="1" step="0.05" value={$comfortSlider}
-      on:input={debounce(comfortSlider, parseFloat)} />
+    <span class="slider-end">Comfort</span>
+    <input type="range" min="0" max="1" step="0.05" value={1 - $routePriority}
+      on:input={(e) => debouncedSet(1 - parseFloat(e.currentTarget.value))} />
+    <span class="slider-end">Speed</span>
   </label>
-  <label class="slider-row">
-    <span class="slider-label">Speed</span>
-    <input type="range" min="0" max="1" step="0.05" value={$speedSlider}
-      on:input={debounce(speedSlider, parseFloat)} />
-  </label>
-  <label class="slider-row">
-    <span class="slider-label">Avoid Hills</span>
-    <input type="range" min="0" max="1" step="0.05" value={$hillSlider}
-      on:input={debounce(hillSlider, parseFloat)} />
-  </label>
-  <label class="slider-row">
-    <span class="slider-label">Rules</span>
-    <input type="range" min="0" max="3" step="1" value={$salmonSlider}
-      on:input={debounce(salmonSlider, parseInt)} />
-  </label>
-  <div class="slider-ticks">
-    <span>Ignore</span>
-    <span>Sometimes</span>
-    <span>Mostly</span>
-    <span>Always</span>
+
+  <div class="section-label">Hill Penalty</div>
+  <div class="segmented-row">
+    {#each HILL_LABELS as label, i}
+      <button
+        class="seg-btn"
+        class:active={$hillPenalty === i}
+        on:click={() => hillPenalty.set(i)}
+      >{label}</button>
+    {/each}
+  </div>
+
+  <div class="section-label">Rule Breaker</div>
+  <div class="segmented-row">
+    {#each SALMON_LABELS as label, i}
+      <button
+        class="seg-btn"
+        class:active={$salmonPenalty === 2 - i}
+        on:click={() => salmonPenalty.set(2 - i)}
+      >{label}</button>
+    {/each}
+  </div>
+
+  <div class="section-label">Major Roads</div>
+  <div class="segmented-row">
+    <button class="seg-btn" class:active={$avoidMajorRoads}
+      on:click={() => avoidMajorRoads.set(true)}>Avoid</button>
+    <button class="seg-btn" class:active={!$avoidMajorRoads}
+      on:click={() => avoidMajorRoads.set(false)}>Allow</button>
   </div>
 
   <div class="action-row">
@@ -104,17 +114,41 @@
     color: #f8fafc;
   }
 
-  .slider-label { width: 4rem; flex-shrink: 0; }
+  .slider-end {
+    font-size: 0.8rem;
+    color: #94a3b8;
+    flex-shrink: 0;
+  }
 
   .slider-row input[type='range'] { flex: 1; accent-color: #2563eb; }
 
-  .slider-ticks {
+  .segmented-row {
     display: flex;
-    justify-content: space-between;
-    font-size: 0.7rem;
-    color: #64748b;
-    padding: 0 0.25rem 0.25rem;
+    gap: 0;
+    border-radius: 0.5rem;
+    overflow: hidden;
+    border: 1px solid #334155;
   }
+
+  .seg-btn {
+    flex: 1;
+    padding: 0.5rem 0;
+    background: transparent;
+    color: #94a3b8;
+    border: none;
+    border-right: 1px solid #334155;
+    font-size: 0.85rem;
+    cursor: pointer;
+  }
+
+  .seg-btn:last-child { border-right: none; }
+
+  .seg-btn.active {
+    background: #2563eb;
+    color: #fff;
+    font-weight: 600;
+  }
+
 
   .action-row {
     display: flex;

@@ -205,6 +205,11 @@ export function removeEndMarker(): void {
   }
 }
 
+export function centerOn(lat: number, lon: number, zoom = 14): void {
+  if (!map) return;
+  map.easeTo({ center: [lon, lat], zoom, duration: 600 });
+}
+
 export function resizeMap(): void {
   map?.resize();
 }

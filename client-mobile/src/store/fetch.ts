@@ -2,8 +2,8 @@ import { atom, batched, task } from 'nanostores';
 import { RUSTY_BASE_URL } from '../lib/config.ts';
 import { saveRoute, saveEndpoints } from '../lib/cache.ts';
 import { $startLatLng, $endLatLng, $startAddress, $endAddress, $route, $routeMeta, $corridor } from './route.ts';
-import { $costModel } from './cost.ts';
-import type { NavigateResponse } from '../types/index.ts';
+import { $mobileCostModel } from './cost.ts';
+import type { MobileCostModel, NavigateResponse } from '../types/index.ts';
 
 const COORD_SIG_FIGS = 7;
 
@@ -13,7 +13,7 @@ export const $error = atom<string | null>(null);
 async function fetchNavigate(
   start: [number, number],
   end: [number, number],
-  costModel: ReturnType<(typeof $costModel)['get']>,
+  costModel: MobileCostModel,
 ): Promise<NavigateResponse | null> {
   $isLoading.set(true);
   $error.set(null);
@@ -33,7 +33,7 @@ async function fetchNavigate(
           lon: Number(end[1].toFixed(COORD_SIG_FIGS)),
         },
         heuristic_weight: 0.75,
-        cost_model: costModel,
+        mobile_cost_model: costModel,
         with_corridor: true,
       }),
     });
@@ -58,7 +58,7 @@ async function fetchNavigate(
 // Auto-fires whenever start, end, and cost model are all set.
 // batched() is lazy (only runs when subscribed), so .listen() eagerly activates it.
 const $raw = batched(
-  [$startLatLng, $endLatLng, $costModel],
+  [$startLatLng, $endLatLng, $mobileCostModel],
   (start, end, costModel) =>
     task(async () => {
       if (!start || !end) return null;

@@ -2,6 +2,20 @@ use crate::osm::{Cycleway, Distance, Road, WayLabels};
 use serde::{Deserialize, Serializer};
 use std::collections::HashMap;
 
+/// Lerp helper: blend between two values by t ∈ [0, 1].
+fn lerp(a: f32, b: f32, t: f32) -> f32 {
+    a + (b - a) * t
+}
+
+/// Lerp two fixed-size arrays element-wise.
+fn lerp_arr<const N: usize>(a: &[f32; N], b: &[f32; N], t: f32) -> [f32; N] {
+    let mut out = [0.0f32; N];
+    for i in 0..N {
+        out[i] = lerp(a[i], b[i], t);
+    }
+    out
+}
+
 pub type Cost = f32;
 pub type Weight = f32;
 
@@ -126,18 +140,17 @@ impl CostModel {
         (cycleway_cost + road_cost + self.distance_coefficient) * salmon_cost
     }
 
-    /// Additive elevation cost for a segment.
+    /// Dimensionless elevation multiplier for a segment.
     ///
-    /// Starts from a baseline cost per meter, then:
-    /// - Uphill: adds quadratic grade penalty on top of baseline
-    /// - Downhill: subtracts a tapered benefit from baseline (never below 0)
-    /// - Flat / unknown: pays just the baseline
+    /// Returns a value ≥ 0 that is used multiplicatively:
+    ///   segment_cost = cost_factor * length * (1.0 + elevation_multiplier)
     ///
-    /// This offset approach means downhill segments are cheaper than flat but
-    /// never free, and segments with no elevation data (bridges) aren't
-    /// artificially preferred.
+    /// - Flat / elevation disabled: 0.0 (no change to base cost)
+    /// - Uphill: positive, quadratic in grade
+    /// - Downhill: negative (tapered), reducing base cost but never below 0
+    /// - Unknown elevation (bridges): small positive penalty
     #[inline]
-    pub fn calculate_elevation_cost(
+    pub fn calculate_elevation_multiplier(
         &self,
         elevation_gain: i16,
         elevation_loss: i16,
@@ -147,34 +160,140 @@ impl CostModel {
             return 0.0;
         }
 
-        // Baseline: every segment pays a flat per-meter elevation-awareness cost.
-        // This is the "neutral" cost that flat segments pay.
-        let baseline = 0.1 * self.elevation_coefficient * distance as f32;
+        // Baseline: flat segments pay a small awareness cost
+        let baseline = 0.1 * self.elevation_coefficient;
 
         // Sentinel: -1 means no elevation data (bridges, over water).
         // Penalize above baseline — these likely involve a climb we can't measure.
         if elevation_gain < 0 {
-            return baseline + 0.1 * self.elevation_coefficient * distance as f32;
+            return baseline + 0.1 * self.elevation_coefficient;
         }
 
-        let mut cost = baseline;
+        let mut multiplier = baseline;
 
-        // Uphill penalty: quadratic in grade, added on top of baseline
+        // Uphill penalty: quadratic in grade
         if elevation_gain > 0 {
             let grade = elevation_gain as f32 / distance as f32;
-            cost += self.elevation_coefficient * grade * grade * distance as f32;
+            multiplier += self.elevation_coefficient * grade * grade;
         }
 
         // Downhill benefit: tapered reduction from baseline
         // Gentle descents give most benefit; steep descents plateau
-        // Clamped so cost never goes below 0
+        // Clamped so multiplier never goes below 0
         if elevation_loss > 0 {
             let grade = elevation_loss as f32 / distance as f32;
             let taper = 1.0 - (-15.0 * grade).exp(); // saturates around grade ~0.15
-            let benefit = baseline * taper; // at most removes the full baseline
-            cost -= benefit;
+            let benefit = baseline * taper;
+            multiplier -= benefit;
         }
 
-        cost.max(0.0)
+        multiplier.max(0.0)
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Mobile cost model — high-level parameterization that resolves to CostModel
+// ---------------------------------------------------------------------------
+
+/// Pre-built speed profile: minimize distance, road/cycleway type matters little.
+const SPEED_PROFILE: CostModelProfile = CostModelProfile {
+    cycleway_coefficient: 0.1,
+    road_coefficient: 0.1,
+    distance_coefficient: 0.5,
+    cycleway_weights: [1.2, 1.1, 1.0, 0.9], // No, Shared, Lane, Track — nearly flat
+    road_weights: [1.1, 0.9, 1.0, 1.1, 1.3], // Ped, Bike, Local, Collector, Arterial — mild spread
+};
+
+/// Pre-built comfort profile: strongly prefer protected infrastructure.
+const COMFORT_PROFILE: CostModelProfile = CostModelProfile {
+    cycleway_coefficient: 0.7,
+    road_coefficient: 0.5,
+    distance_coefficient: 0.0,
+    cycleway_weights: [1.7, 1.5, 1.0, 0.5], // No, Shared, Lane, Track — strong spread
+    road_weights: [0.9, 0.5, 1.2, 1.4, 2.0], // Ped, Bike, Local, Collector, Arterial
+};
+
+struct CostModelProfile {
+    cycleway_coefficient: Cost,
+    road_coefficient: Cost,
+    distance_coefficient: Cost,
+    cycleway_weights: [Cost; 4],
+    road_weights: [Cost; 5],
+}
+
+/// Mobile-optimized cost model: a few intuitive controls that resolve
+/// to the full CostModel used by the traversal engine.
+#[derive(Debug, Deserialize)]
+pub struct MobileCostModel {
+    /// 0.0 = pure speed, 1.0 = pure comfort
+    priority: f32,
+    /// 0 = ignore hills, 1 = avoid, 2 = strongly avoid
+    hill_penalty: u8,
+    /// 0 = ignore salmon, 1 = avoid, 2 = strongly avoid
+    salmon_penalty: u8,
+    /// When true, further penalizes arterials and collectors
+    #[serde(default)]
+    avoid_major_roads: bool,
+}
+
+impl MobileCostModel {
+    /// Resolve this high-level model into the concrete CostModel used by A*.
+    pub fn resolve(self) -> CostModel {
+        let t = self.priority.clamp(0.0, 1.0);
+
+        let cycleway_coefficient = lerp(
+            SPEED_PROFILE.cycleway_coefficient,
+            COMFORT_PROFILE.cycleway_coefficient,
+            t,
+        );
+        let road_coefficient = lerp(
+            SPEED_PROFILE.road_coefficient,
+            COMFORT_PROFILE.road_coefficient,
+            t,
+        );
+        let distance_coefficient = lerp(
+            SPEED_PROFILE.distance_coefficient,
+            COMFORT_PROFILE.distance_coefficient,
+            t,
+        );
+
+        let cycleway_weights = lerp_arr(
+            &SPEED_PROFILE.cycleway_weights,
+            &COMFORT_PROFILE.cycleway_weights,
+            t,
+        );
+        let mut road_weights = lerp_arr(
+            &SPEED_PROFILE.road_weights,
+            &COMFORT_PROFILE.road_weights,
+            t,
+        );
+
+        // Avoid major roads: bump arterial and collector weights
+        if self.avoid_major_roads {
+            road_weights[Road::Arterial as usize] += 1.0;
+            road_weights[Road::Collector as usize] += 0.3;
+        }
+
+        let salmon_coefficient = match self.salmon_penalty {
+            0 => 1.1,
+            1 => 1.35,
+            _ => 2.5,
+        };
+
+        let elevation_coefficient = match self.hill_penalty {
+            0 => 0.0,
+            1 => 1.0,
+            _ => 2.5,
+        };
+
+        CostModel {
+            cycleway_coefficient,
+            road_coefficient,
+            salmon_coefficient,
+            distance_coefficient,
+            elevation_coefficient,
+            cycleway_weights,
+            road_weights,
+        }
     }
 }
