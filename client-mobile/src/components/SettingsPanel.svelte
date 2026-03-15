@@ -8,6 +8,8 @@
   import { $route as route, $startLatLng as startLatLng, $endLatLng as endLatLng, $startAddress as startAddress, $endAddress as endAddress, $corridor as corridor, $routeMeta as routeMeta } from '../store/route.ts';
   import { $appView as appView } from '../store/settings.ts';
   import { resetNav } from '../store/nav.ts';
+  import { removeEndMarker } from '../modules/map.mts';
+  import { clearRoute } from '../lib/cache.ts';
   import type { WritableAtom } from 'nanostores';
 
   const debounce = (store: WritableAtom<number>, parse: (v: string) => number, ms = 400) => {
@@ -32,6 +34,8 @@
     routeMeta.set(null);
     corridor.set(null);
     resetNav();
+    removeEndMarker();
+    clearRoute();
   }
 </script>
 

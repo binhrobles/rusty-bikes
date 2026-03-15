@@ -198,6 +198,13 @@ export function updateEndMarker(lat: number, lon: number): void {
   }
 }
 
+export function removeEndMarker(): void {
+  if (endMarker) {
+    endMarker.remove();
+    endMarker = null;
+  }
+}
+
 export function resizeMap(): void {
   map?.resize();
 }
