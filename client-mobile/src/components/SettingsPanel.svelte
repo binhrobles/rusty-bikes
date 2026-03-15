@@ -77,16 +77,6 @@
 
   .section-label:first-of-type { margin-top: 0; }
 
-  .row {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 0.5rem 0;
-    color: #f8fafc;
-    font-size: 0.95rem;
-    cursor: pointer;
-  }
-
   .slider-row {
     display: flex;
     align-items: center;
