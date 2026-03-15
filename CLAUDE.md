@@ -20,7 +20,8 @@ For full workflow details: `bd prime`
 | Layer | Tech |
 |-------|------|
 | Backend | Rust 2021, AWS Lambda (arm64), SQLite + R*Tree |
-| Frontend | Svelte 4, TypeScript, Vite, Leaflet, Nanostores |
+| Frontend (desktop) | Svelte 4, TypeScript, Vite, Leaflet, Nanostores |
+| Frontend (mobile) | Svelte 4, TypeScript, Vite, MapLibre GL, Nanostores, Radar geocoding |
 | Infra | AWS SAM, API Gateway, Lambda Layers, GitHub Pages |
 | Data | OpenStreetMap Overpass API |
 
@@ -28,7 +29,8 @@ For full workflow details: `bd prime`
 
 ```bash
 make service-watch     # Rust backend at localhost:9000 (hot reload via cargo-lambda)
-make client-watch      # Svelte client (Vite dev server)
+make client-watch      # Svelte desktop client (Vite dev server)
+make client-mobile-watch # Svelte mobile client (Vite dev server)
 make service-test      # Run Rust tests (needs db.db3)
 make service-deploy    # Build + deploy Lambda to AWS
 make osm-download      # Fetch OSM data → out.geom.json
@@ -51,13 +53,20 @@ rusty-bikes/
 │   │   └── lib.rs
 │   ├── tests/               # Integration tests (way-labeling.rs, snapping.rs)
 │   └── scripts/             # download_osm_data.sh
-├── client/                  # Svelte frontend
+├── client/                  # Svelte desktop frontend (Leaflet)
 │   └── src/
 │       ├── components/      # App, Control, Icon, LoadingIndicator, DebugPopup
 │       ├── store/           # Nanostores: map, route, cost, fetch, render, marker
 │       ├── modules/         # map.mts, control.mts (Leaflet integration)
 │       ├── config.ts        # API URL (prod vs local)
 │       └── consts.ts        # Enums, defaults
+├── client-mobile/           # Svelte mobile frontend (MapLibre GL)
+│   └── src/
+│       ├── components/      # MapView, SearchInput, NavigationHeader, NavigationFooter, SettingsPanel, OffRoutePrompt, CostSlider
+│       ├── store/           # Nanostores: cost, fetch, gps, nav, route, settings
+│       ├── lib/             # cache, config, gps, navigation helpers
+│       ├── modules/         # map.mts (MapLibre integration)
+│       └── types/           # TypeScript type definitions
 ├── template.yaml            # SAM CloudFormation template
 ├── Makefile                 # All build/deploy targets
 └── db.db3                   # SQLite database (gitignored, ~144MB)

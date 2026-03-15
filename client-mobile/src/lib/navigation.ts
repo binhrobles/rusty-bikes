@@ -60,11 +60,17 @@ export function generateInstruction(
   const direction = computeTurnDirection(step, nextStep);
   const action = direction === 'straight' ? 'continue' : 'turn';
 
+  // For turns, show the street you're turning onto (next step).
+  // For straights, show the current street you're continuing on.
+  const wayName = action === 'turn'
+    ? nextStep.properties.way_name
+    : step.properties.way_name;
+
   return {
     action,
     direction,
     distance: step.properties.distance,
-    wayName: step.properties.way_name,
+    wayName,
     stepIndex,
   };
 }

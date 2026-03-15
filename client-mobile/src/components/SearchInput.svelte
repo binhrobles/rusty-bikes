@@ -120,63 +120,105 @@
     setStartToCurrentLocation();
   }
 
+  function swapEndpoints() {
+    const prevStartLatLng = startLatLng.get();
+    const prevStartAddr = startAddress.get();
+    const prevEndLatLng = endLatLng.get();
+    const prevEndAddr = endAddress.get();
+
+    startLatLng.set(prevEndLatLng);
+    startAddress.set(prevEndAddr);
+    endLatLng.set(prevStartLatLng);
+    endAddress.set(prevStartAddr);
+  }
+
 </script>
 
 <div class="search-bar">
-  {#if expanded}
-    <div class="input-row">
-      <button class="icon-btn" title="Use my location" on:click={useCurrentLocation}>🚴</button>
-      <div class="input-wrap">
-        <input
-          type="search"
-          placeholder="Start"
-          bind:value={startQuery}
-          on:input={onStartInput}
-          on:focus={() => (startFocused = true)}
-          on:blur={() => setTimeout(() => (startFocused = false), 150)}
-        />
-        {#if startFocused && startSuggestions.length}
-          <ul class="suggestions">
-            {#each startSuggestions as s}
-              <li><button on:click={() => pickStart(s)}>{s.label}</button></li>
-            {/each}
-          </ul>
-        {/if}
+  <div class="inputs-and-swap">
+    <div class="inputs">
+      {#if expanded}
+        <div class="input-row">
+          <button class="icon-btn" title="Use my location" on:click={useCurrentLocation}>🚴</button>
+          <div class="input-wrap">
+            <input
+              type="search"
+              placeholder="Start"
+              bind:value={startQuery}
+              on:input={onStartInput}
+              on:focus={() => (startFocused = true)}
+              on:blur={() => setTimeout(() => (startFocused = false), 150)}
+            />
+            {#if startFocused && startSuggestions.length}
+              <ul class="suggestions">
+                {#each startSuggestions as s}
+                  <li><button on:click={() => pickStart(s)}>{s.label}</button></li>
+                {/each}
+              </ul>
+            {/if}
+          </div>
+        </div>
+      {/if}
+
+      <div class="input-row">
+        <span class="icon-btn icon-btn--static">📍</span>
+        <div class="input-wrap">
+          <input
+            type="search"
+            placeholder={expanded ? 'Destination' : 'Where are you going?'}
+            bind:value={endQuery}
+            on:input={onEndInput}
+            on:focus={() => (endFocused = true)}
+            on:blur={() => setTimeout(() => (endFocused = false), 150)}
+          />
+          {#if endFocused && endSuggestions.length}
+            <ul class="suggestions">
+              {#each endSuggestions as s}
+                <li><button on:click={() => pickEnd(s)}>{s.label}</button></li>
+              {/each}
+            </ul>
+          {/if}
+        </div>
       </div>
     </div>
-  {/if}
 
-  <div class="input-row">
-    <span class="icon-btn icon-btn--static">📍</span>
-    <div class="input-wrap">
-      <input
-        type="search"
-        placeholder={expanded ? 'Destination' : 'Where are you going?'}
-        bind:value={endQuery}
-        on:input={onEndInput}
-        on:focus={() => (endFocused = true)}
-        on:blur={() => setTimeout(() => (endFocused = false), 150)}
-      />
-      {#if endFocused && endSuggestions.length}
-        <ul class="suggestions">
-          {#each endSuggestions as s}
-            <li><button on:click={() => pickEnd(s)}>{s.label}</button></li>
-          {/each}
-        </ul>
-      {/if}
-    </div>
+    {#if expanded}
+      <button class="swap-btn" title="Swap start and destination" on:click={swapEndpoints}>🔄</button>
+    {/if}
   </div>
 </div>
 
 <style>
   .search-bar {
-    display: flex;
-    flex-direction: column;
-    gap: 0.25rem;
     padding: 0.5rem;
     background: #1e293b;
     border-bottom: 1px solid #334155;
     flex: 1;
+  }
+
+  .inputs-and-swap {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+  }
+
+  .inputs {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    flex: 1;
+    min-width: 0;
+  }
+
+  .swap-btn {
+    font-size: 1.1rem;
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 0.3rem;
+    min-width: 2rem;
+    text-align: center;
+    flex-shrink: 0;
   }
 
   .input-row {

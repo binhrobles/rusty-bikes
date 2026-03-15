@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onMount, onDestroy } from 'svelte';
+  import { onDestroy } from 'svelte';
   import { $raw as rawStore } from '../store/fetch.ts';
 
   let hasData = false;
@@ -70,11 +70,8 @@
     }));
   }
 
-  let pollInterval: ReturnType<typeof setInterval>;
-  onMount(() => {
-    pollInterval = setInterval(refresh, 1000);
-  });
-  onDestroy(() => clearInterval(pollInterval));
+  const unsub = rawStore.listen(refresh);
+  onDestroy(unsub);
 </script>
 
 {#if hasData}

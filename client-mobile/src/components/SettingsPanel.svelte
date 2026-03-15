@@ -5,7 +5,7 @@
     $hillSlider as hillSlider,
     $salmonSlider as salmonSlider,
   } from '../store/cost.ts';
-  import { $route as route } from '../store/route.ts';
+  import { $route as route, $startLatLng as startLatLng, $endLatLng as endLatLng, $startAddress as startAddress, $endAddress as endAddress, $corridor as corridor, $routeMeta as routeMeta } from '../store/route.ts';
   import { $appView as appView } from '../store/settings.ts';
   import { resetNav } from '../store/nav.ts';
   import type { WritableAtom } from 'nanostores';
@@ -21,6 +21,17 @@
   function startNavigation() {
     resetNav();
     appView.set('navigating');
+  }
+
+  function clearAll() {
+    startLatLng.set(null);
+    endLatLng.set(null);
+    startAddress.set('');
+    endAddress.set('');
+    route.set(null);
+    routeMeta.set(null);
+    corridor.set(null);
+    resetNav();
   }
 </script>
 
@@ -53,9 +64,12 @@
     <span>Always</span>
   </div>
 
-  <button class="go-btn" disabled={!$route} on:click={startNavigation}>
-    Go!
-  </button>
+  <div class="action-row">
+    <button class="clear-btn" on:click={clearAll}>Clear</button>
+    <button class="go-btn" disabled={!$route} on:click={startNavigation}>
+      Go!
+    </button>
+  </div>
 </div>
 
 <style>
@@ -98,10 +112,25 @@
     padding: 0 0.25rem 0.25rem;
   }
 
-  .go-btn {
-    display: block;
-    width: 100%;
+  .action-row {
+    display: flex;
+    gap: 0.5rem;
     margin-top: 1rem;
+  }
+
+  .clear-btn {
+    padding: 0.75rem 1rem;
+    background: #334155;
+    color: #94a3b8;
+    border: none;
+    border-radius: 0.5rem;
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+  }
+
+  .go-btn {
+    flex: 1;
     padding: 0.75rem;
     background: #2563eb;
     color: #fff;
