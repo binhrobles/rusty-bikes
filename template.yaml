@@ -8,7 +8,7 @@ Description: >
 Globals:
   Function:
     Timeout: 30 # let it cook
-    MemorySize: 2048
+    MemorySize: 1769
     LoggingConfig:
       LogFormat: JSON
 
