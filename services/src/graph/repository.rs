@@ -3,7 +3,7 @@ use crate::osm::{Distance, Neighbor, Node, NodeId, WayId, WayLabels};
 use anyhow::anyhow;
 use geo::prelude::*;
 use geo::Point;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use tracing::debug;
 
 const MAX_SNAP_RADIUS: f64 = 0.001;
@@ -23,6 +23,13 @@ pub trait GraphRepository {
     ) -> Result<Vec<(Neighbor, WayLabels)>, anyhow::Error>;
     fn get_way_labels(&self, way: WayId) -> Result<WayLabels, anyhow::Error>;
     fn get_way_names(&self, way_ids: &[WayId]) -> Result<HashMap<WayId, String>, anyhow::Error>;
+    /// Given a set of source nodes and target nodes, return which source nodes
+    /// have a direct edge to any target node in the Segments table.
+    fn get_nodes_with_edge_to(
+        &self,
+        from_nodes: &[NodeId],
+        to_nodes: &[NodeId],
+    ) -> Result<HashSet<NodeId>, anyhow::Error>;
 }
 
 pub struct SqliteGraphRepository {
@@ -232,6 +239,42 @@ impl GraphRepository for SqliteGraphRepository {
         for row in rows {
             let (id, name) = row?;
             result.insert(id, name);
+        }
+        Ok(result)
+    }
+
+    fn get_nodes_with_edge_to(
+        &self,
+        from_nodes: &[NodeId],
+        to_nodes: &[NodeId],
+    ) -> Result<HashSet<NodeId>, anyhow::Error> {
+        if from_nodes.is_empty() || to_nodes.is_empty() {
+            return Ok(HashSet::new());
+        }
+
+        let from_placeholders: Vec<String> = from_nodes.iter().map(|_| "?".to_string()).collect();
+        let to_placeholders: Vec<String> = to_nodes.iter().map(|_| "?".to_string()).collect();
+        let sql = format!(
+            "SELECT DISTINCT n1 FROM Segments WHERE n1 IN ({}) AND n2 IN ({})",
+            from_placeholders.join(","),
+            to_placeholders.join(",")
+        );
+        let mut stmt = self.conn.prepare(&sql)?;
+
+        let mut params: Vec<&dyn rusqlite::types::ToSql> =
+            Vec::with_capacity(from_nodes.len() + to_nodes.len());
+        for id in from_nodes {
+            params.push(id as &dyn rusqlite::types::ToSql);
+        }
+        for id in to_nodes {
+            params.push(id as &dyn rusqlite::types::ToSql);
+        }
+
+        let rows = stmt.query_map(params.as_slice(), |row| row.get::<_, NodeId>(0))?;
+
+        let mut result = HashSet::new();
+        for row in rows {
+            result.insert(row?);
         }
         Ok(result)
     }
