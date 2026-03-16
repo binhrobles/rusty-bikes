@@ -221,7 +221,7 @@ export function fitRoute(route: MobileRoute): void {
     (b, c) => b.extend(c as [number, number]),
     new maplibregl.LngLatBounds(allCoords[0] as [number, number], allCoords[0] as [number, number]),
   );
-  map.fitBounds(bounds, { padding: 60, duration: 600 });
+  map.fitBounds(bounds, { padding: { top: 30, left: 30, right: 30, bottom: 80 }, maxZoom: 16, duration: 600, pitch: 0, bearing: 0 });
 }
 
 /**
@@ -233,9 +233,25 @@ export function followGPSNavMode(lat: number, lon: number, bearing: number): voi
   map.easeTo({
     center: [lon, lat],
     bearing,
-    pitch: 45,
+    zoom: 17,
+    pitch: 50,
     padding: { top: Math.round(map.getContainer().clientHeight * 0.55), bottom: 0, left: 0, right: 0 },
     duration: 500,
+  });
+}
+
+/**
+ * Fly to navigation mode from planning view — animated transition with tilt + zoom.
+ */
+export function enterNavMode(lat: number, lon: number, bearing: number): void {
+  if (!map) return;
+  map.flyTo({
+    center: [lon, lat],
+    bearing,
+    zoom: 17,
+    pitch: 50,
+    padding: { top: Math.round(map.getContainer().clientHeight * 0.55), bottom: 0, left: 0, right: 0 },
+    duration: 1200,
   });
 }
 

@@ -624,3 +624,48 @@ github.com/dolthub/dolt/go/libraries/utils/errors.Fatalf.func1()
 	github.com/dolthub/dolt/go/libraries/utils/errors/panic.go:42 +0x80
 created by github.com/dolthub/dolt/go/libraries/utils/errors.Fatalf in goroutine 1
 	github.com/dolthub/dolt/go/libraries/utils/errors/panic.go:41 +0x174
+Starting server with Config HP="127.0.0.1:65300"|T="28800000"|R="false"|L="info"
+time="2026-03-15T22:21:31-04:00" level=info msg="Creating root@localhost superuser"
+time="2026-03-15T22:21:31-04:00" level=info msg="Server ready. Accepting connections."
+time="2026-03-15T22:21:31-04:00" level=warning msg="secure_file_priv is set to \"\", which is insecure."
+time="2026-03-15T22:21:31-04:00" level=warning msg="Any user with GRANT FILE privileges will be able to read any file which the sql-server process can read."
+time="2026-03-15T22:21:31-04:00" level=warning msg="Please consider restarting the server with secure_file_priv set to a safe (or non-existent) directory."
+time="2026-03-15T22:21:31-04:00" level=info msg=NewConnection DisableClientMultiStatements=false connectionID=1
+time="2026-03-15T22:21:31-04:00" level=info msg=NewConnection DisableClientMultiStatements=false connectionID=2
+time="2026-03-15T22:21:31-04:00" level=info msg=ConnectionClosed connectionID=1
+time="2026-03-15T22:21:31-04:00" level=info msg=ConnectionClosed connectionID=2
+time="2026-03-15T22:21:31-04:00" level=info msg=NewConnection DisableClientMultiStatements=false connectionID=3
+time="2026-03-15T22:21:31-04:00" level=info msg=NewConnection DisableClientMultiStatements=false connectionID=4
+time="2026-03-15T22:21:31-04:00" level=info msg=ConnectionClosed connectionID=3
+time="2026-03-15T22:21:31-04:00" level=warning msg="error running query" connectTime="2026-03-15 22:21:31.820649 -0400 EDT m=+0.198953293" connectionDb=rb connectionID=4 error="nothing to commit" queryTime="2026-03-15 22:21:31.835518 -0400 EDT m=+0.213822834"
+time="2026-03-15T22:21:31-04:00" level=info msg=NewConnection DisableClientMultiStatements=false connectionID=5
+time="2026-03-15T22:21:31-04:00" level=info msg=ConnectionClosed connectionID=5
+time="2026-03-15T22:21:32-04:00" level=info msg=ConnectionClosed connectionID=4
+time="2026-03-15T22:21:39-04:00" level=info msg=NewConnection DisableClientMultiStatements=false connectionID=6
+time="2026-03-15T22:21:39-04:00" level=info msg=ConnectionClosed connectionID=6
+time="2026-03-15T22:21:39-04:00" level=info msg=NewConnection DisableClientMultiStatements=false connectionID=7
+time="2026-03-15T22:21:39-04:00" level=info msg=NewConnection DisableClientMultiStatements=false connectionID=8
+time="2026-03-15T22:21:39-04:00" level=info msg=ConnectionClosed connectionID=7
+time="2026-03-15T22:21:39-04:00" level=warning msg="error running query" connectTime="2026-03-15 22:21:39.820725 -0400 EDT m=+8.199149418" connectionDb=rb connectionID=8 error="nothing to commit" queryTime="2026-03-15 22:21:39.828812 -0400 EDT m=+8.207236293"
+time="2026-03-15T22:21:39-04:00" level=info msg=ConnectionClosed connectionID=8
+time="2026-03-15T22:21:43-04:00" level=info msg=NewConnection DisableClientMultiStatements=false connectionID=9
+time="2026-03-15T22:21:43-04:00" level=info msg=ConnectionClosed connectionID=9
+time="2026-03-15T22:21:43-04:00" level=info msg=NewConnection DisableClientMultiStatements=false connectionID=10
+time="2026-03-15T22:21:43-04:00" level=info msg=NewConnection DisableClientMultiStatements=false connectionID=11
+time="2026-03-15T22:21:43-04:00" level=info msg=ConnectionClosed connectionID=10
+time="2026-03-15T22:21:43-04:00" level=warning msg="error running query" connectTime="2026-03-15 22:21:43.428892 -0400 EDT m=+11.807370001" connectionDb=rb connectionID=11 error="nothing to commit" queryTime="2026-03-15 22:21:43.43596 -0400 EDT m=+11.814437959"
+time="2026-03-15T22:21:43-04:00" level=info msg=ConnectionClosed connectionID=11
+time="2026-03-15T22:23:48-04:00" level=info msg=NewConnection DisableClientMultiStatements=false connectionID=12
+time="2026-03-15T22:23:48-04:00" level=info msg=ConnectionClosed connectionID=12
+time="2026-03-15T22:23:48-04:00" level=info msg=NewConnection DisableClientMultiStatements=false connectionID=13
+time="2026-03-15T22:23:48-04:00" level=info msg=NewConnection DisableClientMultiStatements=false connectionID=14
+time="2026-03-15T22:23:48-04:00" level=info msg=ConnectionClosed connectionID=13
+time="2026-03-15T22:23:48-04:00" level=warning msg="error running query" connectTime="2026-03-15 22:23:48.041599 -0400 EDT m=+136.421943334" connectionDb=rb connectionID=14 error="nothing to commit" queryTime="2026-03-15 22:23:48.048898 -0400 EDT m=+136.429242209"
+time="2026-03-15T22:23:48-04:00" level=info msg=ConnectionClosed connectionID=14
+time="2026-03-15T22:39:23-04:00" level=info msg=NewConnection DisableClientMultiStatements=false connectionID=15
+time="2026-03-15T22:39:23-04:00" level=info msg=ConnectionClosed connectionID=15
+time="2026-03-15T22:39:23-04:00" level=info msg=NewConnection DisableClientMultiStatements=false connectionID=16
+time="2026-03-15T22:39:23-04:00" level=info msg=NewConnection DisableClientMultiStatements=false connectionID=17
+time="2026-03-15T22:39:23-04:00" level=info msg=ConnectionClosed connectionID=16
+time="2026-03-15T22:39:23-04:00" level=warning msg="error running query" connectTime="2026-03-15 22:39:23.422704 -0400 EDT m=+1071.817052334" connectionDb=rb connectionID=17 error="nothing to commit" queryTime="2026-03-15 22:39:23.430418 -0400 EDT m=+1071.824767001"
+time="2026-03-15T22:39:23-04:00" level=info msg=ConnectionClosed connectionID=17

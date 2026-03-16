@@ -3,18 +3,19 @@
   import 'maplibre-gl/dist/maplibre-gl.css';
   import { createMap, updateRoute, updateCorridor, updateGPSMarker, followGPSNavMode, fitRoute, updateEndMarker, setEndMarkerDragHandler, centerOn } from '../modules/map.mts';
   import Radar from 'radar-sdk-js';
-  import { $route as route, $corridor as corridor, $routeMeta as routeMeta, $endLatLng as endLatLng, $endAddress as endAddress } from '../store/route.ts';
+  import { $route as route, $corridor as corridor, $routeMeta as routeMeta, $startLatLng as startLatLng, $endLatLng as endLatLng, $endAddress as endAddress } from '../store/route.ts';
   import { $userPosition as userPosition, $userBearing as userBearing, startGPS } from '../store/gps.ts';
   import { $appView as appView } from '../store/settings.ts';
   import { getRouteStepBearing } from '../store/nav.ts';
 
   // Track whether we've already centered on the user this planning session
   let hasCenteredOnUser = false;
-  // Track whether we've already fit the route bounds (avoid re-fitting on settings changes)
-  let hasFitRoute = false;
+  // Track the endpoints that produced the last fit, so we re-fit when they change
+  let lastFitStart: [number, number] | null = null;
+  let lastFitEnd: [number, number] | null = null;
 
   // Reset flags when route is cleared (so next GPS fix re-centers, next route re-fits)
-  $: if (!$route) { hasCenteredOnUser = false; hasFitRoute = false; }
+  $: if (!$route) { hasCenteredOnUser = false; lastFitStart = null; lastFitEnd = null; }
 
   let container: HTMLDivElement;
   const unsubs: Array<() => void> = [];
@@ -32,10 +33,17 @@
     unsubs.push(
       route.subscribe((r) => {
         updateRoute(r);
-        // Fit route bounds once when a new route first appears, not on every settings tweak
-        if (r && appView.get() === 'planning' && !hasFitRoute) {
-          fitRoute(r);
-          hasFitRoute = true;
+        if (r && appView.get() === 'planning') {
+          // Fit route when endpoints changed (new route), skip on settings-only tweaks
+          const curStart = startLatLng.get();
+          const curEnd = endLatLng.get();
+          const startChanged = JSON.stringify(curStart) !== JSON.stringify(lastFitStart);
+          const endChanged = JSON.stringify(curEnd) !== JSON.stringify(lastFitEnd);
+          if (startChanged || endChanged) {
+            fitRoute(r);
+            lastFitStart = curStart;
+            lastFitEnd = curEnd;
+          }
         }
       }),
     );
@@ -102,8 +110,8 @@
 
   .route-info {
     position: absolute;
-    bottom: 2.5rem;
-    right: 0.7rem;
+    bottom: 0.5rem;
+    left: 0.7rem;
     background: rgba(15, 23, 42, 0.85);
     backdrop-filter: blur(4px);
     color: #f1f5f9;

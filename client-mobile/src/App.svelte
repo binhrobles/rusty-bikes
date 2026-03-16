@@ -3,7 +3,6 @@
   import MapView from './components/MapView.svelte';
   import SearchInput from './components/SearchInput.svelte';
   import SettingsPanel from './components/SettingsPanel.svelte';
-  import NavigationHeader from './components/NavigationHeader.svelte';
   import NavigationFooter from './components/NavigationFooter.svelte';
   import { startGPS } from './store/gps.ts';
   import { $appView as appView } from './store/settings.ts';
@@ -75,8 +74,6 @@
       {:else}
         <div class="connecting">Connecting...</div>
       {/if}
-    {:else}
-      <NavigationHeader />
     {/if}
   </header>
 

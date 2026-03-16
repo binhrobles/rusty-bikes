@@ -7,8 +7,9 @@
   } from '../store/cost.ts';
   import { $route as route, $startLatLng as startLatLng, $endLatLng as endLatLng, $startAddress as startAddress, $endAddress as endAddress, $corridor as corridor, $routeMeta as routeMeta } from '../store/route.ts';
   import { $appView as appView } from '../store/settings.ts';
-  import { resetNav } from '../store/nav.ts';
-  import { removeEndMarker } from '../modules/map.mts';
+  import { resetNav, getRouteStepBearing } from '../store/nav.ts';
+  import { removeEndMarker, enterNavMode } from '../modules/map.mts';
+  import { $userPosition as userPosition, $userBearing as userBearing } from '../store/gps.ts';
   import { clearRoute } from '../lib/cache.ts';
 
   const HILL_LABELS = ['None', 'Standard', 'Strong'] as const;
@@ -23,6 +24,14 @@
   function startNavigation() {
     resetNav();
     appView.set('navigating');
+
+    // Immediately tilt + zoom to user's location
+    const pos = userPosition.get();
+    if (pos) {
+      const { latitude, longitude } = pos.coords;
+      const bearing = userBearing.get() || getRouteStepBearing();
+      enterNavMode(latitude, longitude, bearing);
+    }
   }
 
   function clearAll() {

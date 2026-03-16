@@ -24,10 +24,10 @@ export const $nextInstruction = computed(
   (instructions, idx) => instructions[idx + 1] ?? null,
 );
 
-/** Next 3 instructions after the current one (for navigation footer) */
+/** All remaining instructions after the current one (for navigation footer) */
 export const $upcomingInstructions = computed(
   [$instructions, $currentStepIndex],
-  (instructions, idx) => instructions.slice(idx + 1, idx + 4),
+  (instructions, idx) => instructions.slice(idx + 1),
 );
 
 /**
