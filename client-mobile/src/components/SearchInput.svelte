@@ -8,6 +8,7 @@
     $endAddress as endAddress,
   } from '../store/route.ts';
   import { $userPosition as userPosition, startGPS } from '../store/gps.ts';
+  import { $searchFocused as searchFocused } from '../store/settings.ts';
 
   type Suggestion = { label: string; lat: number; lon: number };
 
@@ -146,8 +147,8 @@
               placeholder="Start"
               bind:value={startQuery}
               on:input={onStartInput}
-              on:focus={() => (startFocused = true)}
-              on:blur={() => setTimeout(() => (startFocused = false), 150)}
+              on:focus={() => { startFocused = true; searchFocused.set(true); }}
+              on:blur={() => setTimeout(() => { startFocused = false; searchFocused.set(false); }, 150)}
             />
             {#if startFocused && startSuggestions.length}
               <ul class="suggestions">
@@ -168,8 +169,8 @@
             placeholder={expanded ? 'Destination' : 'Where are you going?'}
             bind:value={endQuery}
             on:input={onEndInput}
-            on:focus={() => (endFocused = true)}
-            on:blur={() => setTimeout(() => (endFocused = false), 150)}
+            on:focus={() => { endFocused = true; searchFocused.set(true); }}
+            on:blur={() => setTimeout(() => { endFocused = false; searchFocused.set(false); }, 150)}
           />
           {#if endFocused && endSuggestions.length}
             <ul class="suggestions">

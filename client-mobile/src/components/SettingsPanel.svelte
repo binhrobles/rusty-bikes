@@ -15,6 +15,8 @@
   const HILL_LABELS = ['None', 'Standard', 'Strong'] as const;
   const SALMON_LABELS = ['Never', 'Sometimes', 'Often'] as const;
 
+  let settingsOpen = false;
+
   let debounceTimer: ReturnType<typeof setTimeout>;
   function debouncedSet(value: number) {
     clearTimeout(debounceTimer);
@@ -49,50 +51,58 @@
 </script>
 
 <div class="panel">
-  <div class="section-label">Route Priority</div>
-  <label class="slider-row">
-    <span class="slider-end">Comfort</span>
-    <input type="range" min="0" max="1" step="0.05" value={1 - $routePriority}
-      on:input={(e) => debouncedSet(1 - parseFloat(e.currentTarget.value))} />
-    <span class="slider-end">Speed</span>
-  </label>
+  {#if settingsOpen}
+    <button class="close-btn" on:click={() => (settingsOpen = false)}>✕</button>
 
-  <div class="section-label">Hill Penalty</div>
-  <div class="segmented-row">
-    {#each HILL_LABELS as label, i}
-      <button
-        class="seg-btn"
-        class:active={$hillPenalty === i}
-        on:click={() => hillPenalty.set(i)}
-      >{label}</button>
-    {/each}
-  </div>
+    <div class="section-label">Route Priority</div>
+    <label class="slider-row">
+      <span class="slider-end">Comfort</span>
+      <input type="range" min="0" max="1" step="0.05" value={1 - $routePriority}
+        on:input={(e) => debouncedSet(1 - parseFloat(e.currentTarget.value))} />
+      <span class="slider-end">Speed</span>
+    </label>
 
-  <div class="section-label">Rule Breaker</div>
-  <div class="segmented-row">
-    {#each SALMON_LABELS as label, i}
-      <button
-        class="seg-btn"
-        class:active={$salmonPenalty === 2 - i}
-        on:click={() => salmonPenalty.set(2 - i)}
-      >{label}</button>
-    {/each}
-  </div>
+    <div class="section-label">Hill Penalty</div>
+    <div class="segmented-row">
+      {#each HILL_LABELS as label, i}
+        <button
+          class="seg-btn"
+          class:active={$hillPenalty === i}
+          on:click={() => hillPenalty.set(i)}
+        >{label}</button>
+      {/each}
+    </div>
 
-  <div class="section-label">Major Roads</div>
-  <div class="segmented-row">
-    <button class="seg-btn" class:active={$avoidMajorRoads}
-      on:click={() => avoidMajorRoads.set(true)}>Avoid</button>
-    <button class="seg-btn" class:active={!$avoidMajorRoads}
-      on:click={() => avoidMajorRoads.set(false)}>Allow</button>
-  </div>
+    <div class="section-label">Rule Breaker</div>
+    <div class="segmented-row">
+      {#each SALMON_LABELS as label, i}
+        <button
+          class="seg-btn"
+          class:active={$salmonPenalty === 2 - i}
+          on:click={() => salmonPenalty.set(2 - i)}
+        >{label}</button>
+      {/each}
+    </div>
+
+    <div class="section-label">Major Roads</div>
+    <div class="segmented-row">
+      <button class="seg-btn" class:active={$avoidMajorRoads}
+        on:click={() => avoidMajorRoads.set(true)}>Avoid</button>
+      <button class="seg-btn" class:active={!$avoidMajorRoads}
+        on:click={() => avoidMajorRoads.set(false)}>Allow</button>
+    </div>
+  {/if}
 
   <div class="action-row">
     <button class="clear-btn" on:click={clearAll}>Clear</button>
-    <button class="go-btn" disabled={!$route} on:click={startNavigation}>
-      Go!
+    <button class="settings-btn" on:click={() => (settingsOpen = !settingsOpen)}>
+      ⚙
     </button>
   </div>
+
+  <button class="go-btn" disabled={!$route} on:click={startNavigation}>
+    Go!
+  </button>
 </div>
 
 <style>
@@ -100,6 +110,20 @@
     background: #1e293b;
     padding: 1rem 1.25rem 1.25rem;
     border-top: 1px solid #334155;
+    position: relative;
+  }
+
+  .close-btn {
+    position: absolute;
+    top: 0.5rem;
+    right: 0.75rem;
+    background: none;
+    border: none;
+    color: #94a3b8;
+    font-size: 1.1rem;
+    cursor: pointer;
+    padding: 0.25rem;
+    line-height: 1;
   }
 
   .section-label {
@@ -158,14 +182,13 @@
     font-weight: 600;
   }
 
-
   .action-row {
     display: flex;
     gap: 0.5rem;
-    margin-top: 1rem;
   }
 
   .clear-btn {
+    flex: 1;
     padding: 0.75rem 1rem;
     background: #334155;
     color: #94a3b8;
@@ -176,8 +199,18 @@
     cursor: pointer;
   }
 
+  .settings-btn {
+    padding: 0.75rem 1rem;
+    background: #334155;
+    color: #94a3b8;
+    border: none;
+    border-radius: 0.5rem;
+    font-size: 1.1rem;
+    cursor: pointer;
+  }
+
   .go-btn {
-    flex: 1;
+    width: 100%;
     padding: 0.75rem;
     background: #2563eb;
     color: #fff;
@@ -187,6 +220,7 @@
     font-weight: 700;
     cursor: pointer;
     letter-spacing: 0.02em;
+    margin-top: 0.5rem;
   }
 
   .go-btn:disabled {

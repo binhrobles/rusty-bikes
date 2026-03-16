@@ -5,7 +5,7 @@
   import SettingsPanel from './components/SettingsPanel.svelte';
   import NavigationFooter from './components/NavigationFooter.svelte';
   import { startGPS } from './store/gps.ts';
-  import { $appView as appView } from './store/settings.ts';
+  import { $appView as appView, $searchFocused as searchFocused } from './store/settings.ts';
   import { loadRoute, loadEndpoints } from './lib/cache.ts';
   import {
     $route as route,
@@ -81,13 +81,15 @@
     <MapView />
   </main>
 
-  <footer>
-    {#if $appView === 'planning'}
-      <SettingsPanel />
-    {:else}
-      <NavigationFooter />
-    {/if}
-  </footer>
+  {#if !$searchFocused}
+    <footer>
+      {#if $appView === 'planning'}
+        <SettingsPanel />
+      {:else}
+        <NavigationFooter />
+      {/if}
+    </footer>
+  {/if}
 </div>
 
 <style>
