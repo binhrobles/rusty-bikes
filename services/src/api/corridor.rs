@@ -15,7 +15,7 @@ use crate::graph::{END_NODE_ID, START_NODE_ID};
 
 /// A corridor segment's accumulated cost can be at most this ratio above
 /// the route's cost at the nearest point. E.g. 1.3 = 30% more expensive.
-const MAX_LOCAL_COST_RATIO: f32 = 2.0;
+const MAX_LOCAL_COST_RATIO: f32 = 2.5;
 const MAX_DISTANCE_METERS: f64 = 1000.0;
 
 pub fn extract_corridor<'a>(
