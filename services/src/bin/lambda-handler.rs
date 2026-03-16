@@ -274,21 +274,8 @@ fn navigate_handler(graph: &Graph, event: &Request) -> Result<String, anyhow::Er
             .map(|(_, traversal, _)| traversal.unwrap_or_default())
             .unwrap_or_default();
 
-        // Second-to-last segment has the real accumulated cost;
-        // the last segment is the virtual END_NODE with cost=0
-        let optimal_cost = route_segments
-            .iter()
-            .rev()
-            .find(|s| s.cost > 0.0)
-            .map(|s| s.cost)
-            .unwrap_or(0.0);
-
-        let corridor_segments = corridor::extract_corridor(
-            &forward_traversal,
-            &backward_traversal,
-            &route_segments,
-            optimal_cost,
-        );
+        let corridor_segments =
+            corridor::extract_corridor(&forward_traversal, &backward_traversal, &route_segments);
         Some(
             corridor::serialize_corridor(&corridor_segments).map_err(|e| {
                 error!("Corridor serialization error: {e}");

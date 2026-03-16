@@ -22,18 +22,10 @@ fn corridor_has_segments_and_no_route_overlap() -> Result<(), anyhow::Error> {
     let backward_traversal = backward_trav.unwrap();
 
     // 3. Extract corridor
-    let optimal_cost = route
-        .iter()
-        .rev()
-        .find(|s| s.cost > 0.0)
-        .map(|s| s.cost)
-        .unwrap_or(0.0);
-
     let corridor = rusty_router::api::corridor::extract_corridor(
         &forward_traversal,
         &backward_traversal,
         &route,
-        optimal_cost,
     );
 
     // Corridor should have segments for a Brooklyn→Midtown route
