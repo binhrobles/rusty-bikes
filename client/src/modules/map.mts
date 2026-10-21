@@ -1,4 +1,5 @@
 import L from 'leaflet';
+import '@maplibre/maplibre-gl-leaflet';
 
 import { $click } from '../store/map.ts';
 import { $startMarker, $endMarker } from '../store/route.ts';
@@ -8,6 +9,7 @@ import {
   onGeoJsonAdded,
 } from '../store/render.ts';
 import { ReadableAtom } from 'nanostores';
+import { RADAR_API_KEY } from '../config.ts';
 
 let mapInstance: L.Map | null = null;
 
@@ -17,14 +19,12 @@ export const createMap = (container: string): L.Map => {
       zoomControl: false,
     }).setView([40.7, -73.98], 13);
 
-    L.tileLayer(
-      'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',
-      {
-        attribution: `&copy;<a href="https://www.openstreetmap.org/copyright" target="_blank">OpenStreetMap</a>,
-              &copy;<a href="https://carto.com/attributions" target="_blank">CARTO</a>`,
-        maxZoom: 19,
-      }
-    ).addTo(mapInstance);
+    // Radar serves vector styles only, so the basemap renders through a
+    // MapLibre GL canvas wrapped as a Leaflet layer. Attribution is derived
+    // from the style's sources by the wrapper.
+    L.maplibreGL({
+      style: `https://api.radar.io/maps/styles/radar-default-v1?publishableKey=${RADAR_API_KEY}`,
+    }).addTo(mapInstance);
   }
 
   return mapInstance;

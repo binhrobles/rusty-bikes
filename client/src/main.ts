@@ -1,4 +1,5 @@
 import './style.css';
+import 'maplibre-gl/dist/maplibre-gl.css';
 import Radar from 'radar-sdk-js';
 import { createAutocompletePlugin } from '@radarlabs/plugin-autocomplete';
 import '@radarlabs/plugin-autocomplete/dist/radar-autocomplete.css';
